@@ -1,4 +1,4 @@
-# Julia Lattice Toolbox
+# LatticeToolbox for Julia
 
 This is the development repository for a collection of structs and methods to
 deal with lattices and tight-binding models.

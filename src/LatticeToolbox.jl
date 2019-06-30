@@ -1,5 +1,5 @@
 # __precompile__()
-module JuLT
+module LatticeToolbox
 
     using Base, ElasticArrays, SparseArrays, LinearAlgebra
 
