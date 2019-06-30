@@ -32,7 +32,16 @@ using SharedArrays
 
 function density_parallel!(n::AbstractVector{Float64}, hamiltonian::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0)
 
-    pmap(x->density_at_k!(n, hamiltonian, x, μ), eachcol(ks))
+    L = size(ks)[2]
+
+    Threads.@threads for j=1:L # @todo: this should be paralellized
+        ϵs, U = eigen_dense(hamiltonian)(ks[:,j])
+        for (ϵ, ψ) in zip(ϵs, eachcol(U))
+            if ϵ <= μ
+                n[:] .+= abs2.(ψ)
+            end
+        end
+    end
 
     nothing
 end

@@ -11,7 +11,7 @@ function update_density!(G1, G0, hamiltonian::Function, mf_op::Function, ks::Abs
 
     # G1 = reshape(G1) # very sub-optimal
     G1[:] .= zero(G1)
-    density!(G1, new_hamiltonian, ks, μ) #density_parallel!
+    density_parallel!(G1, new_hamiltonian, ks, μ) #density_parallel!
 
     nothing
 end
