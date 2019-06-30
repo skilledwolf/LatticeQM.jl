@@ -27,20 +27,21 @@ function density(hamiltonian::Function, ks::AbstractMatrix{Float64}; kwargs...)
     n
 end
 
-# using Distributed
+using Distributed
 # using SharedArrays
 
 function density_parallel!(n::AbstractVector{Float64}, hamiltonian::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0)
 
-    L = size(ks)[2]
+    # L = size(ks)[2]
 
-    n[:] = @distributed (+) for j=1:L # @todo: this should be paralellized
-        ϵs, U = eigen_dense(hamiltonian)(ks[:,j])
+    n[:] = @distributed (+) for k=eachcol(ks) # @todo: this should be paralellized
+        ϵs, U = eigen_dense(hamiltonian)(k)
 
         n0 = zero(n)                        ## <-- it annoys me that I don't know how to get around this allocation
         for (ϵ, ψ) in zip(ϵs, eachcol(U))
             if ϵ <= μ
                 n0 .+= abs2.(ψ)
+                # n[:] .+= abs2.(ψ)         ## <-- I would much rather use an allocation like this...
             end
         end
 
