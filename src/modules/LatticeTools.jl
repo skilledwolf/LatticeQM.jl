@@ -7,6 +7,8 @@ module LatticeTools
 using Base, LinearAlgebra
 using RecursiveArrayTools
 
+using HDF5
+
 ################################################################################
 ################################################################################
 
@@ -50,6 +52,20 @@ function Lattice(A::T, atoms::T, atoms_aux::T; extradimensions::Vector{String}=V
     extradimensions_dict = Dict{String,UInt}(key=>index for (index,key) in enumerate(extradimensions))
 
     Lattice{T}(A, atoms, atoms_aux, extradimensions_dict)
+end
+
+
+## Save data
+function exportdata(filename, lat::Lattice)
+    h5open(filename, "w") do file
+        write(file, "A", lat.A)
+        write(file, "atoms", lat.atoms)
+        write(file, "atoms_aux", lat.atoms_aux)
+
+        g = g_create(file, "extradimensions") # create a group
+        g["names"] = collect(keys(lat.extradimensions))              # create a scalar dataset inside the group
+        g["indices"] = collect(values(lat.extradimensions))
+    end
 end
 
 ################################################################################
