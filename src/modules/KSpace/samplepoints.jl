@@ -23,7 +23,7 @@ function randomgrid(;nk::Int=100, dim::Int=2, rot_symmetry::Int=1)
     ks = rand(Float64, (dim,N))
 
     # symmetrized sampling
-    for i=1:rot_symmetry
+    for i=1:(rot_symmetry-1)
         ks = [ks rot(2π/rot_symmetry*i)*ks]
     end
 
