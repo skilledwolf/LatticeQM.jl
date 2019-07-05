@@ -17,7 +17,7 @@ function update_density!(G1, G0, hamiltonian::Function, mf_op::Function, ks::Abs
 end
 
 
-function solve_op_selfconsistent(hamiltonian::Function, mf_op::Function, ks::AbstractMatrix{Float64}, G0::AbstractArray{Float64,N}, filling::Float64; iterations = 500, ftol=1e-7, xtol=1e-7, method=:anderson, m=5, kwargs...) where N
+function solve_op_selfconsistent(hamiltonian::Function, mf_op::Function, G0::AbstractArray{Float64,N}, ks::AbstractMatrix{Float64}, filling::Float64; iterations = 500, ftol=1e-7, xtol=1e-7, method=:anderson, m=5, kwargs...) where N
 
     if issparse(hamiltonian(ks[:,1]))
         mode=:sparse
@@ -36,19 +36,36 @@ function solve_op_selfconsistent(hamiltonian::Function, mf_op::Function, ks::Abs
     nlsolve(df, G0; iterations=iterations, ftol=ftol, xtol=xtol, method=method, m=m, kwargs...)
 end
 
-function solve_op_selfconsistent(hamiltonian::Function, mf_op::Function, G0::AbstractArray{Float64,N}, filling::Float64; nk::Int=100, d::Int=2, kwargs...) where N
+# function solve_op_selfconsistent(hamiltonian::Function, mf_op::Function, G0::AbstractArray{Float64,N}, filling::Float64; nk::Int=100, d::Int=2, kwargs...) where N
+#
+#     ks = rand(Float64, (d,nk)) # random points in the Brillouin zone (which is assumed to be mapped onto a unit cube)
+#
+#     solve_op_selfconsistent(hamiltonian, mf_op, ks, G0, filling; kwargs...)
+# end
 
-    ks = rand(Float64, (d,nk)) # random points in the Brillouin zone (which is assumed to be mapped onto a unit cube)
 
-    solve_op_selfconsistent(hamiltonian, mf_op, ks, G0, filling; kwargs...)
-end
+################################################################################
+################################################################################
 
-function solve_selfconsistent(hamiltonian::Function, v::Function, G0::AbstractArray{Float64,N}, filling::Float64; mode=:hartree, nk::Int=100, d::Int=2, kwargs...) where N
+function solve_selfconsistent(hamiltonian::Function, v::Function, G0::AbstractArray{Float64,N}, ks::AbstractMatrix{Float64}, filling::Float64; mode=:hartree, kwargs...) where N
     if mode==:hartree
         mf_hartree = build_Hartree(v)
-        solve_op_selfconsistent(hamiltonian, mf_hartree, G0, filling; nk=nk, d=d, kwargs...)
+        solve_op_selfconsistent(hamiltonian, mf_hartree, G0, ks, filling; kwargs...)
     else
         error("Requested mean-field operator not implemented.")
+    end
+end
+
+function initialize_density(N::Int; mode=:random)
+    @assert mod(N,2)==0 # make sure we actually have spin d.o.f.
+
+    if mode==:ferro
+        Nhalf = Int(N/2)
+        return 2 .* [ones(Float64, Nhalf) zeros(Float64, Nhalf)]
+    elseif mode==:zeros
+        return zeros(Float64, N)
+    elseif mode==:random
+        return random(Float64, N)
     end
 end
 
@@ -73,18 +90,4 @@ function build_Hartree(v)
     end
 
     return mf_op
-end
-
-
-function initialize_density(N::Int; mode=:random)
-    @assert mod(N,2)==0 # make sure we actually have spin d.o.f.
-
-    if mode==:ferro
-        Nhalf = Int(N/2)
-        return 2 .* [ones(Float64, Nhalf) zeros(Float64, Nhalf)]
-    elseif mode==:zeros
-        return zeros(Float64, N)
-    elseif mode==:random
-        return random(Float64, N)
-    end
 end

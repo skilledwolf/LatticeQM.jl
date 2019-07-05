@@ -8,3 +8,24 @@ function regulargrid(N::Int, dim::Int=2)
 
     out
 end
+
+
+rot(θ::Float64) = [cos(θ) -sin(θ); sin(θ) cos(θ)]
+
+function randomgrid(;nk::Int=100, dim::Int=2, rot_symmetry::Int=1)
+
+    @assert rot_symmetry>0
+
+    N = div(nk, rot_symmetry)
+    @assert N>0
+
+    @info("Random k grid with (symmetrized) points", N*rot_symmetry)
+    ks = rand(Float64, (dim,N))
+
+    # symmetrized sampling
+    for i=1:rot_symmetry
+        ks = [ks rot(2π/rot_symmetry*i)*ks]
+    end
+
+    ks
+end
