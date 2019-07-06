@@ -6,7 +6,6 @@ module LatticeToolbox
     # Export the base modules
     export LatticeTools, KSpace, BlochTools, TightBinding, Plotting
 
-
     ### Base modules
     include("modules/LatticeTools.jl")
     using .LatticeTools

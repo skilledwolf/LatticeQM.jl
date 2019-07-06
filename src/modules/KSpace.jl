@@ -17,5 +17,20 @@ include("KSpace/struct_DiscretePath.jl")
 
 include("KSpace/samplepoints.jl")
 
+##################################################################################
+##################################################################################
+##################################################################################
+
+function exportdata(filename::String, ks::DiscretePath)
+    h5open(filename, isfile(filename) ? "r+" : "w") do file
+        g = g_create(file, "kPath")
+
+        g["ticks"]      = ks.ticks
+        g["ticklabels"] = ks.ticklabels
+        g["positions"]  = ks.positions
+        g["points"]     = ks.points
+    end
+end
+
 ####################################################################################
 end

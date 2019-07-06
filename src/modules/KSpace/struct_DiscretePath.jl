@@ -32,18 +32,6 @@ function scaled_ticks(kPoints::DiscretePath; start=0.0, length=1.0)
     start .+ k_ticks/maximum(k_ticks)  * (length-start)
 end
 
-##################################################################################
-##################################################################################
-##################################################################################
-
-function exportdata(filename, ks::DiscretePath)
-    h5open(filename, "w") do file
-        write(file, "ticks", ks.ticks)
-        write(file, "ticklabels", ks.ticklabels)
-        write(file, "positions", ks.positions)
-        write(file, "points", ks.points)
-    end
-end
 
 ##################################################################################
 ##################################################################################
