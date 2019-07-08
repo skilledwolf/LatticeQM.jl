@@ -12,6 +12,8 @@ module BlochTools
 
     include("BlochTools/eigen.jl")
     include("BlochTools/density.jl")
+    include("BlochTools/dos.jl")
+    include("BlochTools/ldos.jl")
     include("BlochTools/green.jl")
 
     include("BlochTools/meanfield.jl")

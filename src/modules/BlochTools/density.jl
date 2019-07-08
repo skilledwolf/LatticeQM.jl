@@ -7,6 +7,8 @@ function density!(n::AbstractVector{Float64}, hamiltonian::Function, ks::Abstrac
         density_at_k!(n, hamiltonian, ks[:,j], μ)
     end
 
+    n[:] .= n[:] ./ L
+
     nothing
 end
 
@@ -35,17 +37,11 @@ function density_parallel!(n::AbstractVector{Float64}, hamiltonian::Function, ks
     L = size(ks)[2]
 
     n[:] = @distributed (+) for j=1:L # @todo: this should be paralellized
-        ϵs, U = eigen_dense(hamiltonian)(ks[:,j])
 
-        n0 = zero(n)                        ## <-- it annoys me that I don't know how to get around this allocation
-        for (ϵ, ψ) in zip(ϵs, eachcol(U))
-            if ϵ <= μ
-                n0 .+= abs2.(ψ)
-                # n[:] .+= abs2.(ψ)         ## <-- I would much rather use an allocation like this...
-            end
-        end
+        n0 = zero(n)                                ## <-- it annoys me that I don't know how to get around this allocation
+        density_at_k!(n0, hamiltonian, ks[:,j], μ)
 
-        n0
+        n0 .= n0 ./ L
     end
 
     nothing

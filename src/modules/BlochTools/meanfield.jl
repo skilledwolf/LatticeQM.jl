@@ -16,7 +16,6 @@ function update_density!(G1, G0, hamiltonian::Function, mf_op::Function, ks::Abs
     nothing
 end
 
-
 function solve_op_selfconsistent(hamiltonian::Function, mf_op::Function, G0::AbstractArray{Float64,N}, ks::AbstractMatrix{Float64}, filling::Float64; iterations = 500, ftol=1e-7, xtol=1e-7, method=:anderson, m=5, kwargs...) where N
 
     if issparse(hamiltonian(ks[:,1]))
@@ -36,14 +35,6 @@ function solve_op_selfconsistent(hamiltonian::Function, mf_op::Function, G0::Abs
     nlsolve(df, G0; iterations=iterations, ftol=ftol, xtol=xtol, method=method, m=m, kwargs...)
 end
 
-# function solve_op_selfconsistent(hamiltonian::Function, mf_op::Function, G0::AbstractArray{Float64,N}, filling::Float64; nk::Int=100, d::Int=2, kwargs...) where N
-#
-#     ks = rand(Float64, (d,nk)) # random points in the Brillouin zone (which is assumed to be mapped onto a unit cube)
-#
-#     solve_op_selfconsistent(hamiltonian, mf_op, ks, G0, filling; kwargs...)
-# end
-
-
 ################################################################################
 ################################################################################
 
@@ -55,6 +46,9 @@ function solve_selfconsistent(hamiltonian::Function, v::Function, G0::AbstractAr
         error("Requested mean-field operator not implemented.")
     end
 end
+
+################################################################################
+################################################################################
 
 function initialize_density(N::Int; mode=:random)
     @assert mod(N,2)==0 # make sure we actually have spin d.o.f.
@@ -68,18 +62,6 @@ function initialize_density(N::Int; mode=:random)
         return random(Float64, N)
     end
 end
-
-# using SharedArrays
-#
-# function solve_selfconsistent_parallel(hamiltonian::Function, v::Function, G0::AbstractArray{Float64,N}, filling::Float64; mode=:hartree, nk::Int=100, d::Int=2, kwargs...) where N
-#     if mode==:hartree
-#         mf_hartree = build_Hartree(v)
-#         G0 = convert(SharedArray, G0)
-#         solve_op_selfconsistent(hamiltonian, mf_hartree, G0, filling; nk=nk, d=d, kwargs...)
-#     else
-#         error("Requested mean-field operator not implemented.")
-#     end
-# end
 
 
 function build_Hartree(v)
