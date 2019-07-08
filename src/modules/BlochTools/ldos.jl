@@ -12,10 +12,10 @@ function ldos_at_k!(n::AbstractVector{Float64}, hamiltonian::Function, k::Abstra
 end
 
 
-function ldos(hamiltonian::Function, ks::AbstractMatrix{Float64}, ωs::AbstractVector{Float64}; Γ::Float64=0.1, kwargs...)
+function ldos(hamiltonian::Function, ks::AbstractMatrix{Float64}, ωs::AbstractVector{Float64}; Γ::Float64, kwargs...)
 
     n = zeros(Float64, size(hamiltonian(ks[:,1]))[1])
-    ldos_parallel!(n, hamiltonian, ks, ωs::AbstractVector{Float64}; Γ::Float64, kwargs...)
+    ldos_parallel!(n, hamiltonian, ks, ωs; Γ=Γ, kwargs...)
 
     n
 end
