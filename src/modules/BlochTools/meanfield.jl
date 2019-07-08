@@ -43,7 +43,7 @@ function solve_selfconsistent(hamiltonian::Function, v::Function, G0::AbstractAr
         mf_hartree = build_Hartree(v)
         solve_op_selfconsistent(hamiltonian, mf_hartree, G0, ks, filling; kwargs...)
     else
-        error("Requested mean-field operator not implemented.")
+        error("Requested meanfield operator not implemented.")
     end
 end
 
@@ -55,7 +55,7 @@ function initialize_density(N::Int; mode=:random)
 
     if mode==:ferro
         Nhalf = Int(N/2)
-        return 2 .* [ones(Float64, Nhalf) zeros(Float64, Nhalf)]
+        return 2 .* [ones(Float64, Nhalf); zeros(Float64, Nhalf)]
     elseif mode==:zeros
         return zeros(Float64, N)
     elseif mode==:random

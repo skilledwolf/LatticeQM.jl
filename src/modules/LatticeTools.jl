@@ -60,7 +60,7 @@ function exportdata(filename::String, lat::Lattice)
     h5open(filename, isfile(filename) ? "r+" : "w") do file
         g = g_create(file, "Lattice")
         g["A"] = lat.A
-        g["atosm"] = lat.atoms
+        g["atoms"] = lat.atoms
         g["atoms_aux"] = lat.atoms_aux
 
         g2 = g_create(g, "extradimensions") # create a group

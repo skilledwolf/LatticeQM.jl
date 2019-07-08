@@ -1,11 +1,14 @@
 function build_BlochH(hoppings::Dict{Vector{Int}, T1}; mode=:nospin) where {T2<:Complex, T1<:AbstractMatrix{T2}} #; mode=:auto
 """
     Returns the Bloch Hamiltonian with the BZ mapped onto the unit square, i.e., k ∈ [0,1]×[0,1].
+
+    The input is a dictionary with keys being the reciprocal lattice vector in integer coordinates and
+    the values are hopping matrices.
 """
 
     if mode==:spinhalf
         for (δL, t) in hoppings
-            hoppings[δL] = kron(σ0, t) # add spin degree of freedom
+            hoppings[δL] = kron(σ0, t) # add spin degree of freedom # we made the choice to group the matrix in spin blocks
         end
     end
 
