@@ -1,6 +1,6 @@
 using Distributed
 
-function ldos_at_k!(n::AbstractVector{Float64}, hamiltonian::Function, k::AbstractVector{Float64}, ωs::AbstractVector{Float64}; Γ::Float64)
+function ldos_at_k!(n::AbstractVector{Float64}, hamiltonian::Function, k::AbstractVector{Float64}, ωs::AbstractVector{Float64}; Γ::Float64=0.1)
     ϵs, U = eigen_dense(hamiltonian)(k)
     for (ϵ, ψ) in zip(ϵs, eachcol(U))
         for ω in ωs
@@ -12,7 +12,7 @@ function ldos_at_k!(n::AbstractVector{Float64}, hamiltonian::Function, k::Abstra
 end
 
 
-function ldos(hamiltonian::Function, ks::AbstractMatrix{Float64}, ωs::AbstractVector{Float64}; Γ::Float64, kwargs...)
+function ldos(hamiltonian::Function, ks::AbstractMatrix{Float64}, ωs::AbstractVector{Float64}; Γ::Float64=0.1, kwargs...)
 
     n = zeros(Float64, size(hamiltonian(ks[:,1]))[1])
     ldos_parallel!(n, hamiltonian, ks, ωs::AbstractVector{Float64}; Γ::Float64, kwargs...)
@@ -21,7 +21,7 @@ function ldos(hamiltonian::Function, ks::AbstractMatrix{Float64}, ωs::AbstractV
 end
 
 
-function ldos_parallel!(n::AbstractVector{Float64}, hamiltonian::Function, ks::AbstractMatrix{Float64}, ωs::AbstractVector{Float64}; Γ::Float64)
+function ldos_parallel!(n::AbstractVector{Float64}, hamiltonian::Function, ks::AbstractMatrix{Float64}, ωs::AbstractVector{Float64}; Γ::Float64=0.1)
 
     L = size(ks)[2]
 
