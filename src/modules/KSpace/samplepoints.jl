@@ -15,7 +15,11 @@ end
 
 rot(θ::Float64) = [cos(θ) -sin(θ); sin(θ) cos(θ)]
 
-function randomgrid(;nk::Int=100, dim::Int=2, rot_symmetry::Int=1)
+function randomgrid(;nk::Int=100, dim::Int=2, rot_symmetry::Int=1, B=:id)
+
+    if B==:id
+        B = Matrix{Float64}(I, dim, dim)
+    end
 
     @assert rot_symmetry>0
 
@@ -27,7 +31,7 @@ function randomgrid(;nk::Int=100, dim::Int=2, rot_symmetry::Int=1)
 
     # symmetrized sampling
     for i=1:(rot_symmetry-1)
-        ks = [ks rot(2π/rot_symmetry*i)*ks]
+        ks = Matrix([ks inv(B)*rot(2π/rot_symmetry*i)*B*ks])
     end
 
     ks
