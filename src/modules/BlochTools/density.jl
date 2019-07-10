@@ -37,14 +37,19 @@ end
 using Distributed
 # using SharedArrays
 
-function density_parallel!(n::AbstractVector{Float64}, hamiltonian::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0)
+function density_parallel!(n::AbstractVector{Float64}, hamiltonian::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0; format=:auto)
+    n[:] .= zero(n)
+
+    if format==:auto # Decide if the matrix is dense or sparse
+        format = issparse(hamiltonian(ks[:,1])) ? :sparse : :dense
+    end
 
     L = size(ks)[2]
 
     n[:] = @distributed (+) for j=1:L # @todo: this should be paralellized
 
         n0 = zero(n)                                ## <-- it annoys me that I don't know how to get around this allocation
-        density_at_k!(n0, hamiltonian, ks[:,j], μ)
+        density_at_k!(n0, hamiltonian, ks[:,j], μ; format=format)
 
         n0 .= n0 ./ L
     end

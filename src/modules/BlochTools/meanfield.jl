@@ -12,7 +12,7 @@ function solve_op_selfconsistent(hamiltonian::Function, mf_op::Function, G0::Abs
         μ = chemical_potential(new_hamiltonian, ks, filling; format=format)
 
         # Obtain the meanfield of the updated Hamiltonian
-        density!(G1, new_hamiltonian, ks, μ; format=format)
+        density_parallel!(G1, new_hamiltonian, ks, μ; format=format)
 
         G1 .-= G0
         nothing
