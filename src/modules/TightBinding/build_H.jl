@@ -1,9 +1,9 @@
-function build_H(lat::Lattice, t::Function; mode=:nospin)
+function build_H(lat::Lattice, t::Function; mode=:nospin, format=:auto)
 
-    build_H_sparse(get_A_3D(lat), positions3D(lat), t, mode=mode)
+    build_H_sparse(get_A_3D(lat), positions3D(lat), t, mode=mode, format=format)
 end
 
-@fastmath function build_H_sparse(A::Matrix{Float64}, R::Matrix{Float64}, t::Function; mode=:nospin, precision::Float64=1e-8)# where {T<:AbstractMatrix{Float64}}
+@fastmath function build_H_sparse(A::Matrix{Float64}, R::Matrix{Float64}, t::Function; mode=:nospin, format=:auto, precision::Float64=1e-8)# where {T<:AbstractMatrix{Float64}}
 
     # Get lattice neighbors
     neighbors = [[i;j] for i=-1:1 for j=-1:1 if i+j>=0 && i>=0]
@@ -17,7 +17,7 @@ end
     end
 
     # Build the Bloch matrix by adding the hopping matrices with the correct phases
-    build_BlochH(hops; mode=mode)
+    build_BlochH(hops; mode=mode, format=format)
 end
 
 function build_hops_sparse(R, neighbors, δA, t; precision=precision)
@@ -27,7 +27,13 @@ function build_hops_sparse(R, neighbors, δA, t; precision=precision)
     hops = Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}()
 
     # Preallocate memory
-    maxind = round(Int, 0.60 * N^2)
+    # Arbitrary limit for dense allocation
+    if N > 500
+        maxind = round(Int, 0.60 * N^2)
+    else
+        maxind = N^2
+    end
+
     IS = ones(Int, maxind)
     JS = ones(Int, maxind)
     VS = zeros(ComplexF64, maxind)
@@ -69,5 +75,5 @@ function hopmat_from_gen!(IS::Vector{Int}, JS::Vector{Int}, VS::Vector{ComplexF6
         end
     end
 
-    return count
+    return count-1
 end

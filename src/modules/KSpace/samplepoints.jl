@@ -1,7 +1,10 @@
 
+using RecursiveArrayTools
 
-function regulargrid(N::Int, dim::Int=2)
-    it1d = range(0.0, 1.0; length=N)
+function regulargrid(;nk::Int=100, dim::Int=2)
+    nk = floor(Int, sqrt(nk))
+
+    it1d = range(0.0, 1.0; length=nk+1)[1:end-1]
     itNd = Iterators.product(Iterators.repeated(it1d, dim)...)
 
     out = convert(Array, VectorOfArray([[y...] for y=[itNd...]]))
@@ -16,7 +19,7 @@ function randomgrid(;nk::Int=100, dim::Int=2, rot_symmetry::Int=1)
 
     @assert rot_symmetry>0
 
-    N = div(nk, rot_symmetry)
+    N = div(nk, rot_symmetry) # integer division
     @assert N>0
 
     @info("Random k grid with (symmetrized) points", N*rot_symmetry)

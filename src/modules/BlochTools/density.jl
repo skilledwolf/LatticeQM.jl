@@ -1,10 +1,15 @@
 
-function density!(n::AbstractVector{Float64}, hamiltonian::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0)
+function density!(n::AbstractVector{Float64}, hamiltonian::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0; format=:auto)
+    n[:] .= zero(n)
+
+    if format==:auto # Decide if the matrix is dense or sparse
+        format = issparse(hamiltonian(ks[:,1])) ? :sparse : :dense
+    end
 
     L = size(ks)[2]
 
-    @inbounds @simd for j=1:L # @todo: this should be paralellized
-        density_at_k!(n, hamiltonian, ks[:,j], μ)
+    @inbounds for j=1:L # @todo: this should be paralellized
+        density_at_k!(n, hamiltonian, ks[:,j], μ; format=format)
     end
 
     n[:] .= n[:] ./ L
@@ -12,8 +17,8 @@ function density!(n::AbstractVector{Float64}, hamiltonian::Function, ks::Abstrac
     nothing
 end
 
-function density_at_k!(n::AbstractVector{Float64}, hamiltonian::Function, k::AbstractVector{Float64}, μ::Float64)
-    ϵs, U = eigen_dense(hamiltonian)(k)
+function density_at_k!(n::AbstractVector{Float64}, hamiltonian::Function, k::AbstractVector{Float64}, μ::Float64; format=:dense)
+    ϵs, U = spectrum(hamiltonian; format=format)(k)
     for (ϵ, ψ) in zip(ϵs, eachcol(U))
         if ϵ <= μ
             n[:] .+= abs2.(ψ)

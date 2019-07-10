@@ -38,6 +38,14 @@ end
 Us_sparse(h::Function; kwargs...) = k::AbstractVector{Float64} -> eigvecs_sparse(h(k); kwargs...)
 eigen_sparse(h::Function; kwargs...) = k::AbstractVector{Float64} -> eigen_sparse(h(k); kwargs...)
 
+function spectrum(h::Function; format=:dense, kwargs...)
+    if format==:dense
+        eigen_dense(h; kwargs...)
+    elseif format==:sparse
+        eigen_sparse(h; kwargs...)
+    end
+end
+
 ################################################################################
 ################################################################################
 """
@@ -91,8 +99,8 @@ end
 ###################################################################################################
 ###################################################################################################
 
-function chemical_potential(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64; mode=:sparse)
-    if mode==:sparse
+function chemical_potential(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64; format=:sparse)
+    if format==:sparse
         out = chemical_potential_sparse(hamiltonian, ks, filling)
     else
         out = chemical_potential_dense(hamiltonian, ks, filling)
@@ -124,4 +132,35 @@ function chemical_potential_dense(hamiltonian::Function, ks::AbstractMatrix{Floa
     max = maximum(eigmax(hamiltonian(Vector(k))) for k in eachcol(ks))
 
     min + filling * (max-min)
+end
+
+###################################################################################################
+###################################################################################################
+
+function bandgap_filling_dense(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64)
+
+    # Calculate the gap around in which the Fermi level lies
+    bands = bandmatrix(hamiltonian, ks)
+
+    ϵmin = minimum(bands)
+    ϵmax = maximum(bands)
+    ϵfermi = ϵmin + filling * (ϵmax-ϵmin)
+
+    ϵlower = maximum(bands[bands.<= ϵfermi])
+    ϵupper = minimum(bands[bands.>= ϵfermi])
+    ϵgap = ϵupper - ϵlower
+
+    ϵgap
+end
+
+function bandgap_μ_dense(hamiltonian::Function, ks::AbstractMatrix{Float64}, μ::Float64)
+
+    # Calculate the gap around in which the Fermi level lies
+    bands = bandmatrix(hamiltonian, ks)
+
+    ϵlower = maximum(bands[bands.<= μ])
+    ϵupper = minimum(bands[bands.>= μ])
+    ϵgap = ϵupper - ϵlower
+
+    ϵgap
 end
