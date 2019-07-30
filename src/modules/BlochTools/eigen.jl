@@ -1,5 +1,6 @@
 """
     Additional low-level interfaces (acting on arrays)
+    ==================================================
 """
 
 eigmax_sparse(H::AbstractMatrix) = eigs(H; nev=1, which=:LR)[1][1] |> real
@@ -16,10 +17,9 @@ function eigvecs_sparse(M::AbstractMatrix; nev::Int, sigma::Float64=1e-8, which=
     real.(eigsol[2])
 end
 
-################################################################################
-################################################################################
 """
     Interfaces for single k-points
+    ==============================
 """
 
 # Dense methods
@@ -50,6 +50,7 @@ end
 ################################################################################
 """
     Interfaces for discretized k-path
+    =================================
 """
 # Define proper iterators for each input type
 const kIterable = Union{DiscretePath, <:AbstractMatrix{Float64}, <:AbstractVector{T1}} where {T1<:AbstractVector{Float64}}
@@ -65,6 +66,7 @@ energies_wfs(h::Function, ks::kIterable)  = Base.Generator(eigen_dense(h), eachp
 ################################################################################
 """
     Calculate and store bands for kpoints ks
+    ========================================
 """
 
 using RecursiveArrayTools
