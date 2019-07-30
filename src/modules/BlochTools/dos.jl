@@ -52,15 +52,31 @@ end
     (DOS, ERROR) = dos_quad(...)
 """
 
-using HCubature
+# using HCubature
+#
+# function dos_quad(ϵs::Function, energies::AbstractVector{Float64};  Γ::Float64, kwargs...)
+#     fdim = length(energies)
+#     f(k) = sum( imag.( 1.0./(energies .- 1.0im .* Γ .- ϵ) ) for ϵ=ϵs(k) )
+#     xmin = [ 0.0, 0.0 ]
+#     xmax = [ 1.0, 1.0 ]
+#
+#     (DOS, ERROR) = hcubature(f, xmin, xmax; kwargs...)
+#
+#     DOS/π, ERROR
+# end
 
-function dos_quad(ϵs::Function, energies::AbstractVector{Float64};  Γ::Float64, kwargs...)
+using Cubature
+
+function dos_quad_parallel(ϵs::Function, energies::AbstractVector{Float64};  Γ::Float64, kwargs...)
     fdim = length(energies)
-    f(k) = sum( imag.( 1.0./(energies .- 1.0im .* Γ .- ϵ) ) for ϵ=ϵs(k) )
+    f0(k) = sum( imag.( 1.0./(energies .- 1.0im .* Γ .- ϵ) ) for ϵ=ϵs(k) )
+    function f(ks, v)
+        v[:] = pmap(f0, eachcol(ks))
+    end
     xmin = [ 0.0, 0.0 ]
     xmax = [ 1.0, 1.0 ]
 
-    (DOS, ERROR) = hcubature(f, xmin, xmax; kwargs...)
+    (DOS, ERROR) = hcubature_v(fdim, f, xmin, xmax; kwargs...)
 
     DOS/π, ERROR
 end

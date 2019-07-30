@@ -87,6 +87,12 @@ git-tree-sha1 = "b974e164358fea753ef853ce7bad97afec15bb80"
 uuid = "d38c429a-6771-53c6-b99e-75d170b6e991"
 version = "0.5.1"
 
+[[Cubature]]
+deps = ["BinaryProvider", "Libdl"]
+git-tree-sha1 = "2f585e7fa03721ba58796368718e709b015e37ef"
+uuid = "667455a9-e2ce-5579-9412-b964f529a492"
+version = "1.4.0"
+
 [[DataStructures]]
 deps = ["InteractiveUtils", "OrderedCollections"]
 git-tree-sha1 = "0809951a1774dc724da22d26e4289bbaab77809a"
