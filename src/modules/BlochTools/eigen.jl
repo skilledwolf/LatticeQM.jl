@@ -101,7 +101,7 @@ end
 ###################################################################################################
 ###################################################################################################
 
-function chemical_potential(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling; type=:sparse)
+function chemical_potential(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64; type=:sparse)
     if type==:sparse
         out = chemical_potential_sparse_parallel(hamiltonian, ks, filling)
     else
@@ -122,18 +122,6 @@ function chemical_potential_sparse_parallel(hamiltonian::Function, ks::AbstractM
     min + filling * (max-min)
 end
 
-function chemical_potential_sparse_parallel(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Vector{Float64})
-"""
-    Possible issues:
-    - bands can be huge for twisted systems, making the storage of "bands" inefficient.
-"""
-
-    min = minimum( pmap(k->eigmin_sparse(hamiltonian(Vector(k))), eachcol(ks)) )
-    max = maximum( pmap(k->eigmax_sparse(hamiltonian(Vector(k))), eachcol(ks)) )
-
-    min .+ filling .* (max-min)
-end
-
 function chemical_potential_sparse(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64)
 """
     Possible issues:
@@ -143,17 +131,6 @@ function chemical_potential_sparse(hamiltonian::Function, ks::AbstractMatrix{Flo
     max = maximum(eigmax_sparse(hamiltonian(Vector(k))) for k in eachcol(ks))
 
     min + filling * (max-min)
-end
-
-function chemical_potential_sparse(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Vector{Float64})
-"""
-    Possible issues:
-    - bands can be huge for twisted systems, making the storage of "bands" inefficient.
-"""
-    min = minimum(eigmin_sparse(hamiltonian(Vector(k))) for k in eachcol(ks))
-    max = maximum(eigmax_sparse(hamiltonian(Vector(k))) for k in eachcol(ks))
-
-    min .+ filling .* (max-min)
 end
 
 function chemical_potential_dense(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64)
@@ -168,20 +145,6 @@ function chemical_potential_dense(hamiltonian::Function, ks::AbstractMatrix{Floa
     max = maximum(eigmax(hamiltonian(Vector(k))) for k in eachcol(ks))
 
     min + filling * (max-min)
-end
-
-function chemical_potential_dense(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Vector{Float64})
-"""
-    Possible issues:
-    - bands can be huge for twisted systems, making the storage of "bands" inefficient.
-    - also note that this method performs a full diagonalization on all k points,
-      which can become very expensive for large systems
-"""
-
-    min = minimum(eigmin(hamiltonian(Vector(k))) for k in eachcol(ks))
-    max = maximum(eigmax(hamiltonian(Vector(k))) for k in eachcol(ks))
-
-    min .+ filling .* (max-min)
 end
 
 ###################################################################################################

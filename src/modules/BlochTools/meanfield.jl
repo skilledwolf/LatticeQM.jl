@@ -4,12 +4,12 @@ using NLsolve
 
 function solve_op_selfconsistent(hamiltonian::Function, mf_op::Function, G0::AbstractArray{Float64,N}, ks::AbstractMatrix{Float64}, filling::Float64; iterations = 500, ftol=1e-7, xtol=1e-7, method=:anderson, m=5, kwargs...) where N
 
-    format = issparse(hamiltonian(ks[:,1])) ? :sparse : :dense # Decide if the Hamiltonian is sparse
+    type = issparse(hamiltonian(ks[:,1])) ? :sparse : :dense # Decide if the Hamiltonian is sparse
 
     function f!(G1, G0)
         # Update meanfield Hamiltonian and chemical potential
         new_hamiltonian(k) = hamiltonian(k) .+ mf_op(G0, k)
-        μ = chemical_potential(new_hamiltonian, ks, filling; format=format)
+        μ = chemical_potential(new_hamiltonian, ks, filling; type=type)
 
         # Obtain the meanfield of the updated Hamiltonian
         density_parallel!(G1, new_hamiltonian, ks, μ)#; format=format)

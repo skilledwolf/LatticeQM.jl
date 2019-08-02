@@ -18,7 +18,7 @@ function ldos_parallel!(n::AbstractVector{Float64}, eigen::Function, ks::Abstrac
     n[:] = @distributed (+) for j=1:L # @todo: this should be paralellized
 
         n0 = zero(n)                                ## <-- it annoys me that I don't know how to get around this allocation
-        ldos_at_k!(n0, eigen, ks[:,j], ωs, Γ)
+        ldos_at_k!(n0, eigen, ks[:,j], ωs; Γ=Γ)
 
         n0
     end
