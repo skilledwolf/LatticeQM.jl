@@ -55,6 +55,10 @@ function positions3D(lat::Lattice)
     return pos[1:3,:]
 end
 
+function get_positions_in(lat::Lattice, aux_dim::String)
+    lat.atoms_aux[lat.extradimensions["sublattice"],:]
+end
+
 function get_filtered_positions(lat::Lattice, name::String, condition::Function)
 
     indices = [index for (index, val) in enumerate(lat.atoms_aux[lat.extradimensions[name],:]) if condition(val)]
