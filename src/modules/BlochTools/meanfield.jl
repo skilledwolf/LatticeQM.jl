@@ -14,12 +14,15 @@ function solve_op_selfconsistent(hamiltonian::Function, mf_op::Function, G0::Abs
         # Obtain the meanfield of the updated Hamiltonian
         density_parallel!(G1, new_hamiltonian, ks, μ)#; format=format)
 
+        # Update meanfield for next iteration step
         G1 .-= G0
         nothing
     end
 
     df = OnceDifferentiable(f!, G0, G0)
     nlsolve(df, G0; iterations=iterations, ftol=ftol, xtol=xtol, method=method, m=m, kwargs...)
+    # nlsolve has a problem: it cannot deal with G0 being a matrix.
+    # That's ok for Hartree meanfield, but sucks hard for Fock meanfield.
 end
 
 ################################################################################
@@ -31,6 +34,7 @@ function solve_selfconsistent(hamiltonian::Function, v::Function, G0::AbstractAr
         mf_hartree = build_Hartree(v)
         solve_op_selfconsistent(hamiltonian, mf_hartree, G0, ks, filling; kwargs...)
     else
+        # by default we assume that v is the a single-particle term that implicitly depends on the eigensolution
         solve_op_selfconsistent(hamiltonian, v, G0, ks, filling; kwargs...)
     end
 end
@@ -58,6 +62,10 @@ end
 ################################################################################
 
 function build_Hartree(v; format=:sparse)
+    """
+        Builds the mean-field term in the Hamiltonian given the Fourier transform
+        of an interaction potential (as e.g. provided by build_meanfield_op.jl).
+    """
 
     function mf_op(n,k)
         vsym(q) = 0.5 .* (v(q).+(v(q))')
@@ -71,4 +79,13 @@ function build_Hartree(v; format=:sparse)
     end
 
     return mf_op
+end
+
+function E_Hartree(v0, G0)
+    """
+        Hartree energy E0 for mean field G0.
+        v0: interaction potential at q=0.
+    """
+
+    - 1/2 * G0' * v0 * G0
 end

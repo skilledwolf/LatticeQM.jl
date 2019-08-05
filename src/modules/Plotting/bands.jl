@@ -3,19 +3,19 @@ using ..KSpace: DiscretePath, scaled_ticks
 
 export bandplot, bandplot!
 
-function bandplot(bands::Matrix{Float64}, ks::DiscretePath; ylims=nothing, plotsize=(300,480))
+function bandplot(bands::Matrix{Float64}, ks::DiscretePath; c=:cornflowerblue, ylims=nothing, plotsize=(300,480))
 
     p=plot()
-    bandplot!(p, bands, ks; ylims=ylims, plotsize=plotsize)
+    bandplot!(p, bands, ks; c=c, ylims=ylims, plotsize=plotsize)
 
     p
 end
 
-function bandplot!(p, bands::Matrix{Float64}, ks::DiscretePath; ylims=nothing, plotsize=(300,480))
+function bandplot!(p, bands::Matrix{Float64}, ks::DiscretePath; c=:cornflowerblue, ylims=nothing, plotsize=(300,480))
 
-    plot!(p,transpose(bands),
+    scatter!(p,transpose(bands),
         legend=:none,
-        c=:cornflowerblue,
+        c=c,
         size=plotsize,
         ylims=ylims,
         ylabel="\$\\varepsilon/t\$"

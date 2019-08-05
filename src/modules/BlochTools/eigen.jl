@@ -1,7 +1,6 @@
-"""
-    Additional low-level interfaces (acting on arrays)
-    ==================================================
-"""
+
+    # Additional low-level interfaces (acting on arrays)
+    # ==================================================
 
 eigmax_sparse(H::AbstractMatrix) = eigs(H; nev=1, which=:LR)[1][1] |> real
 eigmin_sparse(H::AbstractMatrix) = eigs(H; nev=1, which=:SR)[1][1] |> real
@@ -17,10 +16,8 @@ function eigvecs_sparse(M::AbstractMatrix; nev::Int, sigma::Float64=1e-8, which=
     real.(eigsol[2])
 end
 
-"""
-    Interfaces for single k-points
-    ==============================
-"""
+    # Interfaces for single k-points
+    # ==============================
 
 # Dense methods
 ϵs_dense(h::Function) = k::AbstractVector{Float64} -> eigvals(Matrix(h(k)))
@@ -48,15 +45,22 @@ end
 
 ################################################################################
 ################################################################################
-"""
-    Interfaces for discretized k-path
-    =================================
-"""
+
+    # Interfaces for discretized k-path
+    # ==============================
+
+
+using RecursiveArrayTools
+matrixcollect(it) = convert(Array, VectorOfArray(collect(it)))
+
 # Define proper iterators for each input type
 const kIterable = Union{DiscretePath, <:AbstractMatrix{Float64}, <:AbstractVector{T1}} where {T1<:AbstractVector{Float64}}
 eachpoint(kPoints::DiscretePath) = eachcol(kPoints.points)
 eachpoint(ks::T) where {T<:AbstractMatrix{Float64}} = eachcol(ks)
 eachpoint(ks::T2) where {T1<:AbstractVector{Float64},T2<:AbstractVector{T1}} = ks
+points(kPoints::DiscretePath) = kPoints.points
+points(ks::T) where {T<:AbstractMatrix{Float64}} = ks
+points(ks::T2) where {T1<:AbstractVector{Float64},T2<:AbstractVector{T1}} = matrixcollect(ks)
 
 energies(h::Function, ks::kIterable)      = Base.Generator(ϵs_dense(h), eachpoint(ks))
 wavefunctions(h::Function, ks::kIterable) = Base.Generator(Us_dense(h), eachpoint(ks))
@@ -64,17 +68,54 @@ energies_wfs(h::Function, ks::kIterable)  = Base.Generator(eigen_dense(h), eachp
 
 ################################################################################
 ################################################################################
-"""
-    Calculate and store bands for kpoints ks
-    ========================================
-"""
 
-using RecursiveArrayTools
-
-matrixcollect(it) = convert(Array, VectorOfArray(collect(it)))
-bandmatrix(h::Function, ks::kIterable) = matrixcollect(energies(h, ks))
+    # Calculate and store bands for kpoints ks
+    # ========================================
 
 using Distributed
+
+bandmatrix(h::Function, ks::kIterable) = matrixcollect(energies(h, ks))
+
+function get_bands(h::Function, ks::kIterable; projector=nothing, kwargs...)
+    """
+        h(k): returns hermitian Hamiltonian at k-point
+        ks: collection of k points (see kIterable)
+        projector: function that returns a real value for a given (k,ψ,E_k).
+    """
+    ks = points(ks)
+    N = size(ks)[2]         # no. of k points
+    M = size(h(ks[:,1]))[1] # no. of bands
+
+    bands = zeros(Float64, M, N)
+    obs = zeros(Float64, M, N)
+
+    Σ = spectrum(h; kwargs...)
+    projector = projector
+
+    # Parallized loop
+    # bands = convert(SharedArray, bands)
+    # obs = convert(SharedArray, obs)
+
+    for (j_,k)=enumerate(eachpoint(ks)) # This loop should be parallalized
+
+        ϵs, U = Σ(k)
+
+        bands[:,j_] .= ϵs
+
+        if projector != nothing
+            for (i_,ψ)=enumerate(eachcol(U))
+                obs[i_,j_] = projector(k,ψ,ϵs[i_])
+            end
+        end
+    end
+
+    if projector == nothing
+        obs = nothing
+    end
+
+    bands, obs
+end
+
 function bandmatrix_parallel(h::Function, ks)
     matrixcollect(pmap(ϵs_dense(h), eachpoint(ks)))
 end
