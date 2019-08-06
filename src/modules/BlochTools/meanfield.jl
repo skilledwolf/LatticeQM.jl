@@ -1,26 +1,30 @@
 
 using NLsolve
 
+#AbstractArray{Float64,N}
+function solve_selfconsistent(ℋ::Function,
+    ρ::AbstractArray{T,N}, ks::AbstractMatrix{Float64}, filling::Float64;
+    iterations=500, ftol=1e-7, xtol=1e-7, method=:anderson, m=5, format=:dense, kwargs...) where {N, T<:Number}
 
-function solve_op_selfconsistent(hamiltonian::Function, mf_op::Function, G0::AbstractArray{Float64,N}, ks::AbstractMatrix{Float64}, filling::Float64; iterations = 500, ftol=1e-7, xtol=1e-7, method=:anderson, m=5, kwargs...) where N
+    type = issparse(ℋ(zero(ρ))(ks[:,1])) ? :sparse : :dense # Decide if the Hamiltonian is sparse
 
-    type = issparse(hamiltonian(ks[:,1])) ? :sparse : :dense # Decide if the Hamiltonian is sparse
-
-    function f!(G1, G0)
+    function f!(ρ1, ρ0)
         # Update meanfield Hamiltonian and chemical potential
-        new_hamiltonian(k) = hamiltonian(k) .+ mf_op(G0, k)
-        μ = chemical_potential(new_hamiltonian, ks, filling; type=type)
+        h = ℋ(ρ0)
+
+        Σ = spectrum(h; format=format)
+        μ = chemical_potential(h, ks, filling; type=type)
 
         # Obtain the meanfield of the updated Hamiltonian
-        density_parallel!(G1, new_hamiltonian, ks, μ)#; format=format)
+        density!(ρ1, Σ, ks, μ)#; format=format)
 
         # Update meanfield for next iteration step
-        G1 .-= G0
+        ρ1 .-= ρ0
         nothing
     end
 
-    df = OnceDifferentiable(f!, G0, G0)
-    nlsolve(df, G0; iterations=iterations, ftol=ftol, xtol=xtol, method=method, m=m, kwargs...)
+    df = OnceDifferentiable(f!, ρ, ρ)
+    nlsolve(df, ρ; iterations=iterations, ftol=ftol, xtol=xtol, method=method, m=m, kwargs...)
     # nlsolve has a problem: it cannot deal with G0 being a matrix.
     # That's ok for Hartree meanfield, but sucks hard for Fock meanfield.
 end
@@ -28,16 +32,19 @@ end
 ################################################################################
 ################################################################################
 
-function solve_selfconsistent(hamiltonian::Function, v::Function, G0::AbstractArray{Float64,N}, ks::AbstractMatrix{Float64}, filling::Float64; mode=:nothing, kwargs...) where N
-    if mode==:hartree
-        # Note: this option assumes that v is the Fourier transform of the interaction potential
-        mf_hartree = build_Hartree(v)
-        solve_op_selfconsistent(hamiltonian, mf_hartree, G0, ks, filling; kwargs...)
-    else
-        # by default we assume that v is the a single-particle term that implicitly depends on the eigensolution
-        solve_op_selfconsistent(hamiltonian, v, G0, ks, filling; kwargs...)
-    end
-end
+# function solve_selfconsistent(hamiltonian::Function, v::Function,
+#     G0::AbstractArray{Float64,N}, ks::AbstractMatrix{Float64}, filling::Float64;
+#     mode=:nothing, kwargs...) where N
+#
+#     if mode==:hartree
+#         # Note: this option assumes that v is the Fourier transform of the interaction potential
+#         mf_hartree = get_hartree_operator(v)
+#         solve_op_selfconsistent(hamiltonian, mf_hartree, G0, ks, filling; kwargs...)
+#     else
+#         # by default we assume that v is the a single-particle term that implicitly depends on the eigensolution
+#         solve_op_selfconsistent(hamiltonian, v, G0, ks, filling; kwargs...)
+#     end
+# end
 
 ################################################################################
 ################################################################################
@@ -61,7 +68,7 @@ end
 ################################################################################
 ################################################################################
 
-function build_Hartree(v; format=:sparse)
+function get_hartree_operator(v; format=:sparse)
     """
         Builds the mean-field term in the Hamiltonian given the Fourier transform
         of an interaction potential (as e.g. provided by build_meanfield_op.jl).
@@ -77,9 +84,21 @@ function build_Hartree(v; format=:sparse)
 
         mat
     end
+    # function mf_op(ρ,k)
+    #     vsym(q) = 0.5 .* (v(q).+(v(q))')
+    #
+    #     vsym(zero(k)) * ρ
+    # end
 
     return mf_op
 end
+
+function build_Hartree(v, args...; kwargs...)
+    @warn "build_Hartree(...) has been renamed to get_hartree_operator(...) and will be removed in the future."
+    get_hartree_operator(v, args...; kwargs...)
+end
+
+
 
 function E_Hartree(v0, G0)
     """
