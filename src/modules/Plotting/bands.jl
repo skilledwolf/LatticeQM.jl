@@ -18,7 +18,7 @@ function bandplot!(p, bands::Matrix{Float64}, ks::DiscretePath; c=:cornflowerblu
         c=c,
         size=plotsize,
         ylims=ylims,
-        marker="."
+        marker=".",
         ylabel="\$\\varepsilon/t\$"
     )
     xticks!(p, scaled_ticks(ks; start=1.0, length=float(size(bands)[2])), ks.ticklabels)
