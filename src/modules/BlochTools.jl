@@ -8,8 +8,11 @@ module BlochTools
 
     using ..KSpace
 
+    using ..TightBinding: build_BlochH, get_operator
+
     include("../misc/paulimatrices.jl")
 
+    include("BlochTools/misc.jl")
     include("BlochTools/eigen.jl")
     include("BlochTools/density.jl")
     include("BlochTools/dos.jl")

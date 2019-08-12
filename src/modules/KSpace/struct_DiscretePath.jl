@@ -6,19 +6,19 @@ struct DiscretePath
 end
 
 # Initialization
-function DiscretePath(kDict0::PointDict, named_path::Vector{String}; num_points::Int=60)
+function DiscretePath(kDict0::PointDict, named_path::Vector{String}; B::AbstractMatrix=I, num_points::Int=60)
 
     ticklabels = [kDict0.label[key] for key in named_path]
 
-    ticks, positions, points = names_to_path(named_path, kDict0.coord, num_points)
+    ticks, positions, points = names_to_path(named_path, kDict0.coord, num_points; B=B)
 
     DiscretePath(ticks, ticklabels, positions, points)
 end
 
-function DiscretePath(kDict0::PointDict; num_points::Int=60)
+function DiscretePath(kDict0::PointDict; kwargs...)
 
     named_path = kDict0.default_path
-    DiscretePath(kDict0, named_path; num_points=num_points)
+    DiscretePath(kDict0, named_path; kwargs...)
 end
 
 # Point iterator
@@ -47,12 +47,12 @@ function coords_to_points(B, coords)
 end
 
 
-function names_to_path(names, point_dictionary, N; B=[1.0 0.0; 0.0 1.0])
-    construct_path(coords_to_points(B, names_to_coords(names, point_dictionary)), N)
+function names_to_path(names, point_dictionary, N; B=I)
+    construct_path(coords_to_points(B, names_to_coords(names, point_dictionary)), N; B=B)
 end
 
 
-function construct_path(points, N)
+function construct_path(points, N; B=I)
 
     num_points = length(points)
     differences = [points[i]-points[i-1] for i=2:num_points]
@@ -77,5 +77,5 @@ function construct_path(points, N)
 
     tick_coordinates = cumtotal
 
-    return tick_coordinates, parametric_path, hcat(path_array...)
+    return tick_coordinates, parametric_path, inv(B) * hcat(path_array...)
 end

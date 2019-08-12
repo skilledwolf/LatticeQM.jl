@@ -13,6 +13,8 @@ has_dimension(lat::Lattice, name::String) = haskey(lat.extradimensions, name)
 
 get_A(lat::Lattice) = lat.A
 
+get_B(lat::Lattice) = inv(transpose(lat.A))
+
 function get_A_3D(lat::Lattice)
 
     A = get_A(lat)

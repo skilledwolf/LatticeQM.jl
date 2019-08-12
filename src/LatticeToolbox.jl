@@ -13,11 +13,11 @@ module LatticeToolbox
     include("modules/KSpace.jl")
     using .KSpace
 
-    include("modules/BlochTools.jl")
-    using .BlochTools
-
     include("modules/TightBinding.jl")
     using .TightBinding
+
+    include("modules/BlochTools.jl")
+    using .BlochTools
 
     include("modules/Plotting.jl")
     using .Plotting

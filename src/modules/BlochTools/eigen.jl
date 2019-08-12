@@ -35,6 +35,13 @@ end
 Us_sparse(h::Function; kwargs...) = k::AbstractVector{Float64} -> eigvecs_sparse(h(k); kwargs...)
 eigen_sparse(h::Function; kwargs...) = k::AbstractVector{Float64} -> eigen_sparse(h(k); kwargs...)
 
+function ϵs(h::Function; format=:dense, kwargs...)
+    if format==:dense
+        ϵs_dense(h; kwargs...)
+    elseif format==:sparse
+        ϵs_sparse(h; kwargs...)
+    end
+end
 function spectrum(h::Function; format=:dense, kwargs...)
     if format==:dense
         eigen_dense(h; kwargs...)
@@ -53,18 +60,10 @@ end
 using RecursiveArrayTools
 matrixcollect(it) = convert(Array, VectorOfArray(collect(it)))
 
-# Define proper iterators for each input type
-const kIterable = Union{DiscretePath, <:AbstractMatrix{Float64}, <:AbstractVector{T1}} where {T1<:AbstractVector{Float64}}
-eachpoint(kPoints::DiscretePath) = eachcol(kPoints.points)
-eachpoint(ks::T) where {T<:AbstractMatrix{Float64}} = eachcol(ks)
-eachpoint(ks::T2) where {T1<:AbstractVector{Float64},T2<:AbstractVector{T1}} = ks
-points(kPoints::DiscretePath) = kPoints.points
-points(ks::T) where {T<:AbstractMatrix{Float64}} = ks
-points(ks::T2) where {T1<:AbstractVector{Float64},T2<:AbstractVector{T1}} = matrixcollect(ks)
-
 energies(h::Function, ks::kIterable)      = Base.Generator(ϵs_dense(h), eachpoint(ks))
 wavefunctions(h::Function, ks::kIterable) = Base.Generator(Us_dense(h), eachpoint(ks))
 energies_wfs(h::Function, ks::kIterable)  = Base.Generator(eigen_dense(h), eachpoint(ks))
+
 
 ################################################################################
 ################################################################################
@@ -120,6 +119,35 @@ function bandmatrix_parallel(h::Function, ks)
     matrixcollect(pmap(ϵs_dense(h), eachpoint(ks)))
 end
 
+function groundstate_sumk(ϵs_k::AbstractVector{Float64}, μ::Float64=0.0; kwargs...)
+    tmp = 0.0
+    for ϵ in ϵs_k
+        if ϵ <= μ
+            tmp += ϵ
+        end
+    end
+
+    tmp
+end
+
+function groundstate_energy(ϵs::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0; kwargs...)
+    # Σ = ϵs(hamiltonian; format=format)
+    L = size(ks)[2]
+
+    ϵGS = @distributed (+) for j=1:L # @todo: this should be paralellized
+        tmp = 0.0
+        for ϵ in ϵs(ks[:,j])
+            if ϵ <= μ
+                tmp += ϵ
+            end
+        end
+        tmp
+    end
+
+    ϵGS / L
+end
+
+
 ###################################################################################################
 ###################################################################################################
 
@@ -142,50 +170,56 @@ end
 ###################################################################################################
 ###################################################################################################
 
-function chemical_potential(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64; type=:sparse)
-    if type==:sparse
-        out = chemical_potential_sparse_parallel(hamiltonian, ks, filling)
+function chemical_potential(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64; T::AbstractFloat=0.0)
+    if T==0.0
+        μ = chemical_potential_0(hamiltonian, ks, filling)
     else
-        out = chemical_potential_dense(hamiltonian, ks, filling)
+        μ = chemical_potential_T(hamiltonian, ks, filling; T=T)
     end
-    out
+
+    μ
 end
 
-function chemical_potential_sparse_parallel(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64)
-"""
-    Possible issues:
-    - bands can be huge for twisted systems, making the storage of "bands" inefficient.
-"""
+function chemical_potential_0(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64)
 
-    min = minimum( pmap(k->eigmin_sparse(hamiltonian(Vector(k))), eachcol(ks)) )
-    max = maximum( pmap(k->eigmax_sparse(hamiltonian(Vector(k))), eachcol(ks)) )
+    energies = sort(reshape(bandmatrix_parallel(hamiltonian, ks), :))
 
-    min + filling * (max-min)
+    i = floor(Int, filling * size(energies,1)) # fill a fraction of states according to ,,filling''
+
+    (energies[i] + energies[i+1])/2.0
 end
 
-function chemical_potential_sparse(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64)
-"""
-    Possible issues:
-    - bands can be huge for twisted systems, making the storage of "bands" inefficient.
-"""
-    min = minimum(eigmin_sparse(hamiltonian(Vector(k))) for k in eachcol(ks))
-    max = maximum(eigmax_sparse(hamiltonian(Vector(k))) for k in eachcol(ks))
+using NLsolve
 
-    min + filling * (max-min)
-end
+function chemical_potential_T(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64; T::Float64=0.01)
 
-function chemical_potential_dense(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64)
-"""
-    Possible issues:
-    - bands can be huge for twisted systems, making the storage of "bands" inefficient.
-    - also note that this method performs a full diagonalization on all k points,
-      which can become very expensive for large systems
-"""
+    d = size(hamiltonian(first(eachcol(ks))), 1)
+    N = size(ks,2)
 
-    min = minimum(eigmin(hamiltonian(Vector(k))) for k in eachcol(ks))
-    max = maximum(eigmax(hamiltonian(Vector(k))) for k in eachcol(ks))
+    bands = bandmatrix_parallel(hamiltonian, ks)
+    energies = sort(reshape(bands, :))
 
-    min + filling * (max-min)
+    N_occ = floor(Int, filling * length(bands)) # fill a fraction of states according to ,,filling''
+
+    # Initial guess for T=0
+    μ0 = (energies[N_occ] + energies[N_occ+1])/2.0
+
+    ##########################################
+    ###  Solve  n(μ_star) = N_occ for μ_star
+    ##########################################
+
+    n(μ::AbstractFloat) = sum(fermidirac(ϵ-μ; T=T) for ϵ=bands)/N
+
+    function δn!(δn::T, μ::T) where {T2<:AbstractFloat, T<:AbstractArray{T2}}
+        δn[1] = n(μ[1]) - d * filling
+        nothing
+    end
+
+    sol = nlsolve(δn!, [μ0])
+    @assert converged(sol)
+    μ = sol.zero[1]
+
+    μ
 end
 
 ###################################################################################################

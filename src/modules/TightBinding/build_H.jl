@@ -1,26 +1,46 @@
-function build_H(lat::Lattice, t::Function; mode=:nospin, format=:auto)
-
-    build_H_sparse(get_A_3D(lat), positions3D(lat), t, mode=mode, format=format)
-end
-
-@fastmath function build_H_sparse(A::Matrix{Float64}, R::Matrix{Float64}, t::Function; mode=:nospin, format=:auto, precision::Float64=1e-8)# where {T<:AbstractMatrix{Float64}}
+@fastmath function build_H(lat::Lattice, t::Function; mode=:nospin, format=:auto, precision::Float64=1e-8)# where {T<:AbstractMatrix{Float64}}
 
     # Get lattice neighbors
     neighbors = [[i;j] for i=-1:1 for j=-1:1 if i+j>=0 && i>=0]
+
+    hops = get_hops(lat, neighbors, t; precision=precision, format=format)
+
+    # Build the Bloch matrix by adding the hopping matrices with the correct phases
+    build_BlochH(hops; mode=mode)
+end
+
+function get_hops(lat::Lattice, neighbors::Vector{Vector{Int}}, t::Function; kwargs...)
+    get_hops(get_A_3D(lat), positions3D(lat), neighbors, t; kwargs...)
+end
+
+function get_hops(A::Matrix{Float64}, R::Matrix{Float64}, neighbors::Vector{Vector{Int}}, t::Function; precision::Float64=1e-8, format=:auto)
+
+    # Get lattice neighbors
     δA = [A*v for v in neighbors]
 
-    hops = build_hops_sparse(R, neighbors, δA, t; precision=precision)
+    hops = build_hopmats(R, neighbors, δA, t; precision=precision)
 
     # Create the Hermitian conjugates
     for (δL, T) in hops
         hops[-δL] = T'
     end
 
-    # Build the Bloch matrix by adding the hopping matrices with the correct phases
-    build_BlochH(hops; mode=mode, format=format)
+    # Sparse or dense?
+    if format==:auto
+        N = size(first(values(hops)), 1)
+        if N < 301
+            format=:dense
+        end
+    end
+
+    if format==:dense
+        hops = Dict(δL => Matrix(t) for (δL, t) in hops)
+    end
+
+    hops
 end
 
-function build_hops_sparse(R, neighbors, δA, t; precision=precision)
+function build_hopmats(R, neighbors, δA, t; precision=precision)
 
     N = size(R)[2]
 
@@ -43,6 +63,7 @@ function build_hops_sparse(R, neighbors, δA, t; precision=precision)
         error("Hopping function t must return number or matrix of number")
     end
 
+    # Preallocate memory: important for huge sparse matrices
     IS = ones(Int, maxind)
     JS = ones(Int, maxind)
     VS = zeros(ComplexF64, maxind*d0, d0)

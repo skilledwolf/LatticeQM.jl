@@ -7,7 +7,7 @@ using Base
 using LinearAlgebra
 using SparseArrays
 using ElasticArrays, RecursiveArrayTools
-using ..LatticeTools: Lattice, positions3D, get_A_3D, atom_count, has_dimension
+using ..LatticeTools: Lattice, positions3D, get_A_3D, atom_count, has_dimension, get_positions_in
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
