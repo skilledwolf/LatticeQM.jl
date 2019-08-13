@@ -13,10 +13,9 @@ using ..LatticeTools: Lattice, positions3D, get_A_3D, atom_count, has_dimension,
 
 include("../misc/paulimatrices.jl")
 
-include("TightBinding/build_BlochH.jl")
-include("TightBinding/build_H.jl")
-include("TightBinding/build_operators.jl")
-include("TightBinding/build_meanfield_op.jl")
+include("TightBinding/bloch.jl")
+include("TightBinding/hamiltonian.jl")
+include("TightBinding/operators.jl")
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 end

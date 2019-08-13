@@ -80,22 +80,31 @@ function get_bands(h::Function, ks::kIterable; projector=nothing, kwargs...)
         h(k): returns hermitian Hamiltonian at k-point
         ks: collection of k points (see kIterable)
         projector: function that returns a real value for a given (k,ψ,E_k).
+            can also be as Vector of such functions.
     """
     ks = points(ks)
     N = size(ks)[2]         # no. of k points
     M = size(h(ks[:,1]))[1] # no. of bands
 
     bands = zeros(Float64, M, N)
-    obs = zeros(Float64, M, N)
+
+    if projector != nothing
+        if isa(projector, Vector)
+            obs = zeros(Float64, M, N, length(projector))
+        else
+            obs = zeros(Float64, M, N, 1)
+            projector = [projector]
+        end
+    end
 
     Σ = spectrum(h; kwargs...)
     projector = projector
 
     # Parallized loop
-    # bands = convert(SharedArray, bands)
-    # obs = convert(SharedArray, obs)
+    bands = convert(SharedArray, bands)
+    obs = convert(SharedArray, obs)
 
-    for (j_,k)=enumerate(eachpoint(ks)) # This loop should be parallalized
+    @sync @distributed for (j_,k)=enumerate(eachpoint(ks)) # This loop should be parallalized
 
         ϵs, U = Σ(k)
 
@@ -103,7 +112,9 @@ function get_bands(h::Function, ks::kIterable; projector=nothing, kwargs...)
 
         if projector != nothing
             for (i_,ψ)=enumerate(eachcol(U))
-                obs[i_,j_] = projector(k,ψ,ϵs[i_])
+                for (n_, proj)=enumerate(projector)
+                    obs[i_,j_,n_] = projector(k,ψ,ϵs[i_])
+                end
             end
         end
     end
