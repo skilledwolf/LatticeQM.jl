@@ -5,6 +5,8 @@
 
     hops = get_hops(lat, neighbors, t; precision=precision, format=format)
 
+    hops = decide_type(hops, format)
+
     # Build the Bloch matrix by adding the hopping matrices with the correct phases
     build_BlochH(hops; mode=mode)
 end
@@ -13,19 +15,8 @@ function get_hops(lat::Lattice, neighbors::Vector{Vector{Int}}, t::Function; kwa
     get_hops(get_A_3D(lat), positions3D(lat), neighbors, t; kwargs...)
 end
 
-function get_hops(A::Matrix{Float64}, R::Matrix{Float64}, neighbors::Vector{Vector{Int}}, t::Function; precision::Float64=1e-8, format=:auto)
+function decide_type(hops::Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}, format)
 
-    # Get lattice neighbors
-    δA = [A*v for v in neighbors]
-
-    hops = build_hopmats(R, neighbors, δA, t; precision=precision)
-
-    # Create the Hermitian conjugates
-    for (δL, T) in hops
-        hops[-δL] = T'
-    end
-
-    # Sparse or dense?
     if format==:auto
         N = size(first(values(hops)), 1)
         if N < 301
@@ -35,6 +26,21 @@ function get_hops(A::Matrix{Float64}, R::Matrix{Float64}, neighbors::Vector{Vect
 
     if format==:dense
         hops = Dict(δL => Matrix(t) for (δL, t) in hops)
+    end
+
+    hops
+end
+
+function get_hops(A::Matrix{Float64}, R::Matrix{Float64}, neighbors::Vector{Vector{Int}}, t::Function; precision::Float64=1e-8)
+
+    # Get lattice neighbors
+    δA = [A*v for v in neighbors]
+
+    hops = build_hopmats(R, neighbors, δA, t; precision=precision)
+
+    # Create the Hermitian conjugates
+    for (δL, T) in hops
+        hops[-δL] = T'
     end
 
     hops

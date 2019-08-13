@@ -14,6 +14,8 @@ function get_Hubbard(lat, neighbors=[[0;0]]; mode=:nospin, format=:auto, kwargs.
     connect unit cells. The set of δL's (in units of lattice vectors) is specified by 'neighbors'.
     """
     ee_exchange = get_hops(lat, neighbors, r->Hubbard(r; kwargs...))
+    ee_exchange = decide_type(ee_exchange, format)
+
     extend_space!(ee_exchange, mode)
 
     ee_exchange
@@ -21,6 +23,8 @@ end
 
 function get_CappedYukawa(lat, neighbors=[[i;j] for i=-1:1 for j=-1:1]; mode=:nospin, kwargs...)
     ee_exchange = get_hops(lat, neighbors, r->CappedYukawa(r; kwargs...))
+    ee_exchange = decide_type(ee_exchange, format)
+
     extend_space!(ee_exchange, mode)
 
     ee_exchange
