@@ -49,8 +49,8 @@ function ρ_L!(ρs::Dict{Vector{Int},AbstractMatrix{ComplexF64}}, spectrum::Func
         ρs[δL][:] .= convert(SharedArray, zero(ρ0))[:]
     end
 
-    # @sync @distributed for i_=1:L
-    for i_=1:L
+    @sync @distributed for i_=1:L
+    # for i_=1:L
         k = ks[:,i_]
         spectrum_k = spectrum(k)
 
