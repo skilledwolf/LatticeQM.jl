@@ -3,16 +3,12 @@
     # Get lattice neighbors
     neighbors = [[i;j] for i=-1:1 for j=-1:1 if i+j>=0 && i>=0]
 
-    hops = get_hops(lat, neighbors, t; precision=precision, format=format)
+    hops = get_hops(lat, neighbors, t; precision=precision)
 
     hops = decide_type(hops, format)
 
     # Build the Bloch matrix by adding the hopping matrices with the correct phases
     build_BlochH(hops; mode=mode)
-end
-
-function get_hops(lat::Lattice, neighbors::Vector{Vector{Int}}, t::Function; kwargs...)
-    get_hops(get_A_3D(lat), positions3D(lat), neighbors, t; kwargs...)
 end
 
 function decide_type(hops::Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}, format)
@@ -29,6 +25,10 @@ function decide_type(hops::Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}, format
     end
 
     hops
+end
+
+function get_hops(lat::Lattice, neighbors::Vector{Vector{Int}}, t::Function; kwargs...)
+    get_hops(get_A_3D(lat), positions3D(lat), neighbors, t; kwargs...)
 end
 
 function get_hops(A::Matrix{Float64}, R::Matrix{Float64}, neighbors::Vector{Vector{Int}}, t::Function; precision::Float64=1e-8)
