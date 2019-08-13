@@ -104,8 +104,8 @@ function get_bands(h::Function, ks::kIterable; projector=nothing, kwargs...)
     bands = convert(SharedArray, bands)
     obs = convert(SharedArray, obs)
 
-    @sync @distributed for (j_,k)=enumerate(eachpoint(ks)) # This loop should be parallalized
-
+    @sync @distributed for j_=1:N
+        k = ks[:,j_]
         ϵs, U = Σ(k)
 
         bands[:,j_] .= ϵs
@@ -113,14 +113,18 @@ function get_bands(h::Function, ks::kIterable; projector=nothing, kwargs...)
         if projector != nothing
             for (i_,ψ)=enumerate(eachcol(U))
                 for (n_, proj)=enumerate(projector)
-                    obs[i_,j_,n_] = projector(k,ψ,ϵs[i_])
+                    obs[i_,j_,n_] = proj(k,ψ,ϵs[i_])
                 end
             end
         end
     end
 
+    bands = convert(Array, bands)
+
     if projector == nothing
         obs = nothing
+    else
+        obs = convert(Array, obs)
     end
 
     bands, obs
