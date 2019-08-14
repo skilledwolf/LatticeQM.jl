@@ -22,7 +22,7 @@ function search_fixedpoint!(f!, x1, x0;
         println("==============================")
     end
 
-    ϵ_abs = 1.0
+    error = 1.0
     iter = 0
     while iter < iterations
         iter += 1
@@ -31,16 +31,20 @@ function search_fixedpoint!(f!, x1, x0;
         ϵ0 = f!(x1, x0)
 
         # Convergence?
-        ϵ_abs = norm(values(x1).-values(x0), p_norm)
+        error = norm(values(x1).-values(x0), p_norm)
 
         if show_trace
             print("\r")
-            print(@sprintf(" %d  \t %.2E", iter, ϵ_abs))
+            print(@sprintf(" %d  \t %.2E", iter, error))
             print("\u1b[0K")
         end
 
-        if ϵ_abs < tol
+        if error < tol
             converged = true
+            break
+        end
+
+        if iter == iterations
             break
         end
 
@@ -65,7 +69,7 @@ function search_fixedpoint!(f!, x1, x0;
         end
     end
 
-    ϵ0, converged
+    ϵ0, error, converged
 end
 
 ################################################################################
@@ -107,7 +111,7 @@ function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
     ρ0 = deepcopy(ρ_init)
     ρ1 = deepcopy(ρ_init)
 
-    ϵ0, converged = search_fixedpoint!(update_ρ!, ρ1, ρ0; iterations=iterations, tol=tol, kwargs...)
+    ϵ0, error, converged = search_fixedpoint!(update_ρ!, ρ1, ρ0; iterations=iterations, tol=tol, kwargs...)
 
     ρBloch = build_BlochH(ρ1; mode=:nospin)
 
@@ -116,7 +120,7 @@ function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
 
     ϵ_GS = ϵ0 + ϵ_offset
 
-    ρ1, ρBloch, hBloch, ϵ_GS, converged
+    ρ1, ρBloch, hBloch, ϵ_GS, converged, error
 end
 
 

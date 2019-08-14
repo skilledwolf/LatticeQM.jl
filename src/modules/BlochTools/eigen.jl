@@ -102,7 +102,9 @@ function get_bands(h::Function, ks::kIterable; projector=nothing, kwargs...)
 
     # Parallized loop
     bands = convert(SharedArray, bands)
-    obs = convert(SharedArray, obs)
+    if projector != nothing
+        obs = convert(SharedArray, obs)
+    end 
 
     @sync @distributed for j_=1:N
         k = ks[:,j_]
