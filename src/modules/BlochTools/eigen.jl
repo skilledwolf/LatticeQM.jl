@@ -42,11 +42,15 @@ function ϵs(h::Function; format=:dense, kwargs...)
         ϵs_sparse(h; kwargs...)
     end
 end
-function spectrum(h::Function; format=:dense, kwargs...)
+function spectrum(h::Function; format=:dense, num_bands=nothing, kwargs...)
     if format==:dense
         eigen_dense(h; kwargs...)
     elseif format==:sparse
-        eigen_sparse(h; kwargs...)
+        if num_bands==nothing
+            eigen_sparse(h; kwargs...)
+        else
+            eigen_sparse(h; nev=num_bands, kwargs...)
+        end
     end
 end
 
@@ -75,7 +79,7 @@ using Distributed
 
 bandmatrix(h::Function, ks::kIterable) = matrixcollect(energies(h, ks))
 
-function get_bands(h::Function, ks::kIterable; projector=nothing, kwargs...)
+function get_bands(h::Function, ks::kIterable; projector=nothing, num_bands=nothing, kwargs...)
     """
         h(k): returns hermitian Hamiltonian at k-point
         ks: collection of k points (see kIterable)
@@ -84,7 +88,12 @@ function get_bands(h::Function, ks::kIterable; projector=nothing, kwargs...)
     """
     ks = points(ks)
     N = size(ks)[2]         # no. of k points
-    M = size(h(ks[:,1]))[1] # no. of bands
+
+    if num_bands != nothing
+        M = num_bands
+    else
+        M = size(h(ks[:,1]))[1] # no. of bands
+    end
 
     bands = zeros(Float64, M, N)
 
@@ -97,20 +106,20 @@ function get_bands(h::Function, ks::kIterable; projector=nothing, kwargs...)
         end
     end
 
-    Σ = spectrum(h; kwargs...)
+    Σ = spectrum(h; num_bands=num_bands, kwargs...)
     projector = projector
 
     # Parallized loop
     bands = convert(SharedArray, bands)
     if projector != nothing
         obs = convert(SharedArray, obs)
-    end 
+    end
 
     @sync @distributed for j_=1:N
         k = ks[:,j_]
         ϵs, U = Σ(k)
 
-        bands[:,j_] .= ϵs
+        bands[:,j_] .= real.(ϵs)
 
         if projector != nothing
             for (i_,ψ)=enumerate(eachcol(U))
@@ -164,25 +173,6 @@ function groundstate_energy(ϵs::Function, ks::AbstractMatrix{Float64}, μ::Floa
     ϵGS / L
 end
 
-
-###################################################################################################
-###################################################################################################
-
-# function LinearAlgebra.:eigvals(h::Function, point::T; mode=:dense, kwargs...) where {T<:AbstractVector}
-#
-#     if mode==:dense
-#         f = eigvals
-#     elseif mode==:sparse
-#         f = eigvals_sparse
-#     else
-#         error("Unknown mode.")
-#     end
-#
-# #     bands = @showprogress 0.1 "Diagonalization" map(x->f(Matrix(h(Vector(x))), kwargs...), eachpoint(points))
-# #
-# #     Matrix{Float64}(hcat(bands...))
-#     f(Matrix(h(Vector(point))), kwargs...)
-# end
 
 ###################################################################################################
 ###################################################################################################

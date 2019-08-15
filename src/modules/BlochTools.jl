@@ -11,6 +11,9 @@ module BlochTools
 
     using ..TightBinding: build_BlochH, get_operator
 
+    export get_bands, spectrum, eigen, chemical_potential
+    export solve_selfconsistent, initialize_ρ
+
     include("../misc/paulimatrices.jl")
 
     include("BlochTools/misc.jl")

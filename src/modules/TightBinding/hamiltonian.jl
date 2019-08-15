@@ -1,4 +1,4 @@
-@fastmath function build_H(lat::Lattice, t::Function; mode=:nospin, format=:auto, precision::Float64=1e-8)# where {T<:AbstractMatrix{Float64}}
+@fastmath function get_hamiltonian(lat::Lattice, t::Function; mode=:nospin, format=:auto, precision::Float64=1e-8)# where {T<:AbstractMatrix{Float64}}
 
     # Get lattice neighbors
     neighbors = [[i;j] for i=-1:1 for j=-1:1 if i+j>=0 && i>=0]
@@ -7,6 +7,11 @@
 
     # Build the Bloch matrix by adding the hopping matrices with the correct phases
     build_BlochH(hops; mode=mode)
+end
+
+function build_H(args...; kwargs...)
+    @warning("Deprecation warning: build_H() was renamed to get_hamiltonian() and is marked for removal.")
+    get_hamiltonian(args...; kwargs...)
 end
 
 function decide_type(hops::Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}, format)
