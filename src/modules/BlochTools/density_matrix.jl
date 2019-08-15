@@ -53,7 +53,7 @@ function ρ_L!(ρs::Dict{Vector{Int},AbstractMatrix{ComplexF64}}, spectrum::Func
 
     ## EXPERIMENTAL USAGE OF THE PROGRESS BAR
     p = Progress(L, 0.1, "Computing density matrix...")
-    channel = RemoteChannel(()->Channel{Bool}(10), 1)
+    channel = RemoteChannel(()->Channel{Bool}(L), 1)
 
     @sync begin
         # this task prints the progress bar

@@ -18,7 +18,7 @@ function extend_space!(hoppings, mode=:nospin)
     nothing
 end
 
-# struct BlochOperator{<:AbstractMatrix}
+# struct BlochOperator{T1<:AbstractMatrix}
 #     dim::Int
 #     spacedim::Int
 #     hops::Dict{Vector{Int}, T1}
