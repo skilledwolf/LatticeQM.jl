@@ -100,15 +100,15 @@ function get_Hubbard(lat, neighbors=[[0;0]]; mode=:nospin, format=:auto, kwargs.
     returns Dict(δL => Matrix(V(r_i-r_j+δL))_ij) where δL are vectors that
     connect unit cells. The set of δL's (in units of lattice vectors) is specified by 'neighbors'.
     """
-    ee_exchange = get_hops(lat, neighbors, r->Hubbard(r; kwargs...))
+    ee_exchange = get_hops(lat, neighbors, r->Hubbard(r; kwargs...); format=format)
 
     extend_space!(ee_exchange, mode)
 
     ee_exchange
 end
 
-function get_CappedYukawa(lat, neighbors=[[i;j] for i=-1:1 for j=-1:1]; mode=:nospin, kwargs...)
-    ee_exchange = get_hops(lat, neighbors, r->CappedYukawa(r; kwargs...))
+function get_CappedYukawa(lat, neighbors=[[i;j] for i=-1:1 for j=-1:1]; mode=:nospin, format=:auto, kwargs...)
+    ee_exchange = get_hops(lat, neighbors, r->CappedYukawa(r; kwargs...); format=format)
 
     extend_space!(ee_exchange, mode)
 

@@ -18,8 +18,13 @@ function extend_space!(hoppings, mode=:nospin)
     nothing
 end
 
+# struct BlochOperator{<:AbstractMatrix}
+#     dim::Int
+#     spacedim::Int
+#     hops::Dict{Vector{Int}, T1}
+# end
 
-function build_BlochH(hoppings::Dict{Vector{Int}, T1}; mode=:nospin, format=:auto, symmetric=true) where {T2<:Complex, T1<:AbstractMatrix{T2}} #; mode=:auto
+function get_bloch(hoppings::Dict{Vector{Int}, T1}; mode=:nospin, format=:auto, symmetric=true) where {T2<:Complex, T1<:AbstractMatrix{T2}} #; mode=:auto
 """
     Returns the Bloch Hamiltonian with the BZ mapped onto the unit square, i.e., k ∈ [0,1]×[0,1].
 
@@ -40,4 +45,9 @@ function build_BlochH(hoppings::Dict{Vector{Int}, T1}; mode=:nospin, format=:aut
     end
 
     hamiltonian
+end
+
+function build_BlochH(args...; kwargs...)
+    @warn("Deprecation warning: build_BlochH() was renamed to get_bloch() and is marked for removal.")
+    get_bloch(args...; kwargs...)
 end

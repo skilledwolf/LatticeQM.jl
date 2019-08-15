@@ -81,7 +81,7 @@ end
 
 function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
     ρ_init::Dict{Vector{Int},AbstractArray{T0,N}}, ks::AbstractMatrix{Float64}, filling::Float64;
-    iterations=500, tol=1e-7, T=0.0, format=:dense, kwargs...) where {N, T0<:Number}
+    iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...) where {N, T0<:Number}
     """
         Searches a self-consistent meanfield solution for the functional
 
@@ -99,11 +99,17 @@ function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
 
         # Update meanfield Hamiltonian and chemical potential
         h = ℋ_op(ρ0) # probably o.k.
+        Σ = spectrum(h; format=:dense) # lazy diagonalization
 
-        Σ = spectrum(h; format=:dense)
+        if verbose
+            @info("Updating chemical potential for given filling.")
+        end
         μ = chemical_potential(h, ks, filling; T=T)#; type=type)
 
         # Obtain the meanfield density matrix of the updated Hamiltonian
+        if verbose
+            @info("Updating the meanfield density matrix.")
+        end
         ϵ0 = ρ_L!(ρ1, Σ, ks, μ; T=T)
 
         ϵ0 # return the groundstate energy (density matrix was written to ρ1)
@@ -115,7 +121,7 @@ function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
 
     ϵ0, error, converged = search_fixedpoint!(update_ρ!, ρ1, ρ0; iterations=iterations, tol=tol, kwargs...)
 
-    ρBloch = build_BlochH(ρ1; mode=:nospin)
+    ρBloch = get_bloch(ρ1; mode=:nospin)
 
     hBloch = ℋ_op(ρ1)
     ϵ_offset = ℋ_scalar(ρ1)
@@ -273,51 +279,3 @@ function get_mf_operator(v::Dict{Vector{Int},T2}; format=:sparse) where {T1<:Com
 
     mf_op, mf_scalar
 end
-
-# function get_mf_operator(v::Dict{Vector{Int},T2}; format=:sparse) where {T1<:Complex, T2<:AbstractMatrix{T1}}
-#     """
-#         Expects the real space potential {V(L) | L unit cell vector}.
-#         It returns a functional 𝒱[ρ,k] that builds the mean field hamiltonian
-#         (i.e. h_v(k) = 𝒱[ρ,k]).
-#
-#         This may look harmless but requires a careful derivation.
-#     """
-#
-#     d = size(first(values(v)),1)
-#     vsym(L::Vector{Int}) = 0.5 .* (v[L].+(v[L])')
-#
-#     function mf_op(ρs::Dict{Vector{Int},T2}, k::AbstractVector{Float64}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
-#
-#         # Hartree contribution
-#         vρ = getdiag(ρs[[0,0]])
-#
-#         H_hartree = spdiagm(0 => vsym([0,0]) * vρ)
-#         # e_hartree = - 1/2 * (vρ' * v[[0,0]] * vρ)
-#         # @assert imag(e_hartree) ≈ 0
-#
-#         # Fock contribution
-#         H_fock(k) = - sum(vsym(L) .* transpose(ρL) .* BlochPhase(k,L) for (L,ρL) in ρs)
-#         #e_fock =  1/2 * sum(sum(ρL .* transpose(ρL) .* vsym(L) for (L,ρL) in ρs))
-#         # @assert imag(e_hartree) ≈ 0
-#
-#         H_hartree + H_fock(k) #+ real(e_hartree) * I + real(e_fock) * I
-#     end
-#
-#     function mf_scalar(ρs::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
-#
-#         # Hartree contribution
-#         vρ = getdiag(ρs[[0,0]])
-#
-#         e_hartree = - 1/2 * (vρ' * v[[0,0]] * vρ)
-#         @assert imag(e_hartree) ≈ 0
-#
-#         # Fock contribution
-#         e_fock =  1/2 * sum(sum(ρL .* transpose(ρL) .* v[L] for (L,ρL) in ρs))
-#         # e_fock = 0.0
-#         @assert imag(e_hartree) ≈ 0
-#
-#         real(e_hartree + e_fock)
-#     end
-#
-#     mf_op, mf_scalar
-# end
