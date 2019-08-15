@@ -10,7 +10,7 @@
 end
 
 function build_H(args...; kwargs...)
-    @warning("Deprecation warning: build_H() was renamed to get_hamiltonian() and is marked for removal.")
+    @warn("Deprecation warning: build_H() was renamed to get_hamiltonian() and is marked for removal.")
     get_hamiltonian(args...; kwargs...)
 end
 
