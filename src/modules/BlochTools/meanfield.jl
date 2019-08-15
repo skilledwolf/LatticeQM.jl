@@ -4,7 +4,9 @@ function search_fixedpoint!(f!, x1, x0;
     iterations=500,
     tol=1e-7, β=1.0,
     p_norm::Real=2,
-    show_trace=false)
+    show_trace=false,
+    clear_trace=false
+    )
     # show_report=false)
     """
         Fixedpoint iteration, tested on the square-root example
@@ -34,9 +36,9 @@ function search_fixedpoint!(f!, x1, x0;
         error = norm(values(x1).-values(x0), p_norm)
 
         if show_trace
-            print("\r")
+            if clear_trace print("\r") end
             print(@sprintf(" %d  \t %.2E", iter, error))
-            print("\u1b[0K")
+            if clear_trace print("\u1b[0K") else println("") end
         end
 
         if error < tol
@@ -91,14 +93,14 @@ function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
         Note: this amounts to a fixed-point search.
     """
 
-    type = issparse(ℋ_op(ρ_init)(ks[:,1])) ? :sparse : :dense # Decide if the Hamiltonian is sparse
+    # type = issparse(ℋ_op(ρ_init)(ks[:,1])) ? :sparse : :dense # Decide if the Hamiltonian is sparse
 
     function update_ρ!(ρ1, ρ0)
 
         # Update meanfield Hamiltonian and chemical potential
         h = ℋ_op(ρ0) # probably o.k.
 
-        Σ = spectrum(h; format=format)
+        Σ = spectrum(h; format=:dense)
         μ = chemical_potential(h, ks, filling; T=T)#; type=type)
 
         # Obtain the meanfield density matrix of the updated Hamiltonian

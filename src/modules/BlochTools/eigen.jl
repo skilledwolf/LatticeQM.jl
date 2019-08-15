@@ -42,6 +42,7 @@ function ϵs(h::Function; format=:dense, kwargs...)
         ϵs_sparse(h; kwargs...)
     end
 end
+
 function spectrum(h::Function; format=:dense, num_bands=nothing, kwargs...)
     if format==:dense
         eigen_dense(h; kwargs...)
@@ -76,6 +77,7 @@ energies_wfs(h::Function, ks::kIterable)  = Base.Generator(eigen_dense(h), eachp
     # ========================================
 
 using Distributed
+using ProgressMeter
 
 bandmatrix(h::Function, ks::kIterable) = matrixcollect(energies(h, ks))
 
@@ -115,20 +117,36 @@ function get_bands(h::Function, ks::kIterable; projector=nothing, num_bands=noth
         obs = convert(SharedArray, obs)
     end
 
-    @sync @distributed for j_=1:N
-        k = ks[:,j_]
-        ϵs, U = Σ(k)
+    ## EXPERIMENTAL USE OF THE PROGRESS BAR. Spoiler: does not work -.-
+    p = Progress(N, 0.1, "Computing bands...")
+    channel = RemoteChannel(()->Channel{Bool}(10), 1)
 
-        bands[:,j_] .= real.(ϵs)
+    @sync begin
+        # this task prints the progress bar
+        @async while take!(channel)
+            next!(p)
+        end
 
-        if projector != nothing
-            for (i_,ψ)=enumerate(eachcol(U))
-                for (n_, proj)=enumerate(projector)
-                    obs[i_,j_,n_] = proj(k,ψ,ϵs[i_])
+        # this task does the computation
+        @async begin
+            @distributed for j_=1:N
+                k = ks[:,j_]
+                ϵs, U = Σ(k)
+
+                bands[:,j_] .= real.(ϵs)
+
+                if projector != nothing
+                    for (i_,ψ)=enumerate(eachcol(U))
+                        for (n_, proj)=enumerate(projector)
+                            obs[i_,j_,n_] = proj(k,ψ,ϵs[i_])
+                        end
+                    end
                 end
             end
+            put!(channel, false) # this tells the printing task to finish
         end
     end
+    ## END OF EXPERIMENTAL USE OF THE PROGRESSBAR
 
     bands = convert(Array, bands)
 
