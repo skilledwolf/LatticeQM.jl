@@ -104,12 +104,14 @@ function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
         if verbose
             @info("Updating chemical potential for given filling.")
         end
+        #@time
         μ = chemical_potential(h, ks, filling; T=T)#; type=type)
 
         # Obtain the meanfield density matrix of the updated Hamiltonian
         if verbose
             @info("Updating the meanfield density matrix.")
         end
+        #@time
         ϵ0 = ρ_L!(ρ1, Σ, ks, μ; T=T)
 
         ϵ0 # return the groundstate energy (density matrix was written to ρ1)

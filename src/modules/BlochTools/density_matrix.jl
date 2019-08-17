@@ -51,34 +51,17 @@ function ρ_L!(ρs::Dict{Vector{Int},AbstractMatrix{ComplexF64}}, spectrum::Func
         ρs[δL][:] .= convert(SharedArray, zero(ρ0))[:]
     end
 
-    ## EXPERIMENTAL USAGE OF THE PROGRESS BAR
-    p = Progress(L, 0.1, "Computing density matrix...")
-    channel = RemoteChannel(()->Channel{Bool}(L), 1)
+    @distributed for i_=1:L
+    # for i_=1:L
+        k = ks[:,i_]
+        spectrum_k = spectrum(k)
 
-    @sync begin
-        # this task prints the progress bar
-        @async while take!(channel)
-            next!(p)
+        for δL=keys(ρs)
+            ρ_k!(ρs[δL], spectrum_k, μ; φk=BlochPhase(-k, δL), T=T)
         end
 
-        # this task does the computation
-        @async begin
-            @distributed for i_=1:L
-            # for i_=1:L
-                k = ks[:,i_]
-                spectrum_k = spectrum(k)
-
-                for δL=keys(ρs)
-                    ρ_k!(ρs[δL], spectrum_k, μ; φk=BlochPhase(-k, δL), T=T)
-                end
-
-                energies0_k[i_] = groundstate_sumk(spectrum_k[1], μ)
-            end
-
-            put!(channel, false) # this tells the printing task to finish
-        end
+        energies0_k[i_] = groundstate_sumk(spectrum_k[1], μ)
     end
-    ## END OF EXPERIMENTAL USE OF THE PROGRESSBAR
 
     for δL = keys(ρs)
         ρs[δL] ./= L

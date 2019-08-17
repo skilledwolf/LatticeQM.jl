@@ -6,7 +6,7 @@
     hops = get_hops(lat, neighbors, t; precision=precision, format=format)
 
     # Build the Bloch matrix by adding the hopping matrices with the correct phases
-    build_BlochH(hops; mode=mode)
+    get_bloch(hops; mode=mode)
 end
 
 function build_H(args...; kwargs...)
@@ -87,7 +87,7 @@ function build_hopmats(R, neighbors, δA, t; precision=precision)
             error("Not enough memory-reserved. Your problem does not appear to be sparse enough.")
         end
 
-        hops[δL] = sparse(IS[1:count], JS[1:count], VS[1:count], N, N)
+        hops[δL] = sparse(IS[1:count], JS[1:count], VS[1:count], N*d0, N*d0)
     end
 
     hops

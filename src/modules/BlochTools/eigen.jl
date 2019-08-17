@@ -35,11 +35,16 @@ end
 Us_sparse(h::Function; kwargs...) = k::AbstractVector{Float64} -> eigvecs_sparse(h(k); kwargs...)
 eigen_sparse(h::Function; kwargs...) = k::AbstractVector{Float64} -> eigen_sparse(h(k); kwargs...)
 
-function ϵs(h::Function; format=:dense, kwargs...)
+function ϵs(h::Function; format=:dense, num_bands=nothing, kwargs...)
     if format==:dense
         ϵs_dense(h; kwargs...)
     elseif format==:sparse
-        ϵs_sparse(h; kwargs...)
+
+        if num_bands==nothing
+            ϵs_sparse(h; kwargs...)
+        else
+            ϵs_sparse(h; nev=num_bands, kwargs...)
+        end
     end
 end
 
@@ -79,7 +84,7 @@ energies_wfs(h::Function, ks::kIterable)  = Base.Generator(eigen_dense(h), eachp
 using Distributed
 using ProgressMeter
 
-bandmatrix(h::Function, ks::kIterable) = matrixcollect(energies(h, ks))
+# bandmatrix(h::Function, ks::kIterable) = matrixcollect(energies(h, ks))
 
 function get_bands(h::Function, ks::kIterable; projector=nothing, num_bands=nothing, kwargs...)
     """
@@ -159,8 +164,30 @@ function get_bands(h::Function, ks::kIterable; projector=nothing, num_bands=noth
     bands, obs
 end
 
-function bandmatrix_parallel(h::Function, ks)
-    matrixcollect(pmap(ϵs_dense(h), eachpoint(ks)))
+# function bandmatrix_parallel(h::Function, ks; kwargs...)
+#     matrixcollect(pmap(ϵs(h; kwargs...), eachpoint(ks)))
+# end
+
+function bandmatrix(h::Function, ks; num_bands=nothing, kwargs...)
+    ks = points(ks)
+    L = size(ks)[2]         # no. of k points
+
+    if num_bands != nothing
+        M = num_bands
+    else
+        M = size(h(ks[:,1]))[1] # no. of bands
+    end
+
+
+    bands = convert(SharedArray, zeros(Float64, M, L))
+
+    energies = ϵs(h; num_bands=num_bands, kwargs...)
+    @sync @distributed for j_=1:L
+
+        bands[:,j_] .= real.(energies(ks[:,j_]))
+    end
+
+    bands
 end
 
 function groundstate_sumk(ϵs_k::AbstractVector{Float64}, μ::Float64=0.0; kwargs...)
@@ -195,45 +222,54 @@ end
 ###################################################################################################
 ###################################################################################################
 
+# TODO: implement chemical_potential!(bands::AbstractMatrix, ...)
+# the repeated allocation of bands is problematic for large systems!
+
 function chemical_potential(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64; T::AbstractFloat=0.0)
+
+    energies = bandmatrix(hamiltonian, ks)[:]
+    nk = size(ks,2)
+
+    chemical_potential!(energies, nk, filling; T=T)
+end
+
+function chemical_potential!(energies::AbstractVector{Float64}, nk::Int, filling::Float64; T::AbstractFloat=0.0)
+
     if T==0.0
-        μ = chemical_potential_0(hamiltonian, ks, filling)
+        μ = chemical_potential_0!(energies, filling)
     else
-        μ = chemical_potential_T(hamiltonian, ks, filling; T=T)
+        μ = chemical_potential_T!(energies, nk, filling; T=T)
     end
 
     μ
 end
 
-function chemical_potential_0(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64)
+function chemical_potential_0!(energies::AbstractVector{Float64}, filling::Float64)
 
-    energies = sort(reshape(bandmatrix_parallel(hamiltonian, ks), :))
+    i = floor(Int, filling * length(energies)) # fill a fraction of states according to ,,filling''
 
-    i = floor(Int, filling * size(energies,1)) # fill a fraction of states according to ,,filling''
+    e1, e2 = partialsort!(energies, i:i+1)
 
-    (energies[i] + energies[i+1])/2.0
+    # sort!(energies)
+    # e1, e2 = energies[i:i+1]
+
+    (e1+e2)/2
 end
 
 using NLsolve
 
-function chemical_potential_T(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64; T::Float64=0.01)
+function chemical_potential_T!(energies::AbstractVector{Float64}, nk::Int, filling::Float64; T::Float64=0.01)
 
-    d = size(hamiltonian(first(eachcol(ks))), 1)
-    N = size(ks,2)
-
-    bands = bandmatrix_parallel(hamiltonian, ks)
-    energies = sort(reshape(bands, :))
-
-    N_occ = floor(Int, filling * length(bands)) # fill a fraction of states according to ,,filling''
+    d = div(length(energies),nk)
 
     # Initial guess for T=0
-    μ0 = (energies[N_occ] + energies[N_occ+1])/2.0
+    μ0 = chemical_potential_0!(energies, filling)
 
     ##########################################
     ###  Solve  n(μ_star) = N_occ for μ_star
     ##########################################
 
-    n(μ::AbstractFloat) = sum(fermidirac(ϵ-μ; T=T) for ϵ=bands)/N
+    n(μ::AbstractFloat) = sum(fermidirac(ϵ-μ; T=T) for ϵ=energies)/nk
 
     function δn!(δn::T, μ::T) where {T2<:AbstractFloat, T<:AbstractArray{T2}}
         δn[1] = n(μ[1]) - d * filling

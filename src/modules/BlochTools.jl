@@ -9,7 +9,7 @@ module BlochTools
 
     using ..KSpace
 
-    using ..TightBinding: build_BlochH, get_operator
+    using ..TightBinding: get_bloch, get_operator
 
     export get_bands, spectrum, eigen, chemical_potential
     export solve_selfconsistent, initialize_ρ
