@@ -190,7 +190,7 @@ function bandmatrix(h::Function, ks; num_bands=nothing, kwargs...)
     bands
 end
 
-function groundstate_sumk(ϵs_k::AbstractVector{Float64}, μ::Float64=0.0; kwargs...)
+@fastmath function groundstate_sumk(ϵs_k::AbstractVector{Float64}, μ::Float64=0.0; kwargs...)
     tmp = 0.0
     for ϵ in ϵs_k
         if ϵ <= μ
