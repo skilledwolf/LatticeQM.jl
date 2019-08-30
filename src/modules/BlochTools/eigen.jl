@@ -24,7 +24,7 @@ end
 Us_dense(h::Function, k::AbstractVector{Float64}) = k::AbstractVector{Float64} -> eigvecs(Matrix(h(k)))
 function eigen_dense(h::Function)
     function atK(k::AbstractVector{Float64})
-        F = eigen(Matrix(h(k)))
+        F = eigen(Hermitian(h(k)))
         F.values, F.vectors
     end
     atK

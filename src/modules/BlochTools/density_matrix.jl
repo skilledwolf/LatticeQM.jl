@@ -56,10 +56,14 @@ function ρ_L!(ρs::Dict{Vector{Int},AbstractMatrix{ComplexF64}}, spectrum::Func
     @sync @distributed for i_=1:L
 
         k = ks[:,i_]
-        energies_k, U_k = spectrum(k)
+        @time energies_k, U_k = spectrum(k)
 
         for δL=keys(ρs)
-            ρ_k!(ρs[δL], energies_k, U_k, μ; φk=BlochPhase(-k, δL), T=T)
+
+            for (ϵ, ψ) in zip(energies_k, eachcol(U_k)) # this loop used to be seperate in ρ_k!(...)
+                ρs[δL][:] .+= (fermidirac(ϵ-μ; T=T) .* (ψ * ψ') .* BlochPhase(-k, δL))[:]
+            end
+
         end
 
         energies0_k[i_] = groundstate_sumk(energies_k, μ)

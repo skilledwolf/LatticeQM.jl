@@ -16,7 +16,7 @@ function bandplot!(p, bands::Matrix{Float64}, ks::DiscretePath; μ=0.0, zcolor=n
     if zcolor == nothing
         scatter!(p,transpose(bands),
             legend=:none,
-            m=(:RdBu, 0.8, Plots.stroke(0, :none)),
+            m=(:black, 0.8, Plots.stroke(0, :none)),
             markersize=markersize,
             size=plotsize,
             ylims=ylims,
