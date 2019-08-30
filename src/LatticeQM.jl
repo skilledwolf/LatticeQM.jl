@@ -1,14 +1,14 @@
-# __precompile__()
-module LatticeQM # renamed from LatticeToolbox
+__precompile__()
+module LatticeQM # renamed from LatticeQM
 
     using Base, ElasticArrays, SparseArrays, LinearAlgebra
 
-    # Export the base modules
-    export LatticeTools, KSpace, BlochTools, TightBinding, Plotting
+    # Export our base modules
+    export Structure, KSpace, BlochTools, TightBinding, Plotting
 
     ### Base modules
-    include("modules/LatticeTools.jl")
-    using .LatticeTools
+    include("modules/Structure.jl")
+    using .Structure
 
     include("modules/KSpace.jl")
     using .KSpace

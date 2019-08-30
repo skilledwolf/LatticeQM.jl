@@ -1,5 +1,5 @@
 
-using ..LatticeTools: Lattice, repeat_atoms, get_filtered_positions
+using ..Structure: Lattice, repeat_atoms, get_filtered_positions
 
 export unitcellplot_layers, unitcellplot_layers!
 

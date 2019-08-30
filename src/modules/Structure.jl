@@ -1,6 +1,6 @@
 __precompile__()
 
-module LatticeTools
+module Structure # renamed from Structure
 ################################################################################
 ################################################################################
 
@@ -12,15 +12,15 @@ using HDF5
 ################################################################################
 ################################################################################
 
-include("LatticeTools/struct.jl")
-include("LatticeTools/export.jl")
+include("Structure/struct.jl")
+include("Structure/export.jl")
 
 ################################################################################
 ################################################################################
 
-include("LatticeTools/properties.jl")
-include("LatticeTools/methods.jl")
-include("LatticeTools/supercell.jl")
+include("Structure/properties.jl")
+include("Structure/methods.jl")
+include("Structure/supercell.jl")
 
 ################################################################################
 ################################################################################
