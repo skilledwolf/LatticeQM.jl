@@ -1,5 +1,5 @@
 # __precompile__()
-module LatticeToolbox
+module LatticeQM # renamed from LatticeToolbox
 
     using Base, ElasticArrays, SparseArrays, LinearAlgebra
 
