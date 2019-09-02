@@ -32,10 +32,10 @@ function Lattice(A::T, atoms::T; extradimensions::Vector{String}=Vector{String}(
     # extradimensions_dict = Dict{String,Int}(key=>index for (index,key) in enumerate(extradimensions))
     # Lattice{T}(A, atoms, atoms_aux, extradimensions_dict)
 
-    Lattice(A, atoms, atoms_aux, extradimensions_dict, highsymmetrypoints)
+    Lattice(A, atoms, atoms_aux; extradimensions=extradimensions_dict, highsymmetrypoints=highsymmetrypoints)
 end
 
-function Lattice(A::T, atoms::T, atoms_aux::T; extradimensions::Vector{String}=Vector{String}(), highsymmetrypoints) where {T<:AbstractMatrix{Float64}}
+function Lattice(A::T, atoms::T, atoms_aux::T; extradimensions::Vector{String}=Vector{String}(), highsymmetrypoints=kpoints) where {T<:AbstractMatrix{Float64}}
     @assert size(atoms)[1] == size(A)[1]
     @assert size(A)[1] == size(A)[2]
     @assert size(atoms_aux)[2] == size(atoms)[2]

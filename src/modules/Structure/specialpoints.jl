@@ -5,7 +5,7 @@ mutable struct PointDict
 end
 
 # Initialization
-PointDict() = PointDict(Dict{String,AbstractVector{Float64}}(), Dict{String,String}(), Vector{String}([]))
+# PointDict() = PointDict(Dict{String,AbstractVector{Float64}}(), Dict{String,String}(), Vector{String}([]))
 
 function PointDict(names::Vector{String}, coord::Vector{T}, label::Vector{String}, default::Vector{String}) where {T<:AbstractVector{Float64}}
     coord_dict = Dict(a=>b for (a,b) in zip(names, coord))
