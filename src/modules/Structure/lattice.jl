@@ -14,28 +14,33 @@ mutable struct Lattice{T<:AbstractMatrix{Float64}}
 
     atoms_aux::T # D × N
     extradimensions::Dict{String,Int}
+
+    highsymmetrypoints::PointDict
 end
 
 Lattice(A::T) where {T<:AbstractMatrix{Float64}} = Lattice{T}(A, zeros(Float64, size(A)[1], 1))
 
-function Lattice(A::T, atoms::T; extradimensions::Vector{String}=Vector{String}()) where {T<:AbstractMatrix{Float64}}
+kdict = PointDict(Dict{String,AbstractVector{Float64}}(), Dict{String,String}(), Vector{String}([]))
+
+function Lattice(A::T, atoms::T; extradimensions::Vector{String}=Vector{String}(), highsymmetrypoints=kdict) where {T<:AbstractMatrix{Float64}}
     @assert size(atoms)[1] == size(A)[1]
     @assert size(A)[1] == size(A)[2]
 
     L = size(extradimensions)
-
     atoms_aux = zeros(Float64, L, size(atoms)[2]) # by default there is no perpendicular space
-    extradimensions_dict = Dict{String,Int}(key=>index for (index,key) in enumerate(extradimensions))
 
-    Lattice{T}(A, atoms, atoms_aux, extradimensions_dict)
+    # extradimensions_dict = Dict{String,Int}(key=>index for (index,key) in enumerate(extradimensions))
+    # Lattice{T}(A, atoms, atoms_aux, extradimensions_dict)
+
+    Lattice(A, atoms, atoms_aux, extradimensions_dict, highsymmetrypoints)
 end
 
-function Lattice(A::T, atoms::T, atoms_aux::T; extradimensions::Vector{String}=Vector{String}()) where {T<:AbstractMatrix{Float64}}
+function Lattice(A::T, atoms::T, atoms_aux::T; extradimensions::Vector{String}=Vector{String}(), highsymmetrypoints) where {T<:AbstractMatrix{Float64}}
     @assert size(atoms)[1] == size(A)[1]
     @assert size(A)[1] == size(A)[2]
     @assert size(atoms_aux)[2] == size(atoms)[2]
 
     extradimensions_dict = Dict{String,UInt}(key=>index for (index,key) in enumerate(extradimensions))
 
-    Lattice{T}(A, atoms, atoms_aux, extradimensions_dict)
+    Lattice{T}(A, atoms, atoms_aux, extradimensions_dict, highsymmetrypoints)
 end

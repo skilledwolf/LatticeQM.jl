@@ -12,7 +12,7 @@ export PointDict, DiscretePath, eachpoint, scaled_ticks
 
 ####################################################################################
 
-include("KSpace/struct_PathDict.jl")
+include("KSpace/struct_PointDict.jl")
 include("KSpace/struct_DiscretePath.jl")
 
 include("KSpace/samplepoints.jl")

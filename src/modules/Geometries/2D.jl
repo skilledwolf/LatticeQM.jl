@@ -1,0 +1,82 @@
+__precompile__()
+
+module Geometries2D
+
+    using Base, LinearAlgebra
+
+    using LatticeQM
+    import ..Structure: Lattice, has_dimension, get_positions_in, atom_count, positions, twist_triangular_2D
+
+    import ..kSpace: PointDict
+
+    import ..: σ0, σX, σY, σZ, σs
+
+    # Dictionary to construct Paths in k space
+    kdict_tri = PointDict(
+        ["γ", "κ", "μ", "κ'"],
+        [[0.0;  0.0], [1/3;  2/3], [1/2;  1/2], [2/3;  1/3]],
+        ["\$\\gamma\$", "\$\\kappa\$", "\$\\mu\$", "\$\\kappa'\$"],
+        ["γ", "κ", "μ", "κ'", "γ"]
+    )
+
+    # Should implement this (or a similar) form in the future:
+    # kdict_tri = PointDict(
+    #     "γ" => (label="\$\\gamma\$", coord=[0.0;  0.0]),
+    #     "κ" => (label="\$\\kappa\$", coord=[1/3;  2/3]),
+    #     "μ" => (label="\$\\mu\$", coord=[1/2;  1/2]),
+    #     "κ'" => (label="\$\\kappa'\$", coord=[2/3;  1/3]),
+    # )
+
+    #### Define simple honeycomb systems
+    A_tri = sqrt(3) .* [[cos(pi/6);  -sin(pi/6)]  [cos(pi/6);  sin(pi/6)]]
+    δ_hex = [1/3; 1/3]
+
+    honeycomb(a::Float64=1.0) = Lattice(
+        a .* A_tri,
+        [[0.0;0.0]  δ_hex  ],
+        [ 0.0 0.0; 0 1 ];
+        extradimensions=["z", "sublattice"]
+    )
+
+    honeycomb_AA(a::Float64=1.0, z::Float64=3.0) = Lattice(
+        a .* A_tri,
+        [[0.0;0.0]  δ_hex [0.0;0.0] δ_hex],
+        [ 0 0 z z; 0 1 0 1 ];
+        extradimensions=["z", "sublattice"]
+    )
+
+    honeycomb_AB(a::Float64=1.0, z::Float64=3.0) = Lattice(
+        a .* A_tri,
+        [[0.0;0.0]  δ_hex   -δ_hex   δ_hex],
+        [ 0 0 z z; 0 1 0 1 ];
+        extradimensions=["z", "sublattice"]
+    )
+
+    honeycomb_BA(a::Float64=1.0, z::Float64=3.0) = Lattice(
+        a .* A_tri,
+        [[0.0;0.0]   δ_hex   δ_hex  2*δ_hex],
+        [ 0 0 z z; 0 1 0 1 ];
+        extradimensions=["z", "sublattice"]
+    )
+
+    function honeycomb_twisted(N::Int, a::Float64=1.0, z::Float64=3.0)
+        lat = monolayer(a)
+        return twist_triangular_2D(lat, lat, N; z=z, m=1)
+    end
+
+    function honeycomb_twisted_ABBA(N::Int, a::Float64=1.0, z::Float64=3.0)
+        lat1 = bilayer_AB(a, z)
+        lat2 = bilayer_AB(a, z)
+
+        return twist_triangular_2D(lat1, lat2, N; z=z, m=1)
+    end
+
+    function honeycomb_twisted_ABAB(N::Int, a::Float64=1.0, z::Float64=3.0)
+        lat1 = bilayer_AB(a, z)
+        lat2 = bilayer_BA(a, z)
+
+        return twist_triangular_2D(lat1, lat2, N; z=z, m=1)
+    end
+
+
+end

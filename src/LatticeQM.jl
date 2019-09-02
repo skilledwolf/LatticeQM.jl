@@ -22,4 +22,8 @@ module LatticeQM # renamed from LatticeQM
     include("modules/Plotting.jl")
     using .Plotting
 
+
+    ### Higher-level modules
+    include("modules/Geometries.jl")
+
 end

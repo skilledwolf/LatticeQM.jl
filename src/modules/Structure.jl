@@ -12,15 +12,18 @@ using HDF5
 ################################################################################
 ################################################################################
 
-include("Structure/struct.jl")
+include("Structure/lattice.jl")
+
+include("Structure/lattice_modify.jl")
+include("Structure/lattice_properties.jl")
+
 include("Structure/export.jl")
 
 ################################################################################
 ################################################################################
 
-include("Structure/properties.jl")
-include("Structure/methods.jl")
 include("Structure/supercell.jl")
+include("Structure/trianguar_twist_2D.jl")
 
 ################################################################################
 ################################################################################
