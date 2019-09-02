@@ -12,9 +12,9 @@ using HDF5
 ################################################################################
 ################################################################################
 
-include("specialpoints.jl")
-include("kpath.jl")
-include("grid.jl")
+include("Structure/specialpoints.jl")
+include("Structure/kpath.jl")
+include("Structure/grid.jl")
 
 include("Structure/lattice.jl")
 include("Structure/lattice_modify.jl")
