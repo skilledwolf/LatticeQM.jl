@@ -1,4 +1,4 @@
-__precompile__()
+# __precompile__()
 
 module BlochTools
 
@@ -7,14 +7,17 @@ module BlochTools
     using LinearAlgebra
     using Arpack
 
-    using ..KSpace
+    # using ..KSpace
 
+    using ..Structure: kIterable, DiscretePath, eachpoint, points, sumk
     using ..TightBinding: get_bloch, get_operator
 
     export get_bands, spectrum, eigen, chemical_potential
     export solve_selfconsistent, initialize_ρ
 
     include("../misc/paulimatrices.jl")
+
+    include("BlochTools/types.jl")
 
     include("BlochTools/misc.jl")
     include("BlochTools/eigen.jl")

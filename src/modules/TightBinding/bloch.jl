@@ -1,30 +1,7 @@
 BlochPhase(k,δL)::ComplexF64  = exp(1.0im * 2 * π * ComplexF64(dot(k,δL)))
 
-function extend_space!(hoppings, mode=:nospin)
-    if mode==:nospin || mode==:id
-        return nothing
-    elseif mode==:spinhalf
-        for (δL, t) in hoppings
-            hoppings[δL] = kron(σ0, t) # add spin degree of freedom # we made the choice to group the matrix in spin blocks
-        end
-    elseif mode==:σx
-        for (δL, t) in hoppings
-            hoppings[δL] = kron(σX, t) # add spin degree of freedom # we made the choice to group the matrix in spin blocks
-        end
-    else
-        error("Do not recognize mode '$mode' in extend_space(...).")
-    end
 
-    nothing
-end
-
-# struct BlochOperator{T1<:AbstractMatrix}
-#     dim::Int
-#     spacedim::Int
-#     hops::Dict{Vector{Int}, T1}
-# end
-
-function get_bloch(hoppings::Dict{Vector{Int}, T1}; mode=:nospin, format=:auto, symmetric=true) where {T2<:Complex, T1<:AbstractMatrix{T2}} #; mode=:auto
+function get_bloch(hoppings::LatticeHops; mode=:nospin, symmetric=true) #; mode=:auto
 """
     Returns the Bloch Hamiltonian with the BZ mapped onto the unit square, i.e., k ∈ [0,1]×[0,1].
 
@@ -32,7 +9,7 @@ function get_bloch(hoppings::Dict{Vector{Int}, T1}; mode=:nospin, format=:auto, 
     the values are hopping matrices.
 """
 
-    extend_space!(hoppings, mode)
+    # hoppings = extend_space(hoppings, mode)
 
     function hamiltonian(k::AbstractVector{Float64})#T3 where {T4<:Real, T3<:AbstractVector{T4}}
 
@@ -46,6 +23,7 @@ function get_bloch(hoppings::Dict{Vector{Int}, T1}; mode=:nospin, format=:auto, 
 
     hamiltonian
 end
+
 
 function build_BlochH(args...; kwargs...)
     @warn("Deprecation warning: build_BlochH() was renamed to get_bloch() and is marked for removal.")

@@ -1,4 +1,4 @@
-rot(θ::Float64) = [cos(θ) -sin(θ); sin(θ) cos(θ)]
+# rot(θ::Float64) = [cos(θ) -sin(θ); sin(θ) cos(θ)]
 
 function fold_atoms!(lat::Lattice)
     lat.atoms .= mod.(lat.atoms, 1)
@@ -14,7 +14,7 @@ end
 
 function rotate_atoms_XY!(lat::Lattice, θ::Float64)
 
-    mat = inv(lat.A) * [cos(θ) -sin(θ); sin(θ) cos(θ)] * lat.A
+    mat = inv(lat.A) * rot(θ)* lat.A
 
     lat.atoms[1:2,:] .= mat * lat.atoms[1:2,:]
 

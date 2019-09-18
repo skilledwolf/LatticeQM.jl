@@ -10,7 +10,7 @@ function build_superlattice(lat::Lattice, superperiods::Matrix{Int})
     atoms_super = inv(superperiods) * hcat([lat.atoms .+ vec for vec in eachcol(superlattice_int)]...)
     atoms_aux_super = hcat([lat.atoms_aux for vec in eachcol(superlattice_int)]...) # this will copy info's such as z-coordinate or sublattice
 
-    return Lattice(Λ, atoms_super, atoms_aux_super, lat.extradimensions)
+    return Lattice(Λ, atoms_super, atoms_aux_super, lat.extradimensions, lat.highsymmetrypoints)
 end
 
 function repeat_atoms!(lat::Lattice, repeat=[0:0,0:0])

@@ -7,6 +7,8 @@ function get_operator(lat::Lattice, name::String, args...; kwargs...)
         return SY(lat, args...; kwargs...)
     elseif name == "MZ" || name == "SZ" || name == "spin"
         return SZ(lat, args...; kwargs...)
+    elseif name =="Sn"
+        return S_n(lat, args...; kwargs...)
     elseif name == "sublattice"
         return sublattice_N(lat, args...; kwargs...)
     elseif name == "sublatticeA"
@@ -102,17 +104,13 @@ function get_Hubbard(lat, neighbors=[[0;0]]; mode=:nospin, format=:auto, kwargs.
     """
     ee_exchange = get_hops(lat, neighbors, r->Hubbard(r; kwargs...); format=format)
 
-    extend_space!(ee_exchange, mode)
-
-    ee_exchange
+    extend_space(ee_exchange, mode)
 end
 
 function get_CappedYukawa(lat, neighbors=[[i;j] for i=-1:1 for j=-1:1]; mode=:nospin, format=:auto, kwargs...)
     ee_exchange = get_hops(lat, neighbors, r->CappedYukawa(r; kwargs...); format=format)
 
-    extend_space!(ee_exchange, mode)
-
-    ee_exchange
+    extend_space(ee_exchange, mode)
 end
 
 # build_CappedYukawa(lat; mode=:nospin, format=:auto, kwargs...) = build_H(lat, r->CappedYukawa(r; kwargs...); mode=mode, format=format)

@@ -1,5 +1,5 @@
 
-using ..KSpace: DiscretePath, scaled_ticks
+using ..Structure: DiscretePath, scaled_ticks
 
 export bandplot, bandplot!
 

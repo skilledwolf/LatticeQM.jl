@@ -86,20 +86,20 @@ using ProgressMeter
 
 # bandmatrix(h::Function, ks::kIterable) = matrixcollect(energies(h, ks))
 
-function get_bands(h::Function, ks::kIterable; projector=nothing, num_bands=nothing, kwargs...)
+function get_bands(h::Function, ks::DiscretePath; projector=nothing, num_bands=nothing, kwargs...)
     """
         h(k): returns hermitian Hamiltonian at k-point
         ks: collection of k points (see kIterable)
         projector: function that returns a real value for a given (k,ψ,E_k).
             can also be as Vector of such functions.
     """
-    ks = points(ks)
-    N = size(ks)[2]         # no. of k points
+    ks0 = points(ks)
+    N = size(ks0)[2]         # no. of k points
 
     if num_bands != nothing
         M = num_bands
     else
-        M = size(h(ks[:,1]))[1] # no. of bands
+        M = size(h(ks0[:,1]))[1] # no. of bands
     end
 
     bands = zeros(Float64, M, N)
@@ -122,7 +122,7 @@ function get_bands(h::Function, ks::kIterable; projector=nothing, num_bands=noth
         obs = convert(SharedArray, obs)
     end
 
-    ## EXPERIMENTAL USE OF THE PROGRESS BAR. Spoiler: does not work -.-
+    ## EXPERIMENTAL USE OF THE PROGRESS BAR. Spoiler: does not work -.- (does also not change performance...)
     p = Progress(N, 0.1, "Computing bands...")
     channel = RemoteChannel(()->Channel{Bool}(10), 1)
 
@@ -135,7 +135,7 @@ function get_bands(h::Function, ks::kIterable; projector=nothing, num_bands=noth
         # this task does the computation
         @async begin
             @distributed for j_=1:N
-                k = ks[:,j_]
+                k = ks0[:,j_]
                 ϵs, U = Σ(k)
 
                 bands[:,j_] .= real.(ϵs)
@@ -161,7 +161,7 @@ function get_bands(h::Function, ks::kIterable; projector=nothing, num_bands=noth
         obs = convert(Array, obs)
     end
 
-    bands, obs
+    BandData(bands, obs, ks)
 end
 
 # function bandmatrix_parallel(h::Function, ks; kwargs...)

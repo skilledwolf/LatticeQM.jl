@@ -20,7 +20,7 @@ function search_fixedpoint!(f!, x1, x0;
     if show_trace #|| show_report
         println("==============================")
         println(" FIXPOINT SEARCH ")
-        println(" #  \t error")
+        println(" #  \t error \t time/step [s]")
         println("==============================")
     end
 
@@ -29,15 +29,18 @@ function search_fixedpoint!(f!, x1, x0;
     while iter < iterations
         iter += 1
 
+
         # Perform a step
-        ϵ0 = f!(x1, x0)
+        t0 = time_ns()
+        timediff = @timed ϵ0 = f!(x1, x0)
+        t1 = (time_ns()-t0)/1e9
 
         # Convergence?
         error = norm(values(x1).-values(x0), p_norm)
 
         if show_trace
             if clear_trace print("\r") end
-            print(@sprintf(" %d  \t %.2E", iter, error))
+            print(@sprintf(" %d  \t %.2E \t %.2E", iter, error, t1))
             if clear_trace print("\u1b[0K") else println("") end
         end
 
@@ -104,13 +107,13 @@ function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
         if verbose
             @info("Updating chemical potential for given filling.")
         end
-        @time μ = chemical_potential(h, ks, filling; T=T)#; type=type)
+        μ = chemical_potential(h, ks, filling; T=T)#; type=type) # @time
 
         # Obtain the meanfield density matrix of the updated Hamiltonian
         if verbose
             @info("Updating the meanfield density matrix.")
         end
-        @time ϵ0 = ρ_L!(ρ1, Σ, ks, μ; T=T)
+        ϵ0 = ρ_L!(ρ1, Σ, ks, μ; T=T) # @time
 
         ϵ0 # return the groundstate energy (density matrix was written to ρ1)
     end
@@ -225,7 +228,7 @@ function get_mf_functional(h::Function, v::Dict{Vector{Int},T2}; format=:sparse)
     """
         This method takes the Hamiltonian single-particle operator h and an
         interaction potential v and returns mean-field functionals
-            ℋ, E s.t. h_mf = ℋ[ρ] and ϵ_gs = E[ρ].
+            ℋ, E  s.t.  h_mf = ℋ[ρ]  and  ϵ_gs = E[ρ].
 
         These functionals can be used to search for a self-consistent solution
         using solve_selfconsistent(...).

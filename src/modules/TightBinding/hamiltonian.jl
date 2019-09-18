@@ -1,38 +1,23 @@
-@fastmath function get_hamiltonian(lat::Lattice, t::Function; mode=:nospin, format=:auto, precision::Float64=1e-8)# where {T<:AbstractMatrix{Float64}}
+@fastmath function get_hamiltonian(args...; mode=:nospin, kwargs...)
+
+    # Build the Bloch matrix by adding the hopping matrices with the correct phases
+    get_bloch(get_hops(args...; kwargs...); mode=mode)
+end
+
+
+function get_hops(lat::Lattice, t::Function; format=:auto, precision::Float64=1e-8)# where {T<:AbstractMatrix{Float64}}
 
     # Get lattice neighbors
     neighbors = [[i;j] for i=-1:1 for j=-1:1 if i+j>=0 && i>=0]
 
-    hops = get_hops(lat, neighbors, t; precision=precision, format=format)
-
-    # Build the Bloch matrix by adding the hopping matrices with the correct phases
-    get_bloch(hops; mode=mode)
+    get_hops(lat, neighbors, t; precision=precision, format=format)
 end
 
-function build_H(args...; kwargs...)
-    @warn("Deprecation warning: build_H() was renamed to get_hamiltonian() and is marked for removal.")
-    get_hamiltonian(args...; kwargs...)
-end
-
-function decide_type(hops::Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}, format)
-
-    if format==:auto
-        N = size(first(values(hops)), 1)
-        if N < 301
-            format=:dense
-        end
-    end
-
-    if format==:dense
-        hops = Dict(δL => Matrix(t) for (δL, t) in hops)
-    end
-
-    hops
-end
 
 function get_hops(lat::Lattice, neighbors::Vector{Vector{Int}}, t::Function; kwargs...)
     get_hops(get_A_3D(lat), positions3D(lat), neighbors, t; kwargs...)
 end
+
 
 function get_hops(A::Matrix{Float64}, R::Matrix{Float64}, neighbors::Vector{Vector{Int}}, t::Function; precision::Float64=1e-8, format=:auto)
 
@@ -51,9 +36,10 @@ function get_hops(A::Matrix{Float64}, R::Matrix{Float64}, neighbors::Vector{Vect
     hops
 end
 
+
 function build_hopmats(R, neighbors, δA, t; precision=precision)
 
-    N = size(R)[2]
+    N = size(R,2)
 
     hops = Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}()
 
@@ -93,6 +79,7 @@ function build_hopmats(R, neighbors, δA, t; precision=precision)
     hops
 end
 
+
 function hopmat_from_gen!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64}, R0::Matrix{Float64}, V::Array{ComplexF64}, N::Int, maxind::Int, R::Matrix{Float64}, a::Vector{Float64}, t::F, d::Int; precision::Float64) where {F<:Function}
 
     count = 1
@@ -117,4 +104,15 @@ function hopmat_from_gen!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64
     end
 
     return count-1
+end
+
+
+
+################################################################################
+################################################################################
+################################################################################
+
+function build_H(args...; kwargs...)
+    @warn("Deprecation warning: build_H() was renamed to get_hamiltonian() and is marked for removal.")
+    get_hamiltonian(args...; kwargs...)
 end

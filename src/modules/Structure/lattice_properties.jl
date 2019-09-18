@@ -5,6 +5,12 @@ space_dim(lat::Lattice) = lattice_dim(lat) + auxspace_dim(lat)
 
 has_dimension(lat::Lattice, name::String) = haskey(lat.extradimensions, name)
 
+function assert_dimension(lat::Lattice, name::String)
+    if !has_dimension(lat, name)
+        error("No $name coordinates specified.")
+    end
+end
+
 get_A(lat::Lattice) = lat.A
 
 get_B(lat::Lattice) = inv(transpose(lat.A))

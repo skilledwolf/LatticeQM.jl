@@ -56,7 +56,7 @@ function ρ_L!(ρs::Dict{Vector{Int},AbstractMatrix{ComplexF64}}, spectrum::Func
     @sync @distributed for i_=1:L
 
         k = ks[:,i_]
-        @time energies_k, U_k = spectrum(k)
+        energies_k, U_k = spectrum(k) #@time
 
         for δL=keys(ρs)
 
