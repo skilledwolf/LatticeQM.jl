@@ -21,7 +21,7 @@ end
 
 # Dense methods
 ϵs_dense(h::Function) = k::AbstractVector{Float64} -> eigvals(Matrix(h(k)))
-Us_dense(h::Function, k::AbstractVector{Float64}) = k::AbstractVector{Float64} -> eigvecs(Matrix(h(k)))
+Us_dense(h::Function) = k::AbstractVector{Float64} -> eigvecs(Matrix(h(k)))
 function eigen_dense(h::Function)
     function atK(k::AbstractVector{Float64})
         F = eigen(Hermitian(h(k)))
@@ -44,6 +44,19 @@ function ϵs(h::Function; format=:dense, num_bands=nothing, kwargs...)
             ϵs_sparse(h; kwargs...)
         else
             ϵs_sparse(h; nev=num_bands, kwargs...)
+        end
+    end
+end
+
+function Us(h::Function; format=:dense, num_bands=nothing, kwargs...)
+    if format==:dense
+        Us_dense(h; kwargs...)
+    elseif format==:sparse
+
+        if num_bands==nothing
+            Us_sparse(h; kwargs...)
+        else
+            Us_sparse(h; nev=num_bands, kwargs...)
         end
     end
 end
@@ -84,8 +97,6 @@ energies_wfs(h::Function, ks::kIterable)  = Base.Generator(eigen_dense(h), eachp
 using Distributed
 using ProgressMeter
 
-# bandmatrix(h::Function, ks::kIterable) = matrixcollect(energies(h, ks))
-
 function get_bands(h::Function, ks::DiscretePath; projector=nothing, num_bands=nothing, kwargs...)
     """
         h(k): returns hermitian Hamiltonian at k-point
@@ -122,36 +133,51 @@ function get_bands(h::Function, ks::DiscretePath; projector=nothing, num_bands=n
         obs = convert(SharedArray, obs)
     end
 
-    ## EXPERIMENTAL USE OF THE PROGRESS BAR. Spoiler: does not work -.- (does also not change performance...)
-    p = Progress(N, 0.1, "Computing bands...")
-    channel = RemoteChannel(()->Channel{Bool}(10), 1)
+    @sync @distributed for j_=1:N
+        k = ks0[:,j_]
+        ϵs, U = Σ(k)
 
-    @sync begin
-        # this task prints the progress bar
-        @async while take!(channel)
-            next!(p)
-        end
+        bands[:,j_] .= real.(ϵs)
 
-        # this task does the computation
-        @async begin
-            @distributed for j_=1:N
-                k = ks0[:,j_]
-                ϵs, U = Σ(k)
-
-                bands[:,j_] .= real.(ϵs)
-
-                if projector != nothing
-                    for (i_,ψ)=enumerate(eachcol(U))
-                        for (n_, proj)=enumerate(projector)
-                            obs[i_,j_,n_] = proj(k,ψ,ϵs[i_])
-                        end
-                    end
+        if projector != nothing
+            for (i_,ψ)=enumerate(eachcol(U))
+                for (n_, proj)=enumerate(projector)
+                    obs[i_,j_,n_] = proj(k,ψ,ϵs[i_])
                 end
             end
-            put!(channel, false) # this tells the printing task to finish
         end
     end
-    ## END OF EXPERIMENTAL USE OF THE PROGRESSBAR
+
+    # ## EXPERIMENTAL USE OF THE PROGRESS BAR. Spoiler: does not work -.- (does also not change performance...)
+    # p = Progress(N, 0.1, "Computing bands...")
+    # channel = RemoteChannel(()->Channel{Bool}(10), 1)
+    #
+    # @sync begin
+    #     # this task prints the progress bar
+    #     @async while take!(channel)
+    #         next!(p)
+    #     end
+    #
+    #     # this task does the computation
+    #     @async begin
+    #         @distributed for j_=1:N
+    #             k = ks0[:,j_]
+    #             ϵs, U = Σ(k)
+    #
+    #             bands[:,j_] .= real.(ϵs)
+    #
+    #             if projector != nothing
+    #                 for (i_,ψ)=enumerate(eachcol(U))
+    #                     for (n_, proj)=enumerate(projector)
+    #                         obs[i_,j_,n_] = proj(k,ψ,ϵs[i_])
+    #                     end
+    #                 end
+    #             end
+    #         end
+    #         put!(channel, false) # this tells the printing task to finish
+    #     end
+    # end
+    # ## END OF EXPERIMENTAL USE OF THE PROGRESSBAR
 
     bands = convert(Array, bands)
 

@@ -55,15 +55,15 @@ function build_hopmats(R, neighbors, δA, t; precision=precision)
     if isa(v0, Number)
         d0=1
     elseif isa(v0, AbstractMatrix)
-        d0=size(v0)[1]
+        d0=size(v0,1)
     else
         error("Hopping function t must return number or matrix of number")
     end
 
     # Preallocate memory: important for huge sparse matrices
-    IS = ones(Int, maxind)
-    JS = ones(Int, maxind)
-    VS = zeros(ComplexF64, maxind*d0, d0)
+    IS = ones(Int, maxind*d0^2)
+    JS = ones(Int, maxind*d0^2)
+    VS = zeros(ComplexF64, maxind*d0^2, 1)
     R0 = zero(R)
     V =  zeros(ComplexF64, N*d0, d0)
 
@@ -87,18 +87,23 @@ function hopmat_from_gen!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64
     R0 .= R.+a
 
     for j=1:N
-        V .= vcat(t.(eachcol(R0.-R[:,j]))...)
+        tj(x) = t(x, R[:,j])
+        # V .= vcat(t.(eachcol(R0.-R[:,j]))...)
+        V .= vcat(tj.(eachcol(R0))...)
 
         for i=1:N
-            if abs(V[i]) > precision
-                if count > maxind
-                    break
-                end
-                IS[count] = i
-                JS[count] = j
-                VS[1+(count-1)*d:count*d,1:d] .= V[1+(i-1)*d:i*d, 1:d]
+            for i0=1:d, j0=1:d
+                if abs(V[(i-1)*d + i0, j0]) > precision
+                    if count > maxind
+                        break
+                    end
+                    IS[count] = (i-1)*d + i0
+                    JS[count] = (j-1)*d + j0
 
-                count = count+1
+                    VS[count] = V[(i-1)*d + i0, j0]
+
+                    count = count+1
+                end
             end
         end
     end

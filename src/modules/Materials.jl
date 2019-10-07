@@ -3,8 +3,8 @@ module Materials
 
 using LinearAlgebra
 
-using ..Structure: Lattice, assert_dimension, get_positions_in, atom_count, positions, lattice_dim
-using ..TightBinding: get_hamiltonian, get_bloch, get_hops, extend_space
+using ..Structure: Lattice, assert_dimension, has_dimension, get_positions_in, atom_count, positions, get_A, positions3D, get_A_3D, positionsND, lattice_dim
+using ..TightBinding: get_hamiltonian, get_bloch, get_hops, extend_space, get_neighbors, find_neighbors, find_common_neighbor
 
 include("../misc/paulimatrices.jl")
 

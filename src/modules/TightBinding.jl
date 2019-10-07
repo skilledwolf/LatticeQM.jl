@@ -8,7 +8,7 @@ using LinearAlgebra
 using SparseArrays
 using ElasticArrays, RecursiveArrayTools
 
-import ..Structure: Lattice, positions3D, get_A_3D, atom_count, has_dimension, get_positions_in
+import ..Structure: Lattice, positions, positionsND, positions3D, get_A, get_A_3D, atom_count, has_dimension, assert_dimension, get_positions_in
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -22,6 +22,8 @@ include("TightBinding/types.jl")
 include("TightBinding/bloch.jl")
 include("TightBinding/hamiltonian.jl")
 include("TightBinding/operators.jl")
+
+include("TightBinding/find_neighbors.jl")
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 end

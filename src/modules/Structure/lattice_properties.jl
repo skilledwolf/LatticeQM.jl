@@ -33,6 +33,17 @@ end
 
 positions(lat::Lattice) = lat.A * lat.atoms
 
+function positionsND(lat::Lattice; dims=:all) #::Vector{String}
+    if dims==:all
+        res = [ positions(lat); lat.atoms_aux ]
+    else
+        indices = [lat.extradimensions[dim] for dim=dims]
+        res = [ positions(lat); lat.atoms_aux[indices, :] ]
+    end
+
+    res
+end
+
 function positions3D(lat::Lattice)
 
     pos = positions(lat)
@@ -61,17 +72,17 @@ function get_positions_in(lat::Lattice, aux_dim::String)
     lat.atoms_aux[lat.extradimensions[aux_dim],:]
 end
 
+function get_filtered_indices(lat::Lattice, name::String, condition::Function)
+    return [index for (index, val) in enumerate(lat.atoms_aux[lat.extradimensions[name],:]) if condition(val)]
+end
+
 function get_filtered_positions(lat::Lattice, name::String, condition::Function)
-
-    indices = [index for (index, val) in enumerate(lat.atoms_aux[lat.extradimensions[name],:]) if condition(val)]
-
+    indices = get_filtered_indices(lat, name, condition)
     return positions(lat)[:,indices]
 end
 
 function get_filtered_coordinates(lat::Lattice, name::String, condition::Function)
-
-    indices = [index for (index, val) in enumerate(lat.atoms_aux[lat.extradimensions[name],:]) if condition(val)]
-
+    indices = get_filtered_indices(lat, name, condition)
     return lat.atoms[:,indices]
 end
 

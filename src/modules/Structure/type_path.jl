@@ -22,7 +22,7 @@ DummySave.save(data::DiscretePath, filename::String="kpath.h5") = DummySave.save
 ################################################################################
 
 # Initialization
-function DiscretePath(kDict0::PointDict, named_path::Vector{String}; B::AbstractMatrix=I, num_points::Int=60)
+function DiscretePath(kDict0::PointDict, named_path::Vector{String}; B::AbstractMatrix=1.0I, num_points::Int=60)
 
     ticklabels = [kDict0.label[key] for key in named_path]
 

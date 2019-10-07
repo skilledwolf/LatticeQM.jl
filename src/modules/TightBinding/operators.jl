@@ -7,8 +7,14 @@ function get_operator(lat::Lattice, name::String, args...; kwargs...)
         return SY(lat, args...; kwargs...)
     elseif name == "MZ" || name == "SZ" || name == "spin"
         return SZ(lat, args...; kwargs...)
+    elseif name == "spinUP"
+        return Sup(lat, args...; kwargs...)
+    elseif name == "spinDOWN"
+        return Sdown(lat, args...;kwargs...)
     elseif name =="Sn"
         return S_n(lat, args...; kwargs...)
+    elseif name =="layer"
+        return layer_op(lat, args...; kwargs...)
     elseif name == "sublattice"
         return sublattice_N(lat, args...; kwargs...)
     elseif name == "sublatticeA"
@@ -33,6 +39,10 @@ get_operator(lat::Lattice, names::AbstractVector{String}, args...; kwargs...) = 
 get_projector(lat::Lattice, name::String, args...; kwargs...) = expval_f(get_operator(lat, name, args...; kwargs...))
 get_projector(lat::Lattice, names::AbstractVector{String}, args...; kwargs...) = [expval_f(get_operator(lat, name, args...; kwargs...)) for name=names]
 
+# Note: get_projector is a "bad" name and should be moved to get_expvalf
+#       generally I use mostly for expectation values in bandstructures,
+#       not projections onto basis
+
 ################################################################################
 ################################################################################
 ################################################################################
@@ -46,6 +56,26 @@ end
 ################################################################################
 ################################################################################
 ################################################################################
+
+function layer_op(lat::Lattice, d=1)
+    """
+    typically n=0 for sublattice A and n=1 for sublattice B and d=2 for spin-1/2
+    """
+
+    assert_dimension(lat, "z")
+
+    z = get_positions_in(lat, "z")
+
+    zmin = minimum(z)
+    zmax = maximum(z)
+
+    z = 2.0 .* ( (z .- zmin) ./ (zmax-zmin) .- 0.5 )
+
+    # filtered_sublattice = Array{Float64}(sublattice .== n)
+
+
+    kron(Diagonal(z), Diagonal(ones(d)))
+end
 
 function sublattice_N(lat::Lattice, n, d=1)
     """
@@ -61,22 +91,33 @@ function sublattice_N(lat::Lattice, n, d=1)
     filtered_sublattice = Array{Float64}(sublattice .== n)
 
 
-    kron(Diagonal(ones(d)), Diagonal(filtered_sublattice))
+    kron(Diagonal(filtered_sublattice), Diagonal(ones(d)))
 end
 
 ################################################################################
 ################################################################################
 ################################################################################
 
+function S0(lat::Lattice)
+    N = atom_count(lat)
+
+    # d.σ ⊗ 𝟙_N
+    Diagonal(ones(2*N))
+end
+
 function S_n(lat::Lattice, n::Vector{Float64})
     N = atom_count(lat)
 
-    kron( sum(n[i] .* σs[i] for i=1:3) , Diagonal(ones(N)))
+    # d.σ ⊗ 𝟙_N
+    kron(Diagonal(ones(N)), sum(n[i] .* σs[i] for i=1:3))
 end
 
 SX(lat::Lattice) = S_n(lat, [1.0, 0.0, 0.0])
 SY(lat::Lattice) = S_n(lat, [0.0, 1.0, 0.0])
 SZ(lat::Lattice) = S_n(lat, [0.0, 0.0, 1.0])
+
+Sup(lat::Lattice) = 0.5 .* (S0(lat) .+ SZ(lat))
+Sdown(lat::Lattice) = 0.5 .* (S0(lat) .- SZ(lat))
 
 MX = SX
 MY = SY

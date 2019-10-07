@@ -6,6 +6,7 @@ function ldos_at_k!(n::AbstractVector{Float64}, eigen::Function, k::AbstractVect
         for ω in ωs
             n[:] .+= imag( abs2.(ψ)./(ω + 1.0im * Γ - ϵ) )
         end
+        n[:] ./ size(ωs)
     end
 
     nothing
@@ -41,6 +42,23 @@ function ldos(hamiltonian::Function, ks::AbstractMatrix{Float64}, ωs::AbstractV
     end
 
     ldos_parallel!(n, eigen, ks, ωs; Γ=Γ)
+
+    n
+end
+
+function ldos(hamiltonian::Function, ks::AbstractMatrix{Float64}, ωs::Float64; Γ::Float64, type=:sparse, kwargs...)
+
+    n = zeros(Float64, size(hamiltonian(ks[:,1]))[1])
+
+    if type==:sparse
+        eigen = eigen_sparse(hamiltonian; kwargs...)
+    elseif type==:dense
+        eigen = eigen_dense(hamiltonian; kwargs...)
+    else
+        error("Invalid type-mode in ldos.")
+    end
+
+    ldos_parallel!(n, eigen, ks, [ωs]; Γ=Γ)
 
     n
 end

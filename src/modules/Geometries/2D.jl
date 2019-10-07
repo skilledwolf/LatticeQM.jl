@@ -52,11 +52,19 @@ module Geometries2D
 
     honeycomb_BA(a::Float64=1.0, z::Float64=3.0) = Lattice(
         a .* A_tri,
-        [[0.0;0.0]   δ_hex   δ_hex  2*δ_hex],
+        [[0.0;0.0]  -δ_hex   δ_hex   -δ_hex],
         [ 0 0 z z; 0 1 0 1 ];
         extradimensions=["z", "sublattice"],
         highsymmetrypoints=kdict_tri
     )
+
+    # honeycomb_BA(a::Float64=1.0, z::Float64=3.0) = Lattice(
+    #     a .* A_tri,
+    #     [[0.0;0.0]   δ_hex   δ_hex  2*δ_hex],
+    #     [ 0 0 z z; 0 1 0 1 ];
+    #     extradimensions=["z", "sublattice"],
+    #     highsymmetrypoints=kdict_tri
+    # )
 
     function honeycomb_twisted(N::Int, a::Float64=1.0, z::Float64=3.0)
         lat = honeycomb(a)

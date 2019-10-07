@@ -1,5 +1,6 @@
 using Plots
 using HDF5
+using Statistics
 using ..Structure: scaled_ticks
 
 using ..DummySave
@@ -27,10 +28,19 @@ DummySave.save(data::BandData, filename::String="bands.h5") = DummySave.save_wra
 
 @recipe function f(data::BandData, n::Integer = 1)
     if data.obs == nothing || n == 0
-        markercolor --> :blue
+        markercolor --> :black
     else
         zcolor      := transpose(data.obs[:,:,n])
         markercolor := :RdYlBu
+
+
+        # max = Statistics.quantile(filter(x->x>0, data.obs[:,:,n]), 0.95)
+        # min = Statistics.quantile(filter(x->x<0, data.obs[:,:,n]), 0.05)
+        # max = maximum(abs.([min,max]))
+        max = Statistics.quantile(abs.(data.obs[:,:,n])[:], 0.97)
+        clim := (-max,max)
+        # zlim --> (-max,max)
+
     end
     background_color_inside --> :lightgray
     ylabel --> "Energy"

@@ -25,6 +25,8 @@ module BlochTools
     include("BlochTools/dos.jl")
     include("BlochTools/ldos.jl")
     include("BlochTools/density_matrix.jl")
+    include("BlochTools/berry.jl")
+
 
     include("BlochTools/meanfield.jl")
 

@@ -29,9 +29,9 @@ function extend_space(hoppings::LatticeHops, mode=:nospin)
     if mode==:nospin || mode==:id
         return nothing
     elseif mode==:spinhalf || mode==:σ0
-        hoppings = kron(σ0, hoppings)
+        hoppings = kron(hoppings, σ0)
     elseif mode==:σx
-        hoppings = kron(σX, hoppings)
+        hoppings = kron(hoppings, σX)
     else
         error("Do not recognize mode '$mode' in extend_space(...).")
     end
