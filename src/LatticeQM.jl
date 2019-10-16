@@ -4,7 +4,7 @@ module LatticeQM # renamed from LatticeQM
     using Base, ElasticArrays, SparseArrays, LinearAlgebra
 
     # Export our base modules
-    export Structure, BlochTools, TightBinding, Plotting
+    export Structure, BlochTools, TightBinding, KPM #, Plotting
 
     # Export high-level modules
     export Geometries2D, Materials
@@ -24,9 +24,11 @@ module LatticeQM # renamed from LatticeQM
     include("modules/BlochTools.jl")
     using .BlochTools
 
-    include("modules/Plotting.jl")
-    using .Plotting
+    # include("modules/Plotting.jl") # this module is deprecated in favor of using "recipes" with the package Plots.jl
+    # using .Plotting
 
+    include("modules/KPM.jl")
+    using .KPM
 
     ### Higher-level modules
     include("modules/Geometries.jl")
@@ -34,5 +36,6 @@ module LatticeQM # renamed from LatticeQM
 
     include("modules/Materials.jl")
     using .Materials
+
 
 end

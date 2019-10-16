@@ -48,7 +48,16 @@ get_projector(lat::Lattice, names::AbstractVector{String}, args...; kwargs...) =
 ################################################################################
 
 function expval_f(𝑶::AbstractMatrix)
+
+
     f(k, ψ, ϵ) = real.(ψ' * 𝑶 * ψ)
+
+    f
+end
+
+function expval_f(𝑶::Function)
+
+    f(k, ψ, ϵ) = real.(ψ' * 𝑶(k) * ψ)
 
     f
 end

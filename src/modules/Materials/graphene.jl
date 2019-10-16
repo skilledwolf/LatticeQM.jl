@@ -175,6 +175,13 @@ function rashba_hops(lat::Lattice, λ::Function; format=:auto)
 end
 rashba_hops(lat::Lattice, λ::Float64; kwargs...) = rashba_hops(lat, x->λ; kwargs...)
 
+function zeeman_hops(args...; kwargs...)
+    newhops = Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}()
+
+    zeeman!(newhops, args...; kwargs...)
+
+    newhops
+end
 
 function zeeman!(hops, lat::Lattice, Mv::Function)
     zero0 = zeros(Int, lattice_dim(lat))
@@ -184,7 +191,11 @@ function zeeman!(hops, lat::Lattice, Mv::Function)
 
     σn(vec) = sum(vec[i] .* σs[i] for i=1:3)
 
-    hops[zero0] += sum(kron(unit(i,i,N), σn(Mv(R[:,i]))) for i=1:N)
+    if haskey(hops, zero0)
+        hops[zero0] += sum(kron(unit(i,i,N), σn(Mv(R[:,i]))) for i=1:N)
+    else
+        hops[zero0] = sum(kron(unit(i,i,N), σn(Mv(R[:,i]))) for i=1:N)
+    end
 
     nothing
 end
@@ -203,7 +214,11 @@ function zeeman!(hops, lat::Lattice, Mv::Vector{Float64}; format=:dense)
 
     σn = sum(Mv[i] .* σs[i] for i=1:3)
 
-    hops[zero0] += kron(Matrix(1.0I, N, N), σn)
+    if haskey(hops, zero0)
+        hops[zero0] += kron(Matrix(1.0I, N, N), σn)
+    else
+        hops[zero0] = kron(Matrix(1.0I, N, N), σn)
+    end
 
     nothing
 end

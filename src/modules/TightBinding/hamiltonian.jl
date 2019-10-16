@@ -4,6 +4,9 @@
     get_bloch(get_hops(args...; kwargs...); mode=mode)
 end
 
+###############################################################################
+# Wrapper for custom types to get_hops(...)
+###############################################################################
 
 function get_hops(lat::Lattice, t::Function; format=:auto, precision::Float64=1e-8)# where {T<:AbstractMatrix{Float64}}
 
@@ -15,41 +18,38 @@ end
 
 
 function get_hops(lat::Lattice, neighbors::Vector{Vector{Int}}, t::Function; kwargs...)
-    get_hops(get_A_3D(lat), positions3D(lat), neighbors, t; kwargs...)
+    R = positionsND(lat)
+    d = size(R,1)
+
+    A = get_A(lat)
+    neighbor_dict = Dict(δL => padvec(A*δL,d) for δL in neighbors)
+
+    get_hops(R, neighbor_dict, t; kwargs...)
 end
 
 
-function get_hops(A::Matrix{Float64}, R::Matrix{Float64}, neighbors::Vector{Vector{Int}}, t::Function; precision::Float64=1e-8, format=:auto)
-
-    # Get lattice neighbors
-    δA = [A*v for v in neighbors]
-
-    hops = build_hopmats(R, neighbors, δA, t; precision=precision)
-
-    # Create the Hermitian conjugates
-    for (δL, T) in hops
-        hops[-δL] = T'
+function padvec(v::T, d::Int) where T<:AbstractVector{<:AbstractFloat}
+"""
+Make sure Vector v has length d, pad with zeros if needed.
+"""
+    L = length(v)
+    if L > d
+        error("Cannot have more lattice dimensions than total dimensions.")
+    elseif L==d
+        return v
     end
-
-    hops = decide_type(hops, format)
-
-    hops
+    return vcat(v,zeros(d-L))
 end
 
+###############################################################################
+# Main routines for get_hops(...)
+###############################################################################
 
-function build_hopmats(R, neighbors, δA, t; precision=precision)
+function get_hops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; precision::Float64=1e-8, format=:auto)
 
     N = size(R,2)
-
     hops = Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}()
-
-    # Preallocate memory
-    # Semi-arbitrary limit for dense allocation
-    if N > 500
-        maxind = round(Int, 0.60 * N^2)
-    else
-        maxind = N^2
-    end
+    maxind = (N>500) ? round(Int, 0.60 * N^2) : N^2 # Preallocate memory: Semi-arbitrary limit for dense allocation
 
     v0 = t(R[:,1])
     if isa(v0, Number)
@@ -61,30 +61,35 @@ function build_hopmats(R, neighbors, δA, t; precision=precision)
     end
 
     # Preallocate memory: important for huge sparse matrices
-    IS = ones(Int, maxind*d0^2)
-    JS = ones(Int, maxind*d0^2)
-    VS = zeros(ComplexF64, maxind*d0^2, 1)
-    R0 = zero(R)
-    V =  zeros(ComplexF64, N*d0, d0)
+    IS = Vector{Int}(undef, maxind*d0^2)
+    JS = Vector{Int}(undef, maxind*d0^2)
+    VS = Matrix{ComplexF64}(undef, (maxind*d0^2, 1))
+    R0 = Matrix{Float64}(undef, size(R))
+    V  = Matrix{ComplexF64}(undef, (N*d0, d0))
 
-    for (δL,a) in zip(neighbors,δA)
-        count = hopmat_from_gen!(IS, JS, VS, R0, V, N, maxind, R, a, t, d0; precision=precision)
-        if count > maxind
-            error("Not enough memory-reserved. Your problem does not appear to be sparse enough.")
-        end
-
-        hops[δL] = sparse(IS[1:count], JS[1:count], VS[1:count], N*d0, N*d0)
+    # Heavy lifting: hopping matrix construction
+    for (δL,δa) in neighbors
+        R0 .= R.+δa
+        hops[δL] = hopping_matrix!(IS, JS, VS, V, R, R0, t; precision=precision)
     end
 
-    hops
+    # Create the Hermitian conjugates
+    for (δL, T) in hops
+        hops[-δL] = T'
+    end
+
+    decide_type(hops, format)
 end
 
 
-function hopmat_from_gen!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64}, R0::Matrix{Float64}, V::Array{ComplexF64}, N::Int, maxind::Int, R::Matrix{Float64}, a::Vector{Float64}, t::F, d::Int; precision::Float64) where {F<:Function}
+function hopping_matrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64}, V::Array{ComplexF64}, R::Matrix{Float64}, R0::Matrix{Float64}, t::F; precision::Float64) where {F<:Function}
+
+    # Infer dimensions from array sizes
+    d = size(V, 2)
+    N = div(size(V,1),d)
+    maxind = div(length(IS),d^2)
 
     count = 1
-
-    R0 .= R.+a
 
     for j=1:N
         tj(x) = t(x, R[:,j])
@@ -107,11 +112,14 @@ function hopmat_from_gen!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64
             end
         end
     end
+    count = count - 1
 
-    return count-1
+    if count > maxind
+        error("Not enough memory-reserved. Your problem does not appear to be sparse enough.")
+    end
+
+    sparse(IS[1:count], JS[1:count], VS[1:count], N*d, N*d)
 end
-
-
 
 ################################################################################
 ################################################################################

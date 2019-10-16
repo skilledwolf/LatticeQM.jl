@@ -16,6 +16,9 @@ function PointDict(names::Vector{String}, coord::AbstractMatrix{Float64}, label:
     PointDict(names, Vector(collect(eachcol(coord))), label, default)
 end
 
+PointDict(d::Int=0) = PointDict(Vector{String}(), zeros(d,d), Vector{String}(), Vector{String}())
+
+
 # Modification
 function Base.:append!(kDict0::PointDict, name::String, coord::AbstractVector{Float64}, label::String)
     kDict0.coord[name] = coord

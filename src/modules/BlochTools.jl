@@ -27,7 +27,6 @@ module BlochTools
     include("BlochTools/density_matrix.jl")
     include("BlochTools/berry.jl")
 
-
     include("BlochTools/meanfield.jl")
 
 end

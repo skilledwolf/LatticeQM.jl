@@ -11,15 +11,15 @@ function get_bloch(hoppings::LatticeHops; mode=:nospin, symmetric=true) #; mode=
 
     # hoppings = extend_space(hoppings, mode)
 
-    function hamiltonian(k::AbstractVector{Float64})#T3 where {T4<:Real, T3<:AbstractVector{T4}}
+    hamiltonian(k::AbstractVector{Float64}) = sum(t .* BlochPhase(k, δL) for (δL,t) in hoppings)
 
-        res = sum(t .* BlochPhase(k, δL) for (δL,t) in hoppings)
-        if symmetric
-            res .= 0.5 .* (res .+ res')
-        end
-
-        return res # not sure: shall I compute this on-the-fly (as here) or store the result?
-    end
+    # function hamiltonian(k::AbstractVector{Float64})
+    #     res = sum(t .* BlochPhase(k, δL) for (δL,t) in hoppings)
+    #     if symmetric
+    #         res .= 0.5 .* (res .+ res')
+    #     end
+    #     return res
+    # end
 
     hamiltonian
 end

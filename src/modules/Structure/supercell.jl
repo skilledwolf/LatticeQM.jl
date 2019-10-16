@@ -13,6 +13,12 @@ function build_superlattice(lat::Lattice, superperiods::Matrix{Int})
     return Lattice(Λ, atoms_super, atoms_aux_super, lat.extradimensions, lat.highsymmetrypoints)
 end
 
+function turn0D!(lat::Lattice)
+    lat.atoms = (lat.A * lat.atoms) # Turn the lattice coordinates into spatial coordinates
+    lat.A = zeros(0,0) # delete the lattice vectors
+    nothing
+end
+
 function repeat_atoms!(lat::Lattice, repeat=[0:0,0:0])
 
     Λsuper = [[i; j] for i=repeat[1] for j=repeat[2]]
