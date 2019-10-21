@@ -83,8 +83,8 @@ end
 ################################################################################
 
 function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
-    ρ_init::Dict{Vector{Int},AbstractArray{T0,N}}, ks::AbstractMatrix{Float64}, filling::Float64;
-    iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...) where {N, T0<:Number}
+    ρ_init::Dict{Vector{Int},T1}, ks::AbstractMatrix{Float64}, filling::Float64;
+    iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...) where {N, T0<:Number, T1<:AbstractArray{T0,N}}
     """
         Searches a self-consistent meanfield solution for the functional
 
@@ -151,7 +151,7 @@ function initialize_ρ(v::Dict{Vector{Int},T2}, mode=:random; lat=:nothing) wher
 
     N = size(first(values(v)), 1)
 
-    ρs = Dict{Vector{Int},AbstractMatrix{ComplexF64}}()
+    ρs = Dict{Vector{Int},Matrix{ComplexF64}}()
     for δL=keys(v)
         ρs[δL] = zeros(ComplexF64, size(v[δL]))
     end

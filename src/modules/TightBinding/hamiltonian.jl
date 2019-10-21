@@ -34,7 +34,7 @@ Make sure Vector v has length d, pad with zeros if needed.
 """
     L = length(v)
     if L > d
-        error("Cannot have more lattice dimensions than total dimensions.")
+        error("Vector exceeds specified length $d.")
     elseif L==d
         return v
     end

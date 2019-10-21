@@ -3,7 +3,7 @@ using Distributed
 using SharedArrays
 
 
-@fastmath function ρ_k!(ρ0::AbstractMatrix{ComplexF64}, ϵs::AbstractVector{Float64}, U::AbstractMatrix{ComplexF64}, μ::Float64; T::Float64=0.01, φk::ComplexF64=1.0+0.0im)
+@fastmath function ρ_k!(ρ0::T1, ϵs::T2, U::T3, μ::Float64; T::Float64=0.01, φk::ComplexF64=1.0+0.0im) where {T1<:AbstractMatrix{ComplexF64}, T2<:AbstractVector{ComplexF64}, T3<:AbstractMatrix{ComplexF64}}
     # ϵs, U = spectrum_k
     for (ϵ, ψ) in zip(ϵs, eachcol(U))
         ρ0[:] .+= (fermidirac(ϵ-μ; T=T) .* (ψ * ψ') .* φk)[:]
@@ -12,7 +12,7 @@ using SharedArrays
     nothing
 end
 
-function ρ!(ρ0::AbstractMatrix{ComplexF64}, spectrum::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01)
+function ρ!(ρ0::T1, spectrum::Function, ks::T2, μ::Float64=0.0; T::Float64=0.01) where {T1<:AbstractMatrix{ComplexF64}, T2<:AbstractMatrix{Float64}}
     ρ0[:] .= zero(ρ0)[:]
     L = size(ks)[2]
 
@@ -30,7 +30,7 @@ function ρ!(ρ0::AbstractMatrix{ComplexF64}, spectrum::Function, ks::AbstractMa
     nothing
 end
 
-function ρ(spectrum::Function, d::Int, ks::AbstractMatrix{Float64}, μ::Float64; kwargs...)
+function ρ(spectrum::Function, d::Int, ks::T, μ::Float64; kwargs...) where {T<:AbstractMatrix{Float64}}
     ρ0 = zeros(ComplexF64, d, d)
     ρ!(ρ0, spectrum, ks, μ; kwargs...)
 
@@ -44,7 +44,7 @@ end
 
 using ProgressMeter
 
-function ρ_L!(ρs::Dict{Vector{Int},AbstractMatrix{ComplexF64}}, spectrum::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01)
+function ρ_L!(ρs::Dict{Vector{Int},T1}, spectrum::Function, ks::T2, μ::Float64=0.0; T::Float64=0.01) where {T1<:AbstractMatrix{ComplexF64}, T2<:AbstractMatrix{Float64}}
     L = size(ks,2)
 
     energies0_k = convert(SharedArray, zeros(Float64, L))

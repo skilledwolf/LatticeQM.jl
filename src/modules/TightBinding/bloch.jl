@@ -9,7 +9,7 @@ function get_bloch(hoppings::LatticeHops; mode=:nospin, symmetric=true) #; mode=
     the values are hopping matrices.
 """
 
-    # hoppings = extend_space(hoppings, mode)
+#     hoppings = extend_space(hoppings, mode)
 
     hamiltonian(k::AbstractVector{Float64}) = sum(t .* BlochPhase(k, δL) for (δL,t) in hoppings)
 

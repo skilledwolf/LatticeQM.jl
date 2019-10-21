@@ -160,7 +160,7 @@ end
 function rashba_hops(lat::Lattice, λ::Function; format=:auto)
 
     function hop(r1, r2=0.0)
-        δr = r1.-r2
+        δr = (r1.-r2)[1:3]
         dr = norm(δr)
 
         if 0.9 < dr && dr < 1.1 && abs(δr[3]) < 0.2
@@ -231,7 +231,7 @@ function unit(i::Int,j::Int, N::Int)
     mat
 end
 
-function zeeman_staggered(hops, lat::Lattice, Mv::Vector{Float64}; format=:auto)
+function zeeman_staggered!(hops, lat::Lattice, Mv::Vector{Float64}; format=:auto)
     """
     Generate a Zeeman term in the Hamiltonian given a Magnetization  M(r),
     where r is a position vector.
@@ -258,7 +258,7 @@ function zeeman_staggered(hops, lat::Lattice, Mv::Vector{Float64}; format=:auto)
 
     nothing
 end
-zeeman_staggered!(hops, lat::Lattice, M0::Float64; kwargs...) = zeeman_staggered(hops, lat::Lattice, [0.0,0.0,M0]; kwargs...)
+zeeman_staggered!(hops, lat::Lattice, M0::Float64; kwargs...) = zeeman_staggered!(hops, lat::Lattice, [0.0,0.0,M0]; kwargs...)
 
 
 function zeeman_staggered_noncol!(hops, lat::Lattice, M0::Float64, ϕ=0.0::Float64; format=:auto)

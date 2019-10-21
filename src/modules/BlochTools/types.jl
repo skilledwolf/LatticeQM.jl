@@ -44,8 +44,8 @@ DummySave.save(data::BandData, filename::String="bands.h5") = DummySave.save_wra
 
         # mycolors = data.obs[:,:,n]
         zcolor      := transpose(mycolors)
-        markercolor := :RdYlBu
-        clim := (-max,max)
+        markercolor --> :RdYlBu #ColorGradient([:red,:limegreen,:blue])#
+        clim --> (-max,max)
 
         # max = Statistics.quantile(abs.(mycolors)[:], 0.97)
         # clim := (-max,max)
