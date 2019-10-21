@@ -109,7 +109,7 @@ function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
     function update_ρ!(ρ1, ρ0)
 
         # Update meanfield Hamiltonian and chemical potential
-        h = ℋ_op(ρ0) # probably o.k.
+        h = k -> Matrix(ℋ_op(ρ0)(k)) # probably o.k.
         Σ = spectrum(h; format=:dense) # lazy diagonalization
 
         if verbose
@@ -233,7 +233,7 @@ end
 getdiag(A::AbstractMatrix) = view(A,diagind(A,0))
 BlochPhase(k,δL)::ComplexF64  = exp(1.0im * 2 * π * ComplexF64(dot(k,δL)))
 
-function get_mf_functional(h::Function, v::Dict{Vector{Int},T2}; format=:sparse) where {T1<:Complex, T2<:AbstractMatrix{T1}}
+function get_mf_functional(h::Function, v::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
     """
         This method takes the Hamiltonian single-particle operator h and an
         interaction potential v and returns mean-field functionals
@@ -243,13 +243,13 @@ function get_mf_functional(h::Function, v::Dict{Vector{Int},T2}; format=:sparse)
         using solve_selfconsistent(...).
     """
 
-    mf_op, E = get_mf_operator(v; format=format)
+    mf_op, E = get_mf_operator(v)
     ℋ(ρ) = k -> (h(k) .+ mf_op(ρ, k))
 
     ℋ, E
 end
 
-function get_mf_operator(v::Dict{Vector{Int},T2}; format=:sparse) where {T1<:Complex, T2<:AbstractMatrix{T1}}
+function get_mf_operator(v::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
     """
         Expects the real space potential {V(L) | L unit cell vector}.
         It returns a functional 𝒱[ρ,k] that builds the mean field hamiltonian
