@@ -27,7 +27,7 @@ function graphene(lat::Lattice; V::Float64=0.0, Δ::Float64=0.0,
     zeeman_layered_noncol!(hops, lat, zeeman_layered_noncol)
 
     if isa(λrashba, Function) || !(λrashba≈0.0)
-        H_rashba = get_bloch(rashba_hops(lat, λrashba; format=format), symmetric=false)
+        H_rashba = get_bloch(rashba_hops(lat, λrashba; format=format))
     else
         H_rashba = k -> 0
     end
