@@ -12,7 +12,6 @@ function regulargrid(;nk::Int=100, dim::Int=2)
     out
 end
 
-
 rot(θ::Float64) = [cos(θ) -sin(θ); sin(θ) cos(θ)]
 
 function randomgrid(;nk::Int=100, dim::Int=2, rot_symmetry::Int=1, B=:id)

@@ -32,7 +32,8 @@ function search_fixedpoint!(f!, x1, x0;
 
         # Perform a step
         t0 = time_ns()
-        timediff = @timed ϵ0 = f!(x1, x0)
+#         timediff = @timed ϵ0 = f!(x1, x0)
+        ϵ0 = f!(x1, x0)
         t1 = (time_ns()-t0)/1e9
 
         # Convergence?
@@ -93,6 +94,13 @@ function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
         at given filling (between 0 and 1). k space is discretized with
         the given points ks (columns).
 
+        returns
+            1) the density matrix of the meanfield
+            2) ground state energy of the meanfield operator
+            3) the chemical potential
+            3) convergence flag (bool)
+            4) error estimate
+
         Note: this amounts to a fixed-point search.
     """
 
@@ -124,14 +132,15 @@ function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
 
     ϵ0, error, converged = search_fixedpoint!(update_ρ!, ρ1, ρ0; iterations=iterations, tol=tol, kwargs...)
 
-    ρBloch = get_bloch(ρ1; mode=:nospin)
+    h = ℋ_op(ρ0)
+    μ = chemical_potential(h, ks, filling; T=T) # Calculate the chemical potential at the end of iteration
 
-    hBloch = ℋ_op(ρ1)
+#     ρBloch = get_bloch(ρ1; mode=:nospin)
+#     hBloch = ℋ_op(ρ1)
     ϵ_offset = ℋ_scalar(ρ1)
-
     ϵ_GS = ϵ0 + ϵ_offset
 
-    ρ1, ρBloch, hBloch, ϵ_GS, converged, error
+    ρ1, ϵ_GS, μ, converged, error #  ρBloch, hBloch
 end
 
 
@@ -228,7 +237,7 @@ function get_mf_functional(h::Function, v::Dict{Vector{Int},T2}; format=:sparse)
     """
         This method takes the Hamiltonian single-particle operator h and an
         interaction potential v and returns mean-field functionals
-            ℋ, E  s.t.  h_mf = ℋ[ρ]  and  ϵ_gs = E[ρ].
+            ℋ, E  s.t.  h_mf = ℋ[ρ]  and  ϵ_scalar = E[ρ].
 
         These functionals can be used to search for a self-consistent solution
         using solve_selfconsistent(...).
