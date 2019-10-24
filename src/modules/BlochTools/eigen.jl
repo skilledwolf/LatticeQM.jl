@@ -2,8 +2,8 @@
     # Additional low-level interfaces (acting on arrays)
     # ==================================================
 
-eigmax_sparse(H::AbstractMatrix) = eigs(H; nev=1, which=:LR)[1][1] |> real
-eigmin_sparse(H::AbstractMatrix) = eigs(H; nev=1, which=:SR)[1][1] |> real
+eigmax_sparse(H::T) where T<:AbstractMatrix = eigs(H; nev=1, which=:LR)[1][1] |> real
+eigmin_sparse(H::T) where T<:AbstractMatrix = eigs(H; nev=1, which=:SR)[1][1] |> real
 function eigen_sparse(M::AbstractMatrix; nev::Int, sigma::Float64=1e-8, which=:LM, kwargs...)
     eigs(M; nev=nev, sigma=sigma, which=which, kwargs...)
 end
@@ -20,10 +20,10 @@ end
     # ==============================
 
 # Dense methods
-ϵs_dense(h::Function) = k::AbstractVector{Float64} -> eigvals(Matrix(h(k)))
-Us_dense(h::Function) = k::AbstractVector{Float64} -> eigvecs(Matrix(h(k)))
+ϵs_dense(h::Function) = k -> eigvals(Matrix(h(k)))
+Us_dense(h::Function) = k -> eigvecs(Matrix(h(k)))
 function eigen_dense(h::Function)
-    function atK(k::AbstractVector{Float64})
+    function atK(k::T) where T<:AbstractVector{Float64}
         F = eigen(Hermitian(h(k)))
         F.values, F.vectors
     end
@@ -31,9 +31,9 @@ function eigen_dense(h::Function)
 end
 
 # Sparse methods
-ϵs_sparse(h::Function; kwargs...) = k::AbstractVector{Float64} -> eigvals_sparse(h(k); kwargs...)
-Us_sparse(h::Function; kwargs...) = k::AbstractVector{Float64} -> eigvecs_sparse(h(k); kwargs...)
-eigen_sparse(h::Function; kwargs...) = k::AbstractVector{Float64} -> eigen_sparse(h(k); kwargs...)
+ϵs_sparse(h::Function; kwargs...)    = k -> eigvals_sparse(h(k); kwargs...)
+Us_sparse(h::Function; kwargs...)    = k -> eigvecs_sparse(h(k); kwargs...)
+eigen_sparse(h::Function; kwargs...) = k -> eigen_sparse(h(k); kwargs...)
 
 function ϵs(h::Function; format=:dense, num_bands=nothing, kwargs...)
     if format==:dense
@@ -61,6 +61,7 @@ function Us(h::Function; format=:dense, num_bands=nothing, kwargs...)
     end
 end
 
+
 function spectrum(h::Function; format=:dense, num_bands=nothing, kwargs...)
     if format==:dense
         eigen_dense(h; kwargs...)
@@ -72,6 +73,7 @@ function spectrum(h::Function; format=:dense, num_bands=nothing, kwargs...)
         end
     end
 end
+
 
 ################################################################################
 ################################################################################
@@ -213,7 +215,7 @@ function bandmatrix(h::Function, ks; num_bands=nothing, kwargs...)
         bands[:,j_] .= real.(energies(ks[:,j_]))
     end
 
-    bands
+    Matrix(bands)
 end
 
 @fastmath function groundstate_sumk(ϵs_k::AbstractVector{Float64}, μ::Float64=0.0; kwargs...)

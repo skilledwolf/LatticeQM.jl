@@ -25,6 +25,16 @@ function Base.kron(a::LatticeHops, b)
     a
 end
 
+function add_hoppings!(hops::LatticeHops, newhops::LatticeHops)
+    for (δR, hop)=newhops
+        if !haskey(hops,δR)
+            hops[δR] = hop
+        else
+            hops[δR] += hop
+        end
+    end
+end
+
 function extend_space(hoppings::LatticeHops, mode=:nospin)
     if mode==:nospin || mode==:id
         return nothing

@@ -10,7 +10,7 @@ function graphene(lat::Lattice; V::Float64=0.0, Δ::Float64=0.0,
 
     hops = get_hops(lat, t; format=format)
 
-    electric_field_z!(hops, lat, V)
+    transversepotential!(hops, lat, V)
     sublattice_imbalance!(hops, lat, Δ)
 
     haldane!(hops, lat, haldane)
@@ -21,48 +21,17 @@ function graphene(lat::Lattice; V::Float64=0.0, Δ::Float64=0.0,
 
     spin_orbit!(hops,lat,spin_orbit)
     zeeman!(hops, lat, zeeman)
+
     zeeman_staggered!(hops, lat, zeeman_staggered)
     zeeman_staggered_noncol!(hops, lat, zeeman_staggered_noncol)
     zeeman_layered!(hops, lat, zeeman_layered)
     zeeman_layered_noncol!(hops, lat, zeeman_layered_noncol)
 
     if isa(λrashba, Function) || !(λrashba≈0.0)
-        H_rashba = get_bloch(rashba_hops(lat, λrashba; format=format))
-    else
-        H_rashba = k -> 0
+        add_hoppings!(hops, rashba_hops(lat, λrashba; format=format))
     end
 
-    k -> get_bloch(hops)(k) .+ H_rashba(k)
-end
-
-
-function electric_field_z!(hops, lat::Lattice, V::Float64; d=3.0, kwargs...)
-
-    # Only go through the trouble of constructing this matrix for finite V
-    if abs(V) ≈ 0
-        return nothing
-    end
-
-    zero0 = zeros(Int, lattice_dim(lat))
-    assert_dimension(lat, "z")
-
-    N = atom_count(lat)
-    R = positions(lat)
-
-    # Get z coordinates and scale them into the unit range
-    layer = get_positions_in(lat, "z")
-    min = minimum(layer); max = maximum(layer)
-
-    if abs(min-max) ≈ 0
-        error("Requires at least two layers.")
-    end
-
-    layer .= (layer .- min)./(max-min)
-
-    # get z positions and map from {0,1} to {-Δ/2,Δ/2}
-    hops[zero0] += Diagonal(V .* (layer .- 0.5))
-
-    return nothing
+    hops
 end
 
 
@@ -73,17 +42,12 @@ function sublattice_imbalance!(hops, lat::Lattice, Δ::Float64; kwargs...)
         return nothing
     end
 
-    zero0 = zeros(Int, lattice_dim(lat))
-    assert_dimension(lat, "sublattice")
+    μ = Δ .* (get_positions_in(lat, "sublattice") .- 0.5)
+    chemicalpotential!(hops, lat, μ)
 
-    # diagonal matrix with on-site energies
-    hops[zero0] += Diagonal(Δ .* (get_positions_in(lat, "sublattice") .- 0.5))
-
-    return nothing
+    nothing
 end
 
-
-cross2D(vec1, vec2) = vec1[1] * vec2[2] - vec1[2] * vec2[1]
 
 function haldane!(hops, lat::Lattice, t2=1.0, ϕ=π/2)
     """
@@ -95,6 +59,8 @@ function haldane!(hops, lat::Lattice, t2=1.0, ϕ=π/2)
     if t2≈0.0
         return nothing
     end
+
+    cross2D(vec1, vec2) = vec1[1] * vec2[2] - vec1[2] * vec2[1] # needed later on in this scope
 
     # NN  = find_neighbors(lat, 1.0)
     NNN = get_neighbors(lat, √3)
@@ -146,13 +112,14 @@ function spin_orbit!(hops, lat, t2, args...)
 
     newhops = kron(newhops, σZ)
 
-    for (δR, hop)=newhops
-        if !haskey(hops,δR)
-            hops[δR] = hop
-        else
-            hops[δR] += hop
-        end
-    end
+    add_hoppings!(hops, newhops)
+#     for (δR, hop)=newhops
+#         if !haskey(hops,δR)
+#             hops[δR] = hop
+#         else
+#             hops[δR] += hop
+#         end
+#     end
 
     nothing
 end
@@ -175,61 +142,6 @@ function rashba_hops(lat::Lattice, λ::Function; format=:auto)
 end
 rashba_hops(lat::Lattice, λ::Float64; kwargs...) = rashba_hops(lat, x->λ; kwargs...)
 
-function zeeman_hops(args...; kwargs...)
-    newhops = Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}()
-
-    zeeman!(newhops, args...; kwargs...)
-
-    newhops
-end
-
-function zeeman!(hops, lat::Lattice, Mv::Function)
-    zero0 = zeros(Int, lattice_dim(lat))
-
-    N = atom_count(lat)
-    R = positionsND(lat)
-
-    σn(vec) = sum(vec[i] .* σs[i] for i=1:3)
-
-    if haskey(hops, zero0)
-        hops[zero0] += sum(kron(unit(i,i,N), σn(Mv(R[:,i]))) for i=1:N)
-    else
-        hops[zero0] = sum(kron(unit(i,i,N), σn(Mv(R[:,i]))) for i=1:N)
-    end
-
-    nothing
-end
-
-function zeeman!(hops, lat::Lattice, Mv::Vector{Float64}; format=:dense)
-    # Only go through the trouble of constructing this matrix for finite Mv
-    if norm(Mv) ≈ 0
-        return 0.0
-    end
-
-    zero0 = zeros(Int, lattice_dim(lat))
-    assert_dimension(lat, "z")
-
-    N = atom_count(lat)
-    R = positions(lat)
-
-    σn = sum(Mv[i] .* σs[i] for i=1:3)
-
-    if haskey(hops, zero0)
-        hops[zero0] += kron(Matrix(1.0I, N, N), σn)
-    else
-        hops[zero0] = kron(Matrix(1.0I, N, N), σn)
-    end
-
-    nothing
-end
-zeeman!(hops, lat::Lattice, M0::Float64; kwargs...) = zeeman!(hops, lat::Lattice, [0.0,0.0,M0]; kwargs...)
-
-function unit(i::Int,j::Int, N::Int)
-    mat = zeros(ComplexF64, N, N)
-    mat[i,j] = 1.0
-
-    mat
-end
 
 function zeeman_staggered!(hops, lat::Lattice, Mv::Vector{Float64}; format=:auto)
     """
@@ -250,7 +162,7 @@ function zeeman_staggered!(hops, lat::Lattice, Mv::Vector{Float64}; format=:auto
 
     N = atom_count(lat)
     R = positions(lat)
-    sublattice = (get_positions_in(lat, "sublattice") .- 0.5) # +Mz/2 on A and -Mz/2 on B
+    sublattice = (get_positions_in(lat, "sublattice") .- 0.5)   #  + Mz/2 on A   and   - Mz/2 on B
 
     σn = sum(Mv[i] .* σs[i] for i=1:3)
 

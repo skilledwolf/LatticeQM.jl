@@ -69,6 +69,7 @@ function positions3D(lat::Lattice)
 end
 
 function get_positions_in(lat::Lattice, aux_dim::String)
+    assert_dimension(lat, aux_dim)
     lat.atoms_aux[lat.extradimensions[aux_dim],:]
 end
 

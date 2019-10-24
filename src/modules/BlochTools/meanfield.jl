@@ -29,7 +29,6 @@ function search_fixedpoint!(f!, x1, x0;
     while iter < iterations
         iter += 1
 
-
         # Perform a step
         t0 = time_ns()
 #         timediff = @timed ϵ0 = f!(x1, x0)
