@@ -73,6 +73,12 @@ function get_positions_in(lat::Lattice, aux_dim::String)
     lat.atoms_aux[lat.extradimensions[aux_dim],:]
 end
 
+function set_positions_in(lat::Lattice, aux_dim::String, values)
+    assert_dimension(lat, aux_dim)
+    lat.atoms_aux[lat.extradimensions[aux_dim],:] = values
+    nothing
+end
+
 function get_filtered_indices(lat::Lattice, name::String, condition::Function)
     return [index for (index, val) in enumerate(lat.atoms_aux[lat.extradimensions[name],:]) if condition(val)]
 end

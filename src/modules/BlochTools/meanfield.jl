@@ -131,7 +131,7 @@ function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
 
     ϵ0, error, converged = search_fixedpoint!(update_ρ!, ρ1, ρ0; iterations=iterations, tol=tol, kwargs...)
 
-    h = ℋ_op(ρ0)
+    h = ℋ_op(ρ1)
     μ = chemical_potential(h, ks, filling; T=T) # Calculate the chemical potential at the end of iteration
 
 #     ρBloch = get_bloch(ρ1; mode=:nospin)
