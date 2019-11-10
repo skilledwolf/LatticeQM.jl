@@ -230,7 +230,7 @@ end
 ################################################################################
 ################################################################################
 
-getdiag(A::AbstractMatrix) = view(A,diagind(A,0))
+getdiag(A::AbstractMatrix) = diag(A)#view(A,diagind(A,0))
 BlochPhase(k,δL)::ComplexF64  = exp(1.0im * 2 * π * ComplexF64(dot(k,δL)))
 
 function get_mf_functional(h::Function, v::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMatrix{T1}}

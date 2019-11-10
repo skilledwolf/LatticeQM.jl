@@ -61,7 +61,7 @@ function ρ_L!(ρs::Dict{Vector{Int},T1}, spectrum::Function, ks::T2, μ::Float6
         for δL=keys(ρs)
 
             for (ϵ, ψ) in zip(energies_k, eachcol(U_k)) # this loop used to be seperate in ρ_k!(...)
-                ρs[δL][:] .+= (fermidirac(ϵ-μ; T=T) .* (ψ * ψ') .* BlochPhase(-k, δL))[:]
+                ρs[δL][:] += (fermidirac(ϵ-μ; T=T) .* (ψ * ψ') .* BlochPhase(-k, δL))[:]
             end
 
         end
