@@ -81,6 +81,7 @@ end
 ################################################################################
 ################################################################################
 ################################################################################
+using SharedArrays
 
 function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
     ρ_init::Dict{Vector{Int},T1}, ks::AbstractMatrix{Float64}, filling::Float64;
@@ -126,8 +127,8 @@ function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
     end
 
     # Compute the ground state energy for the mean-field fixed point
-    ρ0 = deepcopy(ρ_init)
-    ρ1 = deepcopy(ρ_init)
+    ρ0 = Dict(δL=>SharedArray(m) for (δL, m)=ρ_init) #deepcopy(ρ_init)
+    ρ1 = Dict(δL=>SharedArray(m) for (δL, m)=ρ_init)
 
     ϵ0, error, converged = search_fixedpoint!(update_ρ!, ρ1, ρ0; iterations=iterations, tol=tol, kwargs...)
 

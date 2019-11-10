@@ -50,7 +50,7 @@ function ρ_L!(ρs::Dict{Vector{Int},T1}, spectrum::Function, ks::T2, μ::Float6
     energies0_k = convert(SharedArray, zeros(Float64, L))
 
     for (δL,ρ0)=ρs
-        ρs[δL][:] .= convert(SharedArray, zero(ρ0))[:]
+        ρs[δL][:] .= 0.0 #convert(SharedArray, zero(ρ0))[:]
     end
 
     @sync @distributed for i_=1:L
@@ -70,7 +70,7 @@ function ρ_L!(ρs::Dict{Vector{Int},T1}, spectrum::Function, ks::T2, μ::Float6
     end
 
     for δL = keys(ρs)
-        ρs[δL] ./= L
+        ρs[δL][:] ./= L
     end
 
     sum(energies0_k)/L # return the groundstate energy
