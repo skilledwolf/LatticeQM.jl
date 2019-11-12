@@ -118,7 +118,12 @@ function S_n(lat::Lattice, n::Vector{Float64})
     N = atom_count(lat)
 
     # d.σ ⊗ 𝟙_N
-    kron(Diagonal(ones(N)), sum(n[i] .* σs[i] for i=1:3))
+    mat = spzeros(Complex, 2*N, 2*N)
+    σn = sum(n[i] .* σs[i] for i=1:3)
+
+    @simd for i = 1:2:2*N
+        mat[i:i+1, i:i+1] .= σn
+    end
 end
 
 SX(lat::Lattice) = S_n(lat, [1.0, 0.0, 0.0])

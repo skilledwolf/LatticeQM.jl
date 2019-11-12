@@ -86,7 +86,8 @@ function hopping_matrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64}
 
     # Infer dimensions from array sizes
     d = size(V, 2)
-    N = div(size(V,1),d)
+    Nd = size(V,1)
+    N = div(Nd,d)
     maxind = div(length(IS),d^2)
 
     count = 1
@@ -94,7 +95,13 @@ function hopping_matrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64}
     for j=1:N
         tj(x) = t(x, R[:,j])
         # V .= vcat(t.(eachcol(R0.-R[:,j]))...)
-        V .= vcat(tj.(eachcol(R0))...)
+
+        for k=1:N # Evaluate and save the hopping elements
+#             V[k:k+d-1, 1:d] .= tj(R0[:,k])
+            V[1+d*(k-1):d+d*(k-1), 1:d] .= tj(R0[:,k])
+        end
+
+#         V[:] .= vcat(tj.(eachcol(R0))...)[:]
 
         for i=1:N
             for i0=1:d, j0=1:d
