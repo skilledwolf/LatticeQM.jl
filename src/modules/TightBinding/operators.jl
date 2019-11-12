@@ -124,6 +124,8 @@ function S_n(lat::Lattice, n::Vector{Float64})
     @simd for i = 1:2:2*N
         mat[i:i+1, i:i+1] .= σn
     end
+
+    mat
 end
 
 SX(lat::Lattice) = S_n(lat, [1.0, 0.0, 0.0])
