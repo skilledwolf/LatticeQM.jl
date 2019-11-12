@@ -66,4 +66,4 @@ function foldBZ!(M, kpoints::AbstractMatrix)
 
     nothing
 end
-foldBZ!(lat::Lattice, kpoints::AbstractMatrix) = foldBZ!(get_B(lat),kpoints)
+foldBZ!(lat::Lattice, kpoints::AbstractMatrix) = foldBZ!(transpose(get_B(lat))*get_B(lat),kpoints)
