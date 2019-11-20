@@ -1,3 +1,29 @@
+# function get_neighbors2(lat, d=1.0)
+#
+#     neighbors = [[i;j] for i=-1:1 for j=-1:1] #if i+j>=0 && i>=0]
+#
+#     N = atom_count(lat)
+#     R = positions(lat)
+#     A = get_A(lat)
+#
+#     δAs = [A * v for v=neighbors]
+#
+#     pairs = Dict{Vector{Int}, Vector{Tuple{Int,Int}}}()
+#     for δR in neighbors
+#         pairs[δR] = Vector{Tuple{Int,Int}}() #spzeros(Int,N,N)
+#     end
+#
+#     for (δR, δA) in zip(neighbors, δAs)
+#
+#         Rj = R .+ δA
+#
+#
+#
+#
+#     end
+#
+# end
+
 
 function get_neighbors(lat, d=1.0)
 
@@ -5,6 +31,8 @@ function get_neighbors(lat, d=1.0)
 
     N = atom_count(lat)
     R = positions(lat)
+    Z = get_positions_in(lat,"z")
+
     A = get_A(lat)
 
     δAs = [A * v for v=neighbors]
@@ -20,7 +48,7 @@ function get_neighbors(lat, d=1.0)
             for j=1:N
                 Rj = R[:,j]
 
-                if 0.95*d < norm(Ri-Rj) < 1.05*d
+                if d-0.001 < norm(Ri-Rj) < d+0.001 && abs2(Z[i]-Z[j]) < 0.1
                     # pairs[δR][i,j] = 1
                     append!(pairs[δR], [(i,j)])
                 end
@@ -31,28 +59,28 @@ function get_neighbors(lat, d=1.0)
     return pairs
 end
 
-function find_neighbors(lat, d=1.0)
-    """
-    returns neighbors at distance d in format Dict(δR => [(i1,j1), (i2,j2)...], ...)
-    """
-
-    function  get_t(d=1.0)
-        function tNN(r1, r2=0.0)
-            δr = r1 .- r2
-            dr = norm(δr)
-
-            if - 0.1 < dr-d < 0.1 && abs(δr[3]) < 0.1
-                return 1
-            else
-                return 0
-            end
-        end
-    end
-
-    neighbors = get_hops(lat, get_t(d); format=:sparse)
-
-    return Dict(δR => map(Tuple, findall(!iszero, mat)) for (δR, mat)=neighbors)
-end
+# function get_neighbors(lat, d=1.0)
+#     """
+#     returns neighbors at distance d in format Dict(δR => [(i1,j1), (i2,j2)...], ...)
+#     """
+#
+#     function  get_t(d=1.0)
+#         function tNN(r1, r2=0.0)
+#             δr = r1 .- r2
+#             dr = norm(δr[1:3])
+#
+#             if abs(dr-d) < 0.001 && abs(δr[3]) < 0.001
+#                 return 1
+#             else
+#                 return 0
+#             end
+#         end
+#     end
+#
+#     neighbors = get_hops(lat, get_t(d); format=:sparse)
+#
+#     return Dict(δR => map(Tuple, findall(!iszero, mat)) for (δR, mat)=neighbors)
+# end
 
 function find_common_neighbor(i,j,NN)
 

@@ -23,11 +23,29 @@ module Geometries2D
     # )
 
     #### Define simple honeycomb systems
-    A_tri = sqrt(3) .* [[cos(pi/6);  -sin(pi/6)]  [cos(pi/6);  sin(pi/6)]]
+    A_tri = [[cos(pi/6);  -sin(pi/6)]  [cos(pi/6);  sin(pi/6)]]
+    A_hex = sqrt(3) .* A_tri
     δ_hex = [1/3; 1/3]
 
-    honeycomb(a::Float64=1.0) = Lattice(
+    triangular(a::Float64=1.0) = Lattice(
         a .* A_tri,
+        zeros(2,1),
+        zeros(1,1);
+        extradimensions=["z"],
+        highsymmetrypoints=kdict_tri
+    )
+
+    # [[cos(2*pi/6);  -sin(2*pi/6)]  [cos(2*pi/6);  sin(2*pi/6)]]
+    triangular_supercell(a::Float64=1.0) = Lattice(
+        a .* A_tri * [[1;1] [-1;2]], #[[2;-1] [-1;2]]
+        [[0.0;0.0]  [1/3;1/3]  [-1/3;2/3]],
+        [zeros(1,3); 0 1 1],
+        extradimensions=["z", "sublattice"],
+        highsymmetrypoints=kdict_tri
+    )
+
+    honeycomb(a::Float64=1.0) = Lattice(
+        a .* A_hex,
         [[0.0;0.0]  δ_hex  ],
         [ 0.0 0.0; 0 1 ];
         extradimensions=["z", "sublattice"],
@@ -35,7 +53,7 @@ module Geometries2D
     )
 
     honeycomb_AA(a::Float64=1.0, z::Float64=3.0) = Lattice(
-        a .* A_tri,
+        a .* A_hex,
         [[0.0;0.0]  δ_hex [0.0;0.0] δ_hex],
         [ 0 0 z z; 0 1 0 1 ];
         extradimensions=["z", "sublattice"],
@@ -43,7 +61,7 @@ module Geometries2D
     )
 
     honeycomb_AB(a::Float64=1.0, z::Float64=3.0) = Lattice(
-        a .* A_tri,
+        a .* A_hex,
         [[0.0;0.0]  δ_hex   -δ_hex   δ_hex],
         [ 0 0 z z; 0 1 0 1 ];
         extradimensions=["z", "sublattice"],
@@ -51,7 +69,7 @@ module Geometries2D
     )
 
     honeycomb_BA(a::Float64=1.0, z::Float64=3.0) = Lattice(
-        a .* A_tri,
+        a .* A_hex,
         [[0.0;0.0]  -δ_hex   δ_hex   -δ_hex],
         [ 0 0 z z; 0 1 0 1 ];
         extradimensions=["z", "sublattice"],

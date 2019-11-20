@@ -10,10 +10,9 @@ module BlochTools
     # using ..KSpace
 
     using ..Structure: kIterable, DiscretePath, eachpoint, points, sumk
-    using ..TightBinding: get_bloch, get_operator
 
     export get_bands, spectrum, eigen, chemical_potential
-    export solve_selfconsistent, initialize_ρ
+    export solve_selfconsistent
 
     include("../misc/paulimatrices.jl")
 

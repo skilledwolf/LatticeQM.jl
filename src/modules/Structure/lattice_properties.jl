@@ -88,6 +88,10 @@ function get_filtered_positions(lat::Lattice, name::String, condition::Function)
     return positions(lat)[:,indices]
 end
 
+function get_coordinates(lat::Lattice)
+    return lat.atoms
+end
+
 function get_filtered_coordinates(lat::Lattice, name::String, condition::Function)
     indices = get_filtered_indices(lat, name, condition)
     return lat.atoms[:,indices]

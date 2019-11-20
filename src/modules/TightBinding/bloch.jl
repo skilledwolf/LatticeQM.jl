@@ -1,7 +1,7 @@
 
 BlochPhase(k,δL)::ComplexF64  = exp(1.0im * 2 * π * ComplexF64(dot(k,δL)))
 
-fouriersum(hoppings::LatticeHops, k::T) where T<:AbstractArray{<:AbstractFloat} = sum(t .* BlochPhase(k, δL) for (δL,t) in hoppings)
+fouriersum(hoppings, k::T) where T<:AbstractArray{<:AbstractFloat} = sum(t .* BlochPhase(k, δL) for (δL,t) in hoppings)
 
 get_bloch(hoppings::LatticeHops) = k -> fouriersum(hoppings, k)
 

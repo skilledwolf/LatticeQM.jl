@@ -165,7 +165,7 @@ end
 
 # Functions with scalar arguments
 CappedYukawa(r::Float64; k0=1.0, U=1.0) = U/(k0*r*exp(k0*r)+exp(k0*r))
-heaviside(x::AbstractFloat) = ifelse(x < 0, zero(x), ifelse(x > 0, one(x), oftype(x,0.5)))
+heaviside(x) = ifelse(x < 0, zero(x), ifelse(x > 0, one(x), oftype(x,0.5)))
 Hubbard(r::Float64; a=0.5, U=1.0) = U * heaviside(a-r)
 
 # Functions with vector arguments
@@ -193,3 +193,182 @@ end
 
 # build_CappedYukawa(lat; mode=:nospin, format=:auto, kwargs...) = build_H(lat, r->CappedYukawa(r; kwargs...); mode=mode, format=format)
 # build_Hubbard(lat; mode=:nospin, format=:auto, kwargs...) = build_H(lat, r->Hubbard(r; kwargs...); mode=mode, format=format)
+
+
+###################################################################################################
+###################################################################################################
+###################################################################################################
+
+function set_filling!(hops, lat, filling; nk=100, kwargs...)
+    kgrid = regulargrid(nk=nk)
+    set_filling!(hops, lat, kgrid, filling; kwargs...)
+end
+
+function set_filling!(hops, lat, kgrid, filling; T=0.0)
+    hops0 = get_dense(hops)
+    μ = chemical_potential(get_bloch(hops0), kgrid, filling; T=T)
+    add_chemicalpotential!(hops, lat, -μ)
+
+    μ
+end
+
+function add_chemicalpotential!(hops, lat::Lattice, μ::T; localdim::Int=-1) where T<:AbstractVector{<:Float64}
+    zero0 = zeros(Int, lattice_dim(lat))
+    N = atom_count(lat)
+
+    if localdim < 0 # if localdim is not set, we determine it from matrix dimensions
+        D = hopdim(hops)
+        d = div(D, N)
+    else
+        d = localdim
+    end
+
+    @assert N == length(μ)
+
+    newhops = Dict( zero0 => sparse( (1.0+0.0im).* Diagonal(kron(μ, ones(d))) ) )
+    add_hoppings!(hops, newhops)
+
+    nothing
+end
+
+function add_chemicalpotential!(hops, lat::Lattice, μ::Function; kwargs...)
+    R = positionsND(lat)
+    add_chemicalpotential!(hops, lat, [μ(r) for r=eachcol(R)]; kwargs...)
+
+    nothing
+end
+add_chemicalpotential!(hops, lat::Lattice, μ::Float64; kwargs...) = add_chemicalpotential!(hops, lat, μ.*ones(atom_count(lat)); kwargs...)
+
+
+###################################################################################################
+###################################################################################################
+###################################################################################################
+
+
+function get_mf_functional_new(hops, v::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
+    """
+        This method takes the Hamiltonian single-particle operator h and an
+        interaction potential v and returns mean-field functionals
+            ℋ, E  s.t.  h_mf = ℋ[ρ]  and  ϵ_scalar = E[ρ].
+
+        These functionals can be used to search for a self-consistent solution
+        using solve_selfconsistent(...).
+    """
+
+    mf_hops, E = get_mf_hops(v)
+    H(ρ) = get_bloch(get_dense(add_hoppings(hops, mf_hops(ρ))))
+
+    H, E
+end
+
+function get_mf_hops(v::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
+    """
+        Expects the real space potential {V(L) | L unit cell vector}.
+        It returns a functional 𝒱[ρ,k] that builds the mean field hamiltonian
+        (i.e. h_v(k) = 𝒱[ρ,k]).
+
+        This may look harmless but requires a careful derivation.
+    """
+
+    # d = size(first(values(v)),1)
+    # vsym(L::Vector{Int}) = 0.5 .* (v[L].+(v[L])')
+    V0 = sum(v[L] for L in keys(v))
+
+    function mf_op(ρs::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
+        δL0 = zero(first(keys(ρs)))
+
+        # fock
+        hops_mf = Dict(δL => v[δL] .* ρL for (δL,ρL) in ρs)
+        # hartree
+        hops_mf[δL0] .+= spdiagm(0 => V0 * diag(ρs[δL0]))
+
+        hops_mf
+    end
+
+    function mf_scalar(ρs::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
+        δL0 = zero(first(keys(ρs)))
+
+        # Hartree contribution
+        vρ = diag(ρs[δL0])
+        e_hartree = - 1/2 * (vρ' * V0 * vρ)
+        @assert imag(e_hartree) ≈ 0
+
+        # Fock contribution
+        e_fock =  1/2 * sum(sum(ρL .* conj.(ρL) .* v[L] for (L,ρL) in ρs))
+        @assert imag(e_hartree) ≈ 0
+
+        real(e_hartree + e_fock)
+    end
+
+    mf_op, mf_scalar
+end
+
+###################################################################################################
+###################################################################################################
+###################################################################################################
+
+function initial_guess(v::Dict{Vector{Int},T2}, mode=:random; lat=:nothing) where {T1<:Complex, T2<:AbstractMatrix{T1}}
+    N = size(first(values(v)), 1)
+
+    ρs = Dict{Vector{Int},Matrix{ComplexF64}}()
+    for δL=keys(v)
+        ρs[δL] = zeros(ComplexF64, size(v[δL]))
+    end
+
+    if mode==:randombig
+        mat = rand(ComplexF64, N, N)
+        ρs[zero(first(keys(ρs)))] = (mat + mat') ./ 2
+
+    elseif mode==:random
+        @assert mod(N,2)==0
+        n = div(N,2)
+        mat = rand(ComplexF64, n, n)
+
+        # Generate a random spin orientation at a lattice site
+        function randmat()
+            # d = rand(Float64, 3)
+            d = -1.0 .+ 2 .* rand(Float64, 3)
+            p = 0.5 .* (σ0 .+ sum(d[i_]/norm(d) .* σs[i_] for i_=1:3))
+        end
+
+        ρs[zero(first(keys(ρs)))] = Matrix(sum(kron(randmat(),sparse([i_],[i_], [1.0+0.0im], n,n)) for i_=1:n))
+
+    elseif mode==:antiferro || mode==:antiferroZ
+        sublA, sublB = get_operator(lat, ["sublatticeA", "sublatticeB"])
+        mat = sublA .- sublB
+
+        σUP = 0.5 .* (σ0 .+ σZ)
+
+        ρs[zero(first(keys(ρs)))] = kron(σUP, mat)
+
+    elseif mode==:antiferroX
+        sublA, sublB = get_operator(lat, ["sublatticeA", "sublatticeB"])
+        mat = sublA .- sublB
+
+        σUP = 0.5 .* (σ0 .+ σX)
+
+        ρs[zero(first(keys(ρs)))] = kron(σUP, mat)
+
+    elseif mode==:ferro || mode==:ferroZ #|| mode==:ferroz
+        @assert mod(N,2)==0
+        n = div(N,2)
+        σUP = 0.5 .* (σ0 .+ σZ)
+        ρs[zero(first(keys(ρs)))] =  2. * kron(σUP, Diagonal(ones(n)))
+
+    elseif mode==:ferroX #|| mode==:ferroz
+        @assert mod(N,2)==0
+        n = div(N,2)
+        σLEFT = 0.5 .* (σ0 .+ σX)
+        ρs[zero(first(keys(ρs)))] =  2. * kron(σLEFT, Diagonal(ones(n)))
+    # elseif mode==:ferrox
+    #     @assert mod(N,2)==0
+    #     n = div(N,2)
+    #     ρs[zero(first(keys(ρs)))] = kron(σX, Diagonal(ones(n)))
+
+    else
+        error("Unrecognized mode '$mode' in initialize_ρ(...).")
+
+    end
+
+    ρs
+end

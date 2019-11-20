@@ -1,4 +1,3 @@
-# rot(θ::Float64) = [cos(θ) -sin(θ); sin(θ) cos(θ)]
 
 function fold_atoms!(lat::Lattice)
     lat.atoms .= mod.(lat.atoms, 1)

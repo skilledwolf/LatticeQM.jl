@@ -1,13 +1,17 @@
 
+const LatticeHopsAbstract = Dict{Vector{Int}, <:AbstractMatrix{ComplexF64}}
 const LatticeHopsDense = Dict{Vector{Int}, <:Matrix{ComplexF64}}
 const LatticeHopsSparse = Dict{Vector{Int}, <:SparseMatrixCSC{ComplexF64}}
-const LatticeHops = Union{LatticeHopsDense, LatticeHopsSparse}
+const LatticeHops = Union{LatticeHopsDense, LatticeHopsSparse, LatticeHopsAbstract}
 
 # LatticeHopsSparse{T}(args...; kwargs...) where T<:SparseMatrixCSC{<:Complex} = Dict{Vector{Int}, T}(Vararg{Pair,N} where N)#Dict{Vector{Int}, T}(args...; kwargs...)
 # LatticeHopsSparse(args...; kwargs...) = LatticeHopsSparse{SparseMatrixCSC{ComplexF64}}(args...; kwargs...)
 # LatticeHopsDense{T}(args...; kwargs...) where T<:Matrix{<:Complex} = Dict{Vector{Int}, T}(args...; kwargs...)
 # LatticeHopsDense(args...; kwargs...) = LatticeHopsDense{Matrix{ComplexF64}}(args...; kwargs...)
 
+hopdim(hops::LatticeHops) = size(first(values(hops)),1)
+
+empty_hops() = Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}()
 
 function Base.kron(a, b::LatticeHops)
     for (δL, t) in b
@@ -33,11 +37,19 @@ function add_hoppings!(hops::LatticeHops, newhops::LatticeHops)
             hops[δR] += hop
         end
     end
+    nothing
 end
 
-function extend_space(hoppings::LatticeHops, mode=:nospin)
+function add_hoppings(hops::LatticeHops, newhops::LatticeHops)
+    hops2 = deepcopy(hops)
+
+    add_hoppings!(hops2, newhops)
+    hops2
+end
+
+function extend_space(hoppings, mode=:nospin) #::LatticeHops
     if mode==:nospin || mode==:id
-        return nothing
+        return hoppings
     elseif mode==:spinhalf || mode==:σ0
         hoppings = kron(hoppings, σ0)
     elseif mode==:σx
@@ -49,6 +61,8 @@ function extend_space(hoppings::LatticeHops, mode=:nospin)
     hoppings
 end
 
+get_dense(hops) = Dict(δL => Matrix(t) for (δL, t) in hops)
+
 function decide_type(hops::LatticeHops, format)
 
     if format==:auto
@@ -59,7 +73,7 @@ function decide_type(hops::LatticeHops, format)
     end
 
     if format==:dense
-        hops = Dict(δL => Matrix(t) for (δL, t) in hops)
+        hops = get_dense(hops)
     end
 
     hops

@@ -48,6 +48,10 @@ function DiscretePath(lat::Lattice, named_path::Vector{String}; kwargs...)
     DiscretePath(lat.highsymmetrypoints, named_path; B=get_B(lat), kwargs...)
 end
 
+function DiscretePath(lat::Lattice, kdict::PointDict, named_path::Vector{String}; kwargs...)
+    DiscretePath(kdict, named_path; B=get_B(lat), kwargs...)
+end
+
 function get_kpath(lat::Lattice, args...; kwargs...)
     """
     alias of DiscretePath(lat).

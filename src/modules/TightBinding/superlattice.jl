@@ -1,6 +1,6 @@
 function block_sparse_quad(N::Int, I::Vector{Int}, J::Vector{Int}, vec_of_mats::AbstractVector{T}) where {T<:AbstractMatrix}
 """
-    Builds a sparse matrix by from block matrices.
+    Builds a sparse matrix from block matrices.
 
     N (Int): Size of the resulting N-times-N square matrix
     I,J (Vector{Int}): Row/Column coordinates

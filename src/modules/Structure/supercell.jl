@@ -1,9 +1,9 @@
 
 # Interface to Supercell module
-function build_superlattice(lat::Lattice, superperiods::Matrix{Int})
+function build_superlattice(lat::Lattice, superperiods::Matrix{Int}; kwargs...)
 
     Λ = lat.A * superperiods
-    superlattice_int = points_within_supercell(superperiods)
+    superlattice_int = points_within_supercell(superperiods; kwargs...)
 
     # Existing atoms will now have to be copied
     # (note that the following code should be optimized for large systems, to use less memory...)
@@ -30,19 +30,14 @@ function repeat_atoms!(lat::Lattice, repeat=[0:0,0:0])
 end
 function repeat_atoms(lat::Lattice, repeat=[0:0,0:0])
     lat2 = deepcopy(lat)
-
-    Λsuper = [[i; j] for i=repeat[1] for j=repeat[2]]
-
-    lat2.atoms = hcat([lat2.atoms.+v for v in Λsuper]...)
-    lat2.atoms_aux = hcat([lat2.atoms_aux for v in Λsuper]...)
-
+    repeat_atoms!(lat2, repeat)
     return lat2
 end
 
 function crop_to_unitcell!(lat::Lattice)#, lat1::Lattice)
     atoms = lat.atoms
 
-    indices = [i for (i,a) in enumerate(eachcol(atoms)) if inunitrange(a)]
+    indices = [i for (i,a) in enumerate(eachcol(atoms)) if inunitrange(a;offset=1e-3)]
 
     lat.atoms = lat.atoms[:,indices]
     lat.atoms_aux = lat.atoms_aux[:,indices]
@@ -80,11 +75,11 @@ end
 
 UnitCubeCornerIterator(dim::Int64=3) = Iterators.product(Iterators.repeated(0:1, dim)...)
 UnitCubeCorners(dim::Int64=3) = convert(Array, VectorOfArray([[y...] for y=[UnitCubeCornerIterator(dim)...]]))
-BoundIterator(bounds::AbstractMatrix) = Iterators.product(map(x->x[1]:x[2], bounds)...)
-inunitrange(u::AbstractVector{Float64}; offset=1e-6) = all(y -> 0.0 - offset < y  < 1.0 - offset, u)
+BoundIterator(bounds) = Iterators.product(map(x->x[1]:x[2], bounds)...)
+inunitrange(u; offset=1e-6) = all( (u .< 1 - offset) .& (u .>= 0 - offset) ) #all(y -> 0.0 - offset < y  < 1.0 - offset, u)
 
 
-function points_within_supercell(M::AbstractMatrix{Int}; offset::Float64=1e-2)#, check=false)
+function points_within_supercell(M::AbstractMatrix{Int}; offset::Float64=1e-2)#, check=false) # offset is a dummy variable, should be removed
 """
 Consider an integer lattice of dimension D=size(M)[1]. M describes a (non-orthogonal) superlattice
 of this integer lattice. We want to find all lattice points that lie inside a unit cell of this
@@ -93,29 +88,52 @@ new superlattice.
     d = size(M)[1]
     Φ = inv(M) # transformation from integer lattice into unit cube coordinates of the
                 # superlattice unit cell
-    offset = 1e-5 + rand() * offset
+#     offset = 1e-5 + rand() * offset
 
     # Get all corner points of the (non-orthogonal) parallepiped described by M
     # then get limits for an enclosing box region
     corners = M * UnitCubeCorners(d)
     bounds = extrema(corners; dims=2)
 
-    LatticeIterator = Base.Generator(x -> [x...], BoundIterator(bounds)) # Iterate over all points in that lie in the enclosing box region
-    PointsIterator = Iterators.filter(x->inunitrange(Φ * x, offset=offset), LatticeIterator) # Iterator that filters out elements that lie inside the parallepiped of M
+    innerpoints = Φ * hcat([[x...] for x in BoundIterator(bounds)]...)
+    innerpoints = M * hcat([p for p in eachcol(innerpoints) if all((p .< 1-offset) .& (p .> 0-offset))]...)
 
-    # Pre-allocate memory
-    points = Array{Int}(undef, d, round(Int, abs(det(M))))
-    for (i,point) in enumerate(PointsIterator)
-        points[:,i] .= point#round.(Int, M * point)
-    end
-
-#         points = convert(Array, VectorOfArray(collect(PointsIterator))) # Evaluate the iterators
-#         if check & (round(Int, abs(det(M))) != size(points)[2]) # Check if we found alle points
-#             throw("Oops. Did not find all lattice points of the supercell. Possibly an implementation error.")
-#         end
-
-    return points  # M' * points
+    return innerpoints  # M' * points
 end
+
+#### OLD BUGGY VERSION!!
+# function points_within_supercell(M::AbstractMatrix{Int}; offset::Float64=1e-2)#, check=false)
+# """
+# Consider an integer lattice of dimension D=size(M)[1]. M describes a (non-orthogonal) superlattice
+# of this integer lattice. We want to find all lattice points that lie inside a unit cell of this
+# new superlattice.
+# """
+#     d = size(M)[1]
+#     Φ = inv(M) # transformation from integer lattice into unit cube coordinates of the
+#                 # superlattice unit cell
+#     offset = 1e-5 + rand() * offset
+#
+#     # Get all corner points of the (non-orthogonal) parallepiped described by M
+#     # then get limits for an enclosing box region
+#     corners = M * UnitCubeCorners(d)
+#     bounds = extrema(corners; dims=2)
+#
+#     LatticeIterator = Base.Generator(x -> [x...], BoundIterator(bounds)) # Iterate over all points in that lie in the enclosing box region
+#     PointsIterator = Iterators.filter(x->inunitrange(Φ * x, offset=offset), LatticeIterator) # Iterator that filters out elements that lie inside the parallepiped of M
+#
+#     # Pre-allocate memory
+#     points = Array{Int}(undef, d, round(Int, abs(det(M))))
+#     for (i,point) in enumerate(PointsIterator)
+#         points[:,i] .= point#round.(Int, M * point)
+#     end
+#
+# #         points = convert(Array, VectorOfArray(collect(PointsIterator))) # Evaluate the iterators
+# #         if check & (round(Int, abs(det(M))) != size(points)[2]) # Check if we found alle points
+# #             throw("Oops. Did not find all lattice points of the supercell. Possibly an implementation error.")
+# #         end
+#
+#     return points  # M' * points
+# end
 
 precompile(points_within_supercell,(AbstractMatrix{Int},))
 

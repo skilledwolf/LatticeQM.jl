@@ -34,8 +34,8 @@ function twist_triangular_2D(triang_lat::Lattice{T}, triang_lat2::Lattice{T}, n:
     add_dimension!(superlat2, "layer", fill(1.0, (1, atom_count(superlat2))))
 
     # Make sure all points lie in the primitive unit cell
-    fold_atoms!(superlat1)
-    fold_atoms!(superlat2)
+#     fold_atoms!(superlat1)
+#     fold_atoms!(superlat2)
 
     # Rotate the atom positions (keeping the lattice vectors fixed)
     @info "Twist angle α="*string(round(twist_angle/π*180; digits=3))*"°"
@@ -44,6 +44,9 @@ function twist_triangular_2D(triang_lat::Lattice{T}, triang_lat2::Lattice{T}, n:
     crop_to_unitcell!(superlat2)
 
     combine_lattices!(superlat1, superlat2)
+    fold_atoms!(superlat1)
+
+#     superlat1.atoms = unique(round.(superlat1.atoms,digits=12), dims=2)
 
     superlat1
 end

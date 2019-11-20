@@ -1,4 +1,4 @@
-__precompile__()
+# __precompile__()
 module LatticeQM # renamed from LatticeQM
 
     using Base, ElasticArrays, SparseArrays, LinearAlgebra
@@ -18,11 +18,14 @@ module LatticeQM # renamed from LatticeQM
     include("modules/Structure.jl")
     using .Structure
 
-    include("modules/TightBinding.jl")
-    using .TightBinding
-
     include("modules/BlochTools.jl")
     using .BlochTools
+    export get_bands
+    export solve_selfconsistent, initial_guess
+
+    include("modules/TightBinding.jl")
+    using .TightBinding
+    export get_operator, get_projector, get_hops, get_bloch, get_dense, hopdim, set_filling!
 
     # include("modules/Plotting.jl") # this module is deprecated in favor of using "recipes" with the package Plots.jl
     # using .Plotting
