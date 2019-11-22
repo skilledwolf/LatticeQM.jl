@@ -6,15 +6,15 @@ function ldos_at_k!(n::AbstractVector{Float64}, eigen::Function, k::AbstractVect
         for ω in ωs
             n[:] .+= imag( abs2.(ψ)./(ω + 1.0im * Γ - ϵ) )
         end
-        n[:] ./ size(ωs)
     end
+    n[:] ./= size(ωs)
 
     nothing
 end
 
 function ldos_parallel!(n::AbstractVector{Float64}, eigen::Function, ks::AbstractMatrix{Float64}, ωs::AbstractVector{Float64}; Γ::Float64=0.1)
 
-    L = size(ks)[2]
+    L = size(ks,2)
 
     n[:] = @distributed (+) for j=1:L
 
@@ -24,7 +24,7 @@ function ldos_parallel!(n::AbstractVector{Float64}, eigen::Function, ks::Abstrac
         n0
     end
 
-    n[:] .= -n[:] ./ L ./ π
+    n[:] .= -n ./ L ./ π
 
     nothing
 end
