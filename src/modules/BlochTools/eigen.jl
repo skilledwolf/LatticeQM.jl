@@ -107,13 +107,8 @@ function get_bands(h::Function, ks::DiscretePath; projector=nothing, num_bands=n
             can also be as Vector of such functions.
     """
     ks0 = points(ks)
-    N = size(ks0)[2]         # no. of k points
-
-    if num_bands != nothing
-        M = num_bands
-    else
-        M = size(h(ks0[:,1]))[1] # no. of bands
-    end
+    N = size(ks0, 2)        # no. of k points
+    M = (num_bands!=nothing) ? num_bands : size(h(ks0[:,1]), 1)  # no. of bands
 
     bands = zeros(Float64, M, N)
 
@@ -135,50 +130,57 @@ function get_bands(h::Function, ks::DiscretePath; projector=nothing, num_bands=n
         obs = convert(SharedArray, obs)
     end
 
-    @sync @distributed for j_=1:N
-        k = ks0[:,j_]
-        ϵs, U = Σ(k)
-
-        bands[:,j_] .= real.(ϵs)
-
-        if projector != nothing
-            for (i_,ψ)=enumerate(eachcol(U))
-                for (n_, proj)=enumerate(projector)
-                    obs[i_,j_,n_] = proj(k,ψ,ϵs[i_])
-                end
-            end
-        end
-    end
+#     @sync @distributed for j_=1:N
+#         k = ks0[:,j_]
+#         ϵs, U = Σ(k)
+#
+#         bands[:,j_] .= real.(ϵs)
+#
+#         if projector != nothing
+#             for (i_,ψ)=enumerate(eachcol(U))
+#                 for (n_, proj)=enumerate(projector)
+#                     obs[i_,j_,n_] = proj(k,ψ,ϵs[i_])
+#                 end
+#             end
+#         end
+#     end
 
     # ## EXPERIMENTAL USE OF THE PROGRESS BAR. Spoiler: does not work -.- (does also not change performance...)
-    # p = Progress(N, 0.1, "Computing bands...")
-    # channel = RemoteChannel(()->Channel{Bool}(10), 1)
-    #
-    # @sync begin
-    #     # this task prints the progress bar
-    #     @async while take!(channel)
-    #         next!(p)
-    #     end
-    #
-    #     # this task does the computation
-    #     @async begin
-    #         @distributed for j_=1:N
-    #             k = ks0[:,j_]
-    #             ϵs, U = Σ(k)
-    #
-    #             bands[:,j_] .= real.(ϵs)
-    #
-    #             if projector != nothing
-    #                 for (i_,ψ)=enumerate(eachcol(U))
-    #                     for (n_, proj)=enumerate(projector)
-    #                         obs[i_,j_,n_] = proj(k,ψ,ϵs[i_])
-    #                     end
-    #                 end
-    #             end
-    #         end
-    #         put!(channel, false) # this tells the printing task to finish
-    #     end
-    # end
+    p = Progress(N, "Computing bands... ")
+    channel = RemoteChannel(()->Channel{Bool}(N), 1)
+
+    @sync begin
+        # this task prints the progress bar
+        @async begin
+            done = 0
+            while done < N
+                take!(channel)
+                next!(p)
+                done = done + 1
+            end
+        end
+
+        # this task does the computation
+        @async begin
+            @distributed for j_=1:N   #@sync @distributed for j_=1:N
+                k = ks0[:,j_]
+                ϵs, U = Σ(k)
+
+                bands[:,j_] .= real.(ϵs)
+
+                if projector != nothing
+                    for (i_,ψ)=enumerate(eachcol(U))
+                        for (n_, proj)=enumerate(projector)
+                            obs[i_,j_,n_] = proj(k,ψ,ϵs[i_])
+                        end
+                    end
+                end
+
+                put!(channel, true)
+            end
+#             put!(channel, false) # this tells the printing task to finish
+        end
+    end
     # ## END OF EXPERIMENTAL USE OF THE PROGRESSBAR
 
     bands = convert(Array, bands)

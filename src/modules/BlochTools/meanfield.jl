@@ -7,7 +7,6 @@ function search_fixedpoint!(f!, x1, x0;
     show_trace=false,
     clear_trace=false
     )
-    # show_report=false)
     """
         Fixedpoint iteration, tested on the square-root example
         f_a(x) = 1/2 * (a/x+x)
@@ -58,13 +57,7 @@ function search_fixedpoint!(f!, x1, x0;
         for δL=keys(x0)
             @. x0[δL] .= β * x1[δL] + (1-β) * x0[δL]
         end
-        # @. x0 .= (1-β) * x0 + β * x1
     end
-
-
-    # if show_report && !show_trace
-    #     println(@sprintf(" %d  \t %.2E", iter, ϵ_abs))
-    # end
 
     if show_trace #|| show_report
         if converged
@@ -82,63 +75,6 @@ end
 ################################################################################
 ################################################################################
 using SharedArrays
-
-# function solve_selfconsistent_new(ℋ_op::Function, ℋ_scalar::Function,
-#     ρ_init::Dict{Vector{Int},T1}, ks::AbstractMatrix{Float64}, filling::Float64;
-#     iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...) where {N, T0<:Number, T1<:AbstractArray{T0,N}}
-#     """
-#         Searches a self-consistent meanfield solution for the functional
-#
-#             ℋ: ρ → h  where h(k) is a hermitian N × N Matrix
-#
-#         at given filling (between 0 and 1). k space is discretized with
-#         the given points ks (columns).
-#
-#         returns
-#             1) the density matrix of the meanfield
-#             2) ground state energy of the meanfield operator
-#             3) the chemical potential
-#             3) convergence flag (bool)
-#             4) error estimate
-#
-#         Note: this amounts to a fixed-point search.
-#     """
-#
-# #     ℋ(ρ) = get_dense(ℋ_op(ρ))
-#
-#     function update_ρ!(ρ1, ρ0)
-#         # Update meanfield Hamiltonian and chemical potential
-#         h = ℋ_op(ρ1)
-#
-#         if verbose
-#             @info("Updating chemical potential for given filling.")
-#         end
-#         μ = chemical_potential(h, ks, filling; T=T)
-#
-#         # Obtain the meanfield density matrix of the updated Hamiltonian
-#         if verbose
-#             @info("Updating the meanfield density matrix.")
-#         end
-#         Σ = spectrum(h; format=:dense) # lazy diagonalization
-#         ϵ0 = ρ_L!(ρ1, Σ, ks, μ; T=T) # @time
-#
-#         ϵ0 # return the groundstate energy (density matrix was written to ρ1)
-#     end
-#
-#     # Compute the ground state energy for the mean-field fixed point
-#     ρ0 = Dict(δL=>SharedArray(m) for (δL, m)=ρ_init) #deepcopy(ρ_init)
-#     ρ1 = Dict(δL=>SharedArray(m) for (δL, m)=ρ_init)
-#
-#     ϵ0, error, converged = search_fixedpoint!(update_ρ!, ρ1, ρ0; iterations=iterations, tol=tol, kwargs...)
-#
-#     h = ℋ_op(ρ1)
-#     μ = chemical_potential(h, ks, filling; T=T) # Calculate the chemical potential at the end of iteration
-#
-#     ϵ_offset = ℋ_scalar(ρ1)
-#     ϵ_GS = ϵ0 + ϵ_offset
-#
-#     ρ1, ϵ_GS, μ, converged, error #  ρBloch, hBloch
-# end
 
 function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
     ρ_init::Dict{Vector{Int},T1}, ks::AbstractMatrix{Float64}, filling::Float64;
@@ -161,12 +97,9 @@ function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
         Note: this amounts to a fixed-point search.
     """
 
-    # type = issparse(ℋ_op(ρ_init)(ks[:,1])) ? :sparse : :dense # Decide if the Hamiltonian is sparse
-
     function update_ρ!(ρ1, ρ0)
 
         # Update meanfield Hamiltonian and chemical potential
-#         h = k -> Matrix(ℋ_op(ρ0)(k)) # probably o.k.
         h = ℋ_op(ρ0)
         Σ = spectrum(h; format=:dense) # lazy diagonalization
 
@@ -193,12 +126,10 @@ function solve_selfconsistent(ℋ_op::Function, ℋ_scalar::Function,
     h = ℋ_op(ρ1)
     μ = chemical_potential(h, ks, filling; T=T) # Calculate the chemical potential at the end of iteration
 
-#     ρBloch = get_bloch(ρ1; mode=:nospin)
-#     hBloch = ℋ_op(ρ1)
     ϵ_offset = ℋ_scalar(ρ1)
     ϵ_GS = ϵ0 + ϵ_offset
 
-    ρ1, ϵ_GS, μ, converged, error #  ρBloch, hBloch
+    ρ1, ϵ_GS, μ, converged, error
 end
 
 
@@ -234,28 +165,25 @@ function get_mf_operator(v::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:Abstra
         This may look harmless but requires a careful derivation.
     """
 
-    # d = size(first(values(v)),1)
-    # vsym(L::Vector{Int}) = 0.5 .* (v[L].+(v[L])')
     V0 = sum(v[L] for L in keys(v))
-
     diag0(ρs) = diag(ρs[[0,0]])
 
     function mf_op(ρs::Dict{Vector{Int},T2}, k::AbstractVector{Float64}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
 
         # Hartree contribution
-        H_hartree = spdiagm(0 => V0 * (diag0(ρs))) #.-1/2
+        H_hartree = spdiagm(0 => V0 * (diag0(ρs)))
 
         # Fock contribution
-        H_fock(k) = - sum(v[L] .* ρL' .* BlochPhase(k,L) for (L,ρL) in ρs)
+        H_fock(k) = - sum(v[L] .* ρL .* BlochPhase(k,L) for (L,ρL) in ρs)
 
-        H_hartree + H_fock(k) #+ real(e_hartree) * I + real(e_fock) * I
+        H_hartree + H_fock(k)
     end
 
     function mf_scalar(ρs::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
 
         # Hartree contribution
         vρ = diag0(ρs)
-        e_hartree = - 1/2 * (vρ' * V0 * vρ)
+        e_hartree = - 1/2 * (transpose(vρ) * V0 * vρ)
         @assert imag(e_hartree) ≈ 0
 
         # Fock contribution

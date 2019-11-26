@@ -331,7 +331,7 @@ function initial_guess(v::Dict{Vector{Int},T2}, mode=:random; lat=:nothing) wher
             p = 0.5 .* (σ0 .+ sum(d[i_]/norm(d) .* σs[i_] for i_=1:3))
         end
 
-        ρs[zero(first(keys(ρs)))] = Matrix(sum(kron(randmat(),sparse([i_],[i_], [1.0+0.0im], n,n)) for i_=1:n))
+        ρs[zero(first(keys(ρs)))] = Matrix(sum(kron(sparse([i_],[i_], [1.0+0.0im], n,n), randmat()) for i_=1:n))
 
     elseif mode==:antiferro || mode==:antiferroZ
         sublA, sublB = get_operator(lat, ["sublatticeA", "sublatticeB"])
@@ -339,7 +339,7 @@ function initial_guess(v::Dict{Vector{Int},T2}, mode=:random; lat=:nothing) wher
 
         σUP = 0.5 .* (σ0 .+ σZ)
 
-        ρs[zero(first(keys(ρs)))] = kron(σUP, mat)
+        ρs[zero(first(keys(ρs)))] = kron(mat,σUP)
 
     elseif mode==:antiferroX
         sublA, sublB = get_operator(lat, ["sublatticeA", "sublatticeB"])
@@ -347,19 +347,19 @@ function initial_guess(v::Dict{Vector{Int},T2}, mode=:random; lat=:nothing) wher
 
         σUP = 0.5 .* (σ0 .+ σX)
 
-        ρs[zero(first(keys(ρs)))] = kron(σUP, mat)
+        ρs[zero(first(keys(ρs)))] = kron(mat,σUP)
 
     elseif mode==:ferro || mode==:ferroZ #|| mode==:ferroz
         @assert mod(N,2)==0
         n = div(N,2)
         σUP = 0.5 .* (σ0 .+ σZ)
-        ρs[zero(first(keys(ρs)))] =  2. * kron(σUP, Diagonal(ones(n)))
+        ρs[zero(first(keys(ρs)))] =  2. * kron(Diagonal(ones(n)),σUP)
 
     elseif mode==:ferroX #|| mode==:ferroz
         @assert mod(N,2)==0
         n = div(N,2)
         σLEFT = 0.5 .* (σ0 .+ σX)
-        ρs[zero(first(keys(ρs)))] =  2. * kron(σLEFT, Diagonal(ones(n)))
+        ρs[zero(first(keys(ρs)))] =  2. * kron(Diagonal(ones(n)), σLEFT)
     # elseif mode==:ferrox
     #     @assert mod(N,2)==0
     #     n = div(N,2)
