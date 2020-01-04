@@ -1,3 +1,4 @@
+
 mutable struct Lattice{T<:AbstractMatrix{Float64}}
 
     """
