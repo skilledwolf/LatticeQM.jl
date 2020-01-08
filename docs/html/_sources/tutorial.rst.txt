@@ -122,11 +122,22 @@ all others are zero:
 .. code-block:: julia
   :linenos:
 
+  f(r1,r2=0.0) = (dot(r1.-r2,r1.-r2)<1.1) ? 1.0 : 0.0 # hopping function
+
   lat = Lattice(2) # single atom square lattice
+  hops = get_hops(lat, f) # get hopping matrix
+
+or
+
+.. code-block:: julia
+  :linenos:
 
   f(r1,r2=0.0) = (dot(r1.-r2,r1.-r2)<1.1) ? 1.0 : 0.0 # hopping function
 
-  hops = get_hops(lat, f) # get hopping matrix
+  lat = Lattice(2)
+  hops = Hops()
+
+  addhops!(hops, lat, f)
 
 
 
@@ -140,26 +151,76 @@ For example, the tight-binding Hamiltonian for a minimal model of graphene is
 .. code-block:: julia
   :linenos:
 
-  t0 = complex([ 0.0  1.0;
-                 0.0  0.0 ])
+  t0 = [ 0.0  1.0;
+         0.0  0.0 ]
 
-  hops = Dict(
+  hops = Hops(
     [0, 0] => t0 + t0',
     [0, 1] => t0,
     [1, 0] => t0,
     [0, -1] => t0'
-    [-1, 0] => t0'
   )
+
+  hops[[-1,0]] = t0' # hops can be set/modified any time
+
 
 Predefined tight-binding terms
 """"""""""""""""""""""""""""""
 
+There are several predefined tight-binding terms, such as:
+
 .. code-block:: julia
 
-  <code>
+  hops = Materials.graphene(lat; mode=:spinhalf)
+
+  TightBinding.add_chemicalpotential!(hops, lat, 0.1)
+  TightBinding.set_filling!(hops, lat, 0.5; nk=100)
+
+  Materials.add_sublatticeimbalance!(hops, lat, 0.1)
+  Materials.add_haldane!(hops, lat, 0.2; spinhalf=true)
+  Materials.add_spinorbit!(hops, lat, 0.03)
+  Materials.add_rashba!(hops, lat, 0.2)
+  Materials.add_transversepotential!(hops, lat, 0.1)
+  Materials.add_zeeman!(hops, lat, [0.0,0.0,0.1])
 
 
-Bandstructure calculations
---------------------------
+Calculations
+------------
 
-Text here.
+Bandstructure
+"""""""""""""
+
+.. code-block:: julia
+
+  lat = Geometries2D.honeycomb()
+  hops = Materials.graphene(lat; mode=:spinhalf)
+  h = get_bloch(hops)
+
+  # Build up a valley-observable
+  valleyhops = Materials.get_haldane_hops(lat, √3/9; spinhalf=true, mode=:sublatticeA)
+  Materials.add_haldane!(valleyhops, lat, -√3/9; spinhalf=true, mode=:sublatticeB)
+  valley_proj = expvalf(get_bloch(valleyhops))
+
+  # ks = Structure.get_kpath(lat; num_points=200)
+  ks = get_kpath(Geometries2D.k_hexagonal; num_points=200)
+  bands = get_bands(h, ks; projector=valley_proj) #get_projector(lat, "spin")
+
+  # Show bands
+  save(bands, "graphene_bands.h5")
+  plot(bands, ylabel="\$\\varepsilon/t\$", colorbar_title="valley", size=(330,240), colorbar=true, markercolor=:PiYG)
+
+Density of states
+"""""""""""""""""
+
+.. code-block:: julia
+
+  nk = 400^2
+  N = 500
+  Λ = 3.1
+
+  ks = Structure.regulargrid(nk=nk)
+  energies = collect(range(-Λ, length=N, stop=Λ))
+  Γ = 0.01
+  DOS = BlochTools.dos_dense(h, ks, energies; Γ=Γ)
+
+  plot(energies, DOS)

@@ -101,7 +101,11 @@
 <li class="toctree-l3"><a class="reference internal" href="#predefined-tight-binding-terms">Predefined tight-binding terms</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#bandstructure-calculations">Bandstructure calculations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#calculations">Calculations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#bandstructure">Bandstructure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#density-of-states">Density of states</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
@@ -295,12 +299,24 @@ all others are zero:</p>
 <div class="highlight-julia notranslate"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre>1
 2
 3
-4
-5</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="n">lat</span> <span class="o">=</span> <span class="n">Lattice</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="c"># single atom square lattice</span>
+4</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="n">f</span><span class="p">(</span><span class="n">r1</span><span class="p">,</span><span class="n">r2</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">r1</span><span class="o">.-</span><span class="n">r2</span><span class="p">,</span><span class="n">r1</span><span class="o">.-</span><span class="n">r2</span><span class="p">)</span><span class="o">&lt;</span><span class="mf">1.1</span><span class="p">)</span> <span class="o">?</span> <span class="mf">1.0</span> <span class="o">:</span> <span class="mf">0.0</span> <span class="c"># hopping function</span>
 
-<span class="n">f</span><span class="p">(</span><span class="n">r1</span><span class="p">,</span><span class="n">r2</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">r1</span><span class="o">.-</span><span class="n">r2</span><span class="p">,</span><span class="n">r1</span><span class="o">.-</span><span class="n">r2</span><span class="p">)</span><span class="o">&lt;</span><span class="mf">1.1</span><span class="p">)</span> <span class="o">?</span> <span class="mf">1.0</span> <span class="o">:</span> <span class="mf">0.0</span> <span class="c"># hopping function</span>
-
+<span class="n">lat</span> <span class="o">=</span> <span class="n">Lattice</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="c"># single atom square lattice</span>
 <span class="n">hops</span> <span class="o">=</span> <span class="n">get_hops</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span> <span class="c"># get hopping matrix</span>
+</pre></div>
+</td></tr></table></div>
+<p>or</p>
+<div class="highlight-julia notranslate"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre>1
+2
+3
+4
+5
+6</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="n">f</span><span class="p">(</span><span class="n">r1</span><span class="p">,</span><span class="n">r2</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">r1</span><span class="o">.-</span><span class="n">r2</span><span class="p">,</span><span class="n">r1</span><span class="o">.-</span><span class="n">r2</span><span class="p">)</span><span class="o">&lt;</span><span class="mf">1.1</span><span class="p">)</span> <span class="o">?</span> <span class="mf">1.0</span> <span class="o">:</span> <span class="mf">0.0</span> <span class="c"># hopping function</span>
+
+<span class="n">lat</span> <span class="o">=</span> <span class="n">Lattice</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">hops</span> <span class="o">=</span> <span class="n">Hops</span><span class="p">()</span>
+
+<span class="n">addhops!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
 </pre></div>
 </td></tr></table></div>
 </div>
@@ -317,29 +333,77 @@ all others are zero:</p>
  7
  8
  9
-10</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="n">t0</span> <span class="o">=</span> <span class="n">complex</span><span class="p">([</span> <span class="mf">0.0</span>  <span class="mf">1.0</span><span class="p">;</span>
-               <span class="mf">0.0</span>  <span class="mf">0.0</span> <span class="p">])</span>
+10
+11</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="n">t0</span> <span class="o">=</span> <span class="p">[</span> <span class="mf">0.0</span>  <span class="mf">1.0</span><span class="p">;</span>
+       <span class="mf">0.0</span>  <span class="mf">0.0</span> <span class="p">]</span>
 
-<span class="n">hops</span> <span class="o">=</span> <span class="kt">Dict</span><span class="p">(</span>
+<span class="n">hops</span> <span class="o">=</span> <span class="n">Hops</span><span class="p">(</span>
   <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="n">t0</span> <span class="o">+</span> <span class="n">t0</span><span class="o">&#39;</span><span class="p">,</span>
   <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="n">t0</span><span class="p">,</span>
   <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="n">t0</span><span class="p">,</span>
   <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="n">t0</span><span class="o">&#39;</span>
-  <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="n">t0</span><span class="o">&#39;</span>
 <span class="p">)</span>
+
+<span class="n">hops</span><span class="p">[[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">t0</span><span class="o">&#39;</span> <span class="c"># hops can be set/modified any time</span>
 </pre></div>
 </td></tr></table></div>
 </div>
 <div class="section" id="predefined-tight-binding-terms">
 <h3>Predefined tight-binding terms<a class="headerlink" href="#predefined-tight-binding-terms" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">code</span><span class="o">&gt;</span>
+<p>There are several predefined tight-binding terms, such as:</p>
+<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="n">hops</span> <span class="o">=</span> <span class="n">Materials</span><span class="o">.</span><span class="n">graphene</span><span class="p">(</span><span class="n">lat</span><span class="p">;</span> <span class="n">mode</span><span class="o">=:</span><span class="n">spinhalf</span><span class="p">)</span>
+
+<span class="n">TightBinding</span><span class="o">.</span><span class="n">add_chemicalpotential!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)</span>
+<span class="n">TightBinding</span><span class="o">.</span><span class="n">set_filling!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">;</span> <span class="n">nk</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+
+<span class="n">Materials</span><span class="o">.</span><span class="n">add_sublatticeimbalance!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)</span>
+<span class="n">Materials</span><span class="o">.</span><span class="n">add_haldane!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">;</span> <span class="n">spinhalf</span><span class="o">=</span><span class="kc">true</span><span class="p">)</span>
+<span class="n">Materials</span><span class="o">.</span><span class="n">add_spinorbit!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">)</span>
+<span class="n">Materials</span><span class="o">.</span><span class="n">add_rashba!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">)</span>
+<span class="n">Materials</span><span class="o">.</span><span class="n">add_transversepotential!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)</span>
+<span class="n">Materials</span><span class="o">.</span><span class="n">add_zeeman!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">0.1</span><span class="p">])</span>
 </pre></div>
 </div>
 </div>
 </div>
-<div class="section" id="bandstructure-calculations">
-<h2>Bandstructure calculations<a class="headerlink" href="#bandstructure-calculations" title="Permalink to this headline">¶</a></h2>
-<p>Text here.</p>
+<div class="section" id="calculations">
+<h2>Calculations<a class="headerlink" href="#calculations" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="bandstructure">
+<h3>Bandstructure<a class="headerlink" href="#bandstructure" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="n">lat</span> <span class="o">=</span> <span class="n">Geometries2D</span><span class="o">.</span><span class="n">honeycomb</span><span class="p">()</span>
+<span class="n">hops</span> <span class="o">=</span> <span class="n">Materials</span><span class="o">.</span><span class="n">graphene</span><span class="p">(</span><span class="n">lat</span><span class="p">;</span> <span class="n">mode</span><span class="o">=:</span><span class="n">spinhalf</span><span class="p">)</span>
+<span class="n">h</span> <span class="o">=</span> <span class="n">get_bloch</span><span class="p">(</span><span class="n">hops</span><span class="p">)</span>
+
+<span class="c"># Build up a valley-observable</span>
+<span class="n">valleyhops</span> <span class="o">=</span> <span class="n">Materials</span><span class="o">.</span><span class="n">get_haldane_hops</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="o">√</span><span class="mi">3</span><span class="o">/</span><span class="mi">9</span><span class="p">;</span> <span class="n">spinhalf</span><span class="o">=</span><span class="kc">true</span><span class="p">,</span> <span class="n">mode</span><span class="o">=:</span><span class="n">sublatticeA</span><span class="p">)</span>
+<span class="n">Materials</span><span class="o">.</span><span class="n">add_haldane!</span><span class="p">(</span><span class="n">valleyhops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="o">-√</span><span class="mi">3</span><span class="o">/</span><span class="mi">9</span><span class="p">;</span> <span class="n">spinhalf</span><span class="o">=</span><span class="kc">true</span><span class="p">,</span> <span class="n">mode</span><span class="o">=:</span><span class="n">sublatticeB</span><span class="p">)</span>
+<span class="n">valley_proj</span> <span class="o">=</span> <span class="n">expvalf</span><span class="p">(</span><span class="n">get_bloch</span><span class="p">(</span><span class="n">valleyhops</span><span class="p">))</span>
+
+<span class="c"># ks = Structure.get_kpath(lat; num_points=200)</span>
+<span class="n">ks</span> <span class="o">=</span> <span class="n">get_kpath</span><span class="p">(</span><span class="n">Geometries2D</span><span class="o">.</span><span class="n">k_hexagonal</span><span class="p">;</span> <span class="n">num_points</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+<span class="n">bands</span> <span class="o">=</span> <span class="n">get_bands</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">ks</span><span class="p">;</span> <span class="n">projector</span><span class="o">=</span><span class="n">valley_proj</span><span class="p">)</span> <span class="c">#get_projector(lat, &quot;spin&quot;)</span>
+
+<span class="c"># Show bands</span>
+<span class="n">save</span><span class="p">(</span><span class="n">bands</span><span class="p">,</span> <span class="s">&quot;graphene_bands.h5&quot;</span><span class="p">)</span>
+<span class="n">plot</span><span class="p">(</span><span class="n">bands</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s">&quot;</span><span class="se">\$\\</span><span class="s">varepsilon/t</span><span class="se">\$</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">colorbar_title</span><span class="o">=</span><span class="s">&quot;valley&quot;</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">330</span><span class="p">,</span><span class="mi">240</span><span class="p">),</span> <span class="n">colorbar</span><span class="o">=</span><span class="kc">true</span><span class="p">,</span> <span class="n">markercolor</span><span class="o">=:</span><span class="n">PiYG</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="density-of-states">
+<h3>Density of states<a class="headerlink" href="#density-of-states" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="n">nk</span> <span class="o">=</span> <span class="mi">400</span><span class="o">^</span><span class="mi">2</span>
+<span class="n">N</span> <span class="o">=</span> <span class="mi">500</span>
+<span class="n">Λ</span> <span class="o">=</span> <span class="mf">3.1</span>
+
+<span class="n">ks</span> <span class="o">=</span> <span class="n">Structure</span><span class="o">.</span><span class="n">regulargrid</span><span class="p">(</span><span class="n">nk</span><span class="o">=</span><span class="n">nk</span><span class="p">)</span>
+<span class="n">energies</span> <span class="o">=</span> <span class="n">collect</span><span class="p">(</span><span class="n">range</span><span class="p">(</span><span class="o">-</span><span class="n">Λ</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="n">stop</span><span class="o">=</span><span class="n">Λ</span><span class="p">))</span>
+<span class="n">Γ</span> <span class="o">=</span> <span class="mf">0.01</span>
+<span class="n">DOS</span> <span class="o">=</span> <span class="n">BlochTools</span><span class="o">.</span><span class="n">dos_dense</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">ks</span><span class="p">,</span> <span class="n">energies</span><span class="p">;</span> <span class="n">Γ</span><span class="o">=</span><span class="n">Γ</span><span class="p">)</span>
+
+<span class="n">plot</span><span class="p">(</span><span class="n">energies</span><span class="p">,</span> <span class="n">DOS</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
 </div>
 </div>
 

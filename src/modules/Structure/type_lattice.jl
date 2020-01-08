@@ -1,14 +1,22 @@
 
+"""
+    Lattice
+
+Type that contains all information about a lattice, such as lattice vectors
+in ``Lattice.a``, fractional coordinates in ``Lattice.coordinates`` and
+extra dimensions in ``Lattice.extradimensions``.
+
+# Fields
+- `a::Matrix{Float64}` :
+  :math:`d \times d` matrix of lattice vectors a[:,i]
+- `coordinates::Matrix{Float64}` :
+  :math:`D \times d` matrix of fractional coordinates x[1:d,i]
+  The coordinates x[d+1:D, i] are additional coordinates
+- `extradimensions::Dict{String,Int}` :
+  Keys are the names of the additional coordinates, e.g. "sublattice" or "z".
+  The values are indices for the corresponding row in ``Lattice.coordinates``.
+"""
 mutable struct Lattice{T<:AbstractMatrix{Float64}}
-
-    """
-        D::Int :                                   Dimension of the lattice
-        A::Matrix(D, D) :                          Save primitive lattice vectors as columns
-        atoms::Matrix(D, N) :                      atom positions in units of cols(A) "fractional coordinates"
-
-        d::Int :                                   Perpendicular spatial dimensions (total spatial dimensions: d+D)
-        atoms_auxspace::Matrix{Float}(M,N):        position of each atom in auxiliary space of dimension M
-    """
 
     A::T # d × d
     atoms::T # d × N # fractional coordinates w.r.t. A

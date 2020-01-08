@@ -139,7 +139,7 @@ function add_spinorbit!(hops, lat, t2, args...)
 
     newhops = kron(newhops, σZ)
 
-    add_hoppings!(hops, newhops)
+    addhops!(hops, newhops)
 
     nothing
 end
@@ -162,7 +162,7 @@ function rashba_hops(lat::Lattice, λ::Function; format=:auto)
 end
 rashba_hops(lat::Lattice, λ::AbstractFloat; kwargs...) = rashba_hops(lat, x->λ; kwargs...)
 
-add_rashba!(hops, lat, rashba::Function; kwargs...) = add_hoppings!(hops, rashba_hops(lat, rashba; kwargs...))
+add_rashba!(hops, lat, rashba::Function; kwargs...) = addhops!(hops, rashba_hops(lat, rashba; kwargs...))
 function add_rashba!(hops, lat, rashba::AbstractFloat)
     if !(rashba≈0.0)
         add_rashba!(hops, lat, x->rasbha)

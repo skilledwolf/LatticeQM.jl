@@ -8,6 +8,8 @@ end
 # Wrapper for custom types to get_hops(...)
 ###############################################################################
 
+addhops!(hops::AnyHops, lat::Lattice, t::Function; kwargs...) = addhops!(hops, get_hops(lat, t; kwargs...))
+
 function get_hops(lat::Lattice, t::Function; format=:auto, precision::Float64=1e-8)# where {T<:AbstractMatrix{Float64}}
 
     # Get lattice neighbors
@@ -94,14 +96,10 @@ function hopping_matrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64}
 
     for j=1:N
         tj(x) = t(x, R[:,j])
-        # V .= vcat(t.(eachcol(R0.-R[:,j]))...)
 
         for k=1:N # Evaluate and save the hopping elements
-#             V[k:k+d-1, 1:d] .= tj(R0[:,k])
             V[1+d*(k-1):d+d*(k-1), 1:d] .= tj(R0[:,k])
         end
-
-#         V[:] .= vcat(tj.(eachcol(R0))...)[:]
 
         for i=1:N
             for i0=1:d, j0=1:d

@@ -25,7 +25,8 @@ module LatticeQM # renamed from LatticeQM
 
     include("modules/TightBinding.jl")
     using .TightBinding
-    export get_operator, get_projector, get_hops, get_bloch, get_dense, hopdim, set_filling!
+    export DenseHops, SparseHops, Hops, AbstractHops, hopdim, addhops!, addhops
+    export get_operator, get_projector, get_hops, get_bloch, set_filling!
 
     # include("modules/Plotting.jl") # this module is deprecated in favor of using "recipes" with the package Plots.jl
     # using .Plotting
@@ -40,5 +41,7 @@ module LatticeQM # renamed from LatticeQM
     include("modules/Materials.jl")
     using .Materials
 
-
 end
+
+# using .Structure, .BlochTools, .TightBinding, .KPM
+# using .Geometries2D, .Materials

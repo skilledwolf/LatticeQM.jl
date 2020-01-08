@@ -205,7 +205,7 @@ function set_filling!(hops, lat, filling; nk=100, kwargs...)
 end
 
 function set_filling!(hops, lat, kgrid, filling; T=0.0)
-    hops0 = get_dense(hops)
+    hops0 = DenseHops(hops)
     μ = chemical_potential(get_bloch(hops0), kgrid, filling; T=T)
     add_chemicalpotential!(hops, lat, -μ)
 
@@ -226,7 +226,7 @@ function add_chemicalpotential!(hops, lat::Lattice, μ::T; localdim::Int=-1) whe
     @assert N == length(μ)
 
     newhops = Dict( zero0 => sparse( (1.0+0.0im).* Diagonal(kron(μ, ones(d))) ) )
-    add_hoppings!(hops, newhops)
+    addhops!(hops, newhops)
 
     nothing
 end
@@ -245,7 +245,7 @@ add_chemicalpotential!(hops, lat::Lattice, μ::Float64; kwargs...) = add_chemica
 ###################################################################################################
 
 
-function get_mf_functional_new(hops, v::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
+function get_mf_functional_new(hops, v::Dict{Vector{Int},<:AbstractMatrix})
     """
         This method takes the Hamiltonian single-particle operator h and an
         interaction potential v and returns mean-field functionals
@@ -256,12 +256,12 @@ function get_mf_functional_new(hops, v::Dict{Vector{Int},T2}) where {T1<:Complex
     """
 
     mf_hops, E = get_mf_hops(v)
-    H(ρ) = get_bloch(get_dense(add_hoppings(hops, mf_hops(ρ))))
+    H(ρ) = get_bloch(DenseHops(addhops(hops, mf_hops(ρ))))
 
     H, E
 end
 
-function get_mf_hops(v::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
+function get_mf_hops(v::Dict{Vector{Int},<:AbstractMatrix})
     """
         Expects the real space potential {V(L) | L unit cell vector}.
         It returns a functional 𝒱[ρ,k] that builds the mean field hamiltonian
@@ -274,7 +274,7 @@ function get_mf_hops(v::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMa
     # vsym(L::Vector{Int}) = 0.5 .* (v[L].+(v[L])')
     V0 = sum(v[L] for L in keys(v))
 
-    function mf_op(ρs::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
+    function mf_op(ρs::Dict{Vector{Int},<:AbstractMatrix})
         δL0 = zero(first(keys(ρs)))
 
         # fock
@@ -285,7 +285,7 @@ function get_mf_hops(v::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMa
         hops_mf
     end
 
-    function mf_scalar(ρs::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
+    function mf_scalar(ρs::Dict{Vector{Int},<:AbstractMatrix})
         δL0 = zero(first(keys(ρs)))
 
         # Hartree contribution
@@ -307,7 +307,7 @@ end
 ###################################################################################################
 ###################################################################################################
 
-function initial_guess(v::Dict{Vector{Int},T2}, mode=:random; lat=:nothing) where {T1<:Complex, T2<:AbstractMatrix{T1}}
+function initial_guess(v::Dict{Vector{Int},<:AbstractMatrix}, mode=:random; lat=:nothing)
     N = size(first(values(v)), 1)
 
     ρs = Dict{Vector{Int},Matrix{ComplexF64}}()

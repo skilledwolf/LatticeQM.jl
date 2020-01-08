@@ -68,7 +68,7 @@ function add_zeeman!(hops, lat::Lattice, Mv::Function)
     end
 
     newhops = Dict(zero0 => mat)
-    add_hoppings!(hops, newhops)
+    addhops!(hops, newhops)
 
     nothing
 end
@@ -87,7 +87,7 @@ function add_zeeman!(hops, lat::Lattice, Mv::Vector{Float64}; format=:dense)
     σn = sum(Mv[i] .* σs[i] for i=1:3)
 
     newhops = Dict( zero0 => kron(Matrix(1.0I, N, N), σn) )
-    add_hoppings!(hops, newhops)
+    addhops!(hops, newhops)
 
     nothing
 end

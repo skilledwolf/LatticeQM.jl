@@ -140,7 +140,7 @@ end
 
 BlochPhase(k,δL)::ComplexF64  = exp(1.0im * 2 * π * ComplexF64(dot(k,δL)))
 
-function get_mf_functional(h::Function, v::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
+function get_mf_functional(h::Function, v::Dict{Vector{Int},<:AbstractMatrix})
     """
         This method takes the Hamiltonian single-particle operator h and an
         interaction potential v and returns mean-field functionals
@@ -156,7 +156,7 @@ function get_mf_functional(h::Function, v::Dict{Vector{Int},T2}) where {T1<:Comp
     ℋ, E
 end
 
-function get_mf_operator(v::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
+function get_mf_operator(v::Dict{Vector{Int},<:AbstractMatrix})
     """
         Expects the real space potential {V(L) | L unit cell vector}.
         It returns a functional 𝒱[ρ,k] that builds the mean field hamiltonian
@@ -168,7 +168,7 @@ function get_mf_operator(v::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:Abstra
     V0 = sum(v[L] for L in keys(v))
     diag0(ρs) = diag(ρs[[0,0]])
 
-    function mf_op(ρs::Dict{Vector{Int},T2}, k::AbstractVector{Float64}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
+    function mf_op(ρs::Dict{Vector{Int},<:AbstractMatrix}, k::AbstractVector{Float64})
 
         # Hartree contribution
         H_hartree = spdiagm(0 => V0 * (diag0(ρs)))
@@ -179,7 +179,7 @@ function get_mf_operator(v::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:Abstra
         H_hartree + H_fock(k)
     end
 
-    function mf_scalar(ρs::Dict{Vector{Int},T2}) where {T1<:Complex, T2<:AbstractMatrix{T1}}
+    function mf_scalar(ρs::Dict{Vector{Int},<:AbstractMatrix})
 
         # Hartree contribution
         vρ = diag0(ρs)

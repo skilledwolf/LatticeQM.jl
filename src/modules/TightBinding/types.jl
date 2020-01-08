@@ -1,19 +1,21 @@
 
-const LatticeHopsAbstract = Dict{Vector{Int}, <:AbstractMatrix{ComplexF64}}
-const LatticeHopsDense = Dict{Vector{Int}, <:Matrix{ComplexF64}}
-const LatticeHopsSparse = Dict{Vector{Int}, <:SparseMatrixCSC{ComplexF64}}
-const LatticeHops = Union{LatticeHopsDense, LatticeHopsSparse, LatticeHopsAbstract}
+const Hop  = Pair{Vector{Int}, <:AbstractMatrix}
+const Hops = Dict{Vector{Int}, AbstractMatrix}
+const AnyHops = Dict{Vector{Int}, <:AbstractMatrix}
 
-# LatticeHopsSparse{T}(args...; kwargs...) where T<:SparseMatrixCSC{<:Complex} = Dict{Vector{Int}, T}(Vararg{Pair,N} where N)#Dict{Vector{Int}, T}(args...; kwargs...)
-# LatticeHopsSparse(args...; kwargs...) = LatticeHopsSparse{SparseMatrixCSC{ComplexF64}}(args...; kwargs...)
-# LatticeHopsDense{T}(args...; kwargs...) where T<:Matrix{<:Complex} = Dict{Vector{Int}, T}(args...; kwargs...)
-# LatticeHopsDense(args...; kwargs...) = LatticeHopsDense{Matrix{ComplexF64}}(args...; kwargs...)
 
-hopdim(hops::LatticeHops) = size(first(values(hops)),1)
+DenseHops(kv::Hop...) = Hops(k=>Matrix(v) for (k,v) in kv)
+DenseHops(d::AnyHops) = DenseHops(d...)
 
-empty_hops() = Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}()
+SparseHops(kv::Hop...) = Hops(k=>sparse(v) for (k,v) in kv)
+SparseHops(d::AnyHops) = SparseHops(d...)
 
-function Base.kron(a, b::LatticeHops)
+hopdim(hops::AnyHops) = size(first(values(hops)),1)
+
+addhops!(hops::AnyHops, newhops::AnyHops...) = merge!(+, hops, newhops...)
+addhops(hops::AnyHops, newhops::AnyHops...) = merge(+, hops, newhops...)
+
+function Base.kron(a, b::AnyHops)
     for (δL, t) in b
         b[δL] = kron(a, t) # add spin degree of freedom # we made the choice to group the matrix in spin blocks
     end
@@ -21,7 +23,7 @@ function Base.kron(a, b::LatticeHops)
     b
 end
 
-function Base.kron(a::LatticeHops, b)
+function Base.kron(a::AnyHops, b)
     for (δL, t) in a
         a[δL] = kron(t, b) # add spin degree of freedom # we made the choice to group the matrix in spin blocks
     end
@@ -29,25 +31,7 @@ function Base.kron(a::LatticeHops, b)
     a
 end
 
-function add_hoppings!(hops::LatticeHops, newhops::LatticeHops)
-    for (δR, hop)=newhops
-        if !haskey(hops,δR)
-            hops[δR] = hop
-        else
-            hops[δR] += hop
-        end
-    end
-    nothing
-end
-
-function add_hoppings(hops::LatticeHops, newhops::LatticeHops)
-    hops2 = deepcopy(hops)
-
-    add_hoppings!(hops2, newhops)
-    hops2
-end
-
-function extend_space(hoppings, mode=:nospin) #::LatticeHops
+function extend_space(hoppings, mode=:nospin) #::AbstractHops
     if mode==:nospin || mode==:id
         return hoppings
     elseif mode==:spinhalf || mode==:σ0
@@ -61,19 +45,19 @@ function extend_space(hoppings, mode=:nospin) #::LatticeHops
     hoppings
 end
 
-get_dense(hops) = Dict(δL => Matrix(t) for (δL, t) in hops)
+const maximum_dense_size = 300
 
-function decide_type(hops::LatticeHops, format)
+function decide_type(hops::AnyHops, format)
 
     if format==:auto
         N = size(first(values(hops)), 1)
-        if N < 301
+        if N < maximum_dense_size + 1
             format=:dense
         end
     end
 
     if format==:dense
-        hops = get_dense(hops)
+        hops = DenseHops(hops)
     end
 
     hops
