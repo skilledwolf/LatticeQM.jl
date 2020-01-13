@@ -4,10 +4,11 @@ module Geometries2D
 
     using Base, LinearAlgebra
 
-    import ..Structure: Lattice, PointDict, has_dimension, get_positions_in, atom_count, positions, twist_triangular_2D
+    import ..Structure: twist
+    import ..Structure.Lattices: Lattice, LabeledPoints, hasdimension, extrapositions, countatoms, positions
 
     # Dictionary to construct Paths in k space
-    kdict_tri = PointDict(
+    kdict_tri = LabeledPoints(
         ["γ", "κ", "μ", "κ'"],
         [[0.0;  0.0], [1/3;  2/3], [1/2;  1/2], [2/3;  1/3]],
         ["\$\\gamma\$", "\$\\kappa\$", "\$\\mu\$", "\$\\kappa'\$"],
@@ -15,7 +16,7 @@ module Geometries2D
     )
 
     # Should implement this (or a similar) form in the future:
-    # kdict_tri = PointDict(
+    # kdict_tri = LabeledPoints(
     #     "γ" => (label="\$\\gamma\$", coord=[0.0;  0.0]),
     #     "κ" => (label="\$\\kappa\$", coord=[1/3;  2/3]),
     #     "μ" => (label="\$\\mu\$", coord=[1/2;  1/2]),
@@ -86,21 +87,21 @@ module Geometries2D
 
     function honeycomb_twisted(N::Int, a::Float64=1.0, z::Float64=3.0)
         lat = honeycomb(a)
-        return twist_triangular_2D(lat, lat, N; z=z, m=1)
+        return twist(lat, lat, N; z=z, m=1)
     end
 
     function honeycomb_twisted_ABBA(N::Int, a::Float64=1.0, z::Float64=3.0)
         lat1 = honeycomb_AB(a, z)
         lat2 = honeycomb_AB(a, z)
 
-        return twist_triangular_2D(lat1, lat2, N; z=z, m=1)
+        return twist(lat1, lat2, N; z=z, m=1)
     end
 
     function honeycomb_twisted_ABAB(N::Int, a::Float64=1.0, z::Float64=3.0)
         lat1 = honeycomb_AB(a, z)
         lat2 = honeycomb_BA(a, z)
 
-        return twist_triangular_2D(lat1, lat2, N; z=z, m=1)
+        return twist(lat1, lat2, N; z=z, m=1)
     end
 
 

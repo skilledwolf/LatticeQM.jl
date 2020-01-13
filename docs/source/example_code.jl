@@ -10,10 +10,10 @@ lat = Geometries2D.honeycomb()
 hops = Materials.graphene(lat; mode=:nospin) # or mode=:spinhalf for spin-1/2
 
 # Compile Bloch Hamiltonian
-h = get_bloch(hops)
+h = getbloch(hops)
 
 # Path in k-space
-ks = Structure.get_kpath(lat; num_points=200)
+ks = Structure.kpath(lat; num_points=200)
 
 # Get bandstructure
 bands = get_bands(h, ks)

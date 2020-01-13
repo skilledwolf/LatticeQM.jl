@@ -28,7 +28,7 @@ function randomgrid(;nk::Int=100, dim::Int=2, rot_symmetry::Int=1, B=:id)
 
     # symmetrized sampling
     for i=1:(rot_symmetry-1)
-        ks = Matrix([ks inv(B)*rot(2π/rot_symmetry*i)*B*ks])
+        ks = Matrix([ks inv(B)*RotationMatrix(2π/rot_symmetry*i)*B*ks])
     end
 
     ks
@@ -64,4 +64,4 @@ function foldBZ!(M, kpoints::AbstractMatrix)
 
     nothing
 end
-foldBZ!(lat::Lattice, kpoints::AbstractMatrix) = foldBZ!(transpose(get_B(lat))*get_B(lat),kpoints)
+foldBZ!(lat::Lattice, kpoints::AbstractMatrix) = foldBZ!(transpose(getB(lat))*getB(lat),kpoints)

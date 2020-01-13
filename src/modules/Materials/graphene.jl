@@ -2,44 +2,33 @@ using SparseArrays
 
 function graphene(lat::Lattice; mode=:nospin, format=:auto, kwargs...)
 
-    t(args...) = graphene_hops(args...; kwargs...)
+    t(args...) = t_graphene(args...; kwargs...)
 
-    hops = get_hops(lat, t; format=format)
-
-#     add_transversepotential!(hops, lat, V)
-#     add_sublattice_imbalance!(hops, lat, Δ)
+    hops = gethops(lat, t; format=format)
 
     if mode==:spinhalf
-        hops = extend_space(hops, mode)
+        hops = addspin(hops, mode)
     end
-
-#     add_spinorbit!(hops,lat,spin_orbit)
-#     add_zeeman!(hops, lat, zeeman)
-
-#     zeeman_staggered!(hops, lat, zeeman_staggered)
-#     zeeman_staggered_noncol!(hops, lat, zeeman_staggered_noncol)
-#     zeeman_layered!(hops, lat, zeeman_layered)
-#     zeeman_layered_noncol!(hops, lat, zeeman_layered_noncol)
 
     hops
 end
 
-
-function add_sublatticeimbalance!(hops, lat::Lattice, Δ::AbstractFloat; kwargs...)
+@legacyalias addsublatticeimbalance! add_sublatticeimbalance
+function addsublatticeimbalance!(hops, lat::Lattice, Δ::AbstractFloat; kwargs...)
 
     # Only go through the trouble of constructing this matrix for finite Δ
     if abs(Δ) ≈ 0
         return nothing
     end
 
-    μ = Δ .* (get_positions_in(lat, "sublattice") .- 0.5)
-    add_chemicalpotential!(hops, lat, μ)
+    μ = Δ .* (extrapositions(lat, "sublattice") .- 0.5)
+    addchemicalpotential!(hops, lat, μ)
 
     nothing
 end
 
-
-function add_haldane!(hops, lat::Lattice, t2; ϕ=π/2, spinhalf=false, mode=:none, zmode=:none)
+@legacyalias addhaldane add_haldane
+function addhaldane!(hops, lat::Lattice, t2; ϕ=π/2, spinhalf=false, mode=:none, zmode=:none)
     """
     This method is a somewhat inefficient way to compute the haldane hopping matrix.
     The only upside to it is that it uses methods that I already implemented and
@@ -53,7 +42,7 @@ function add_haldane!(hops, lat::Lattice, t2; ϕ=π/2, spinhalf=false, mode=:non
     end
 
     if spinhalf
-        t2 = extend_space(t2, :spinhalf)
+        t2 = addspin(t2, :spinhalf)
     end
 
     d = size(t2,1)
@@ -61,13 +50,13 @@ function add_haldane!(hops, lat::Lattice, t2; ϕ=π/2, spinhalf=false, mode=:non
     cross2D(vec1, vec2) = vec1[1] * vec2[2] - vec1[2] * vec2[1] # needed later on in this scope
 
     # NN  = find_neighbors(lat, 1.0)
-    NNN = get_neighbors(lat, √3)
+    NNN = Structure.neighbors(lat, √3)
 
-    N = atom_count(lat)
+    N = countatoms(lat)
     R = positions(lat) # positions of atoms within unit cell
-    sublattice = get_positions_in(lat, "sublattice") .- 0.5
-    zpositions = get_positions_in(lat, "z")
-    A = get_A(lat)
+    sublattice = extrapositions(lat, "sublattice") .- 0.5
+    zpositions = extrapositions(lat, "z")
+    A = getA(lat)
 
     neighbors = [[i;j] for i=-1:1 for j=-1:1]
     δAs = [A * v for v in neighbors]
@@ -115,36 +104,29 @@ function add_haldane!(hops, lat::Lattice, t2; ϕ=π/2, spinhalf=false, mode=:non
         end
     end
 
-    nothing
+    hops
 end
 
-function get_haldane_hops(args...; kwargs...)
-
-    newhops = Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}()
-
-    add_haldane!(newhops, args...; kwargs...)
-
-    newhops
+@legacyalias gethaldane get_haldane_hops
+function gethaldane(args...; kwargs...)
+    newhops = Hops()
+    addhaldane!(newhops, args...; kwargs...)
 end
 
-function add_spinorbit!(hops, lat, t2, args...)
+@legacyalias addspinorbit! add_spinorbit!
+function addspinorbit!(hops, lat, t2, args...)
 
     if t2≈0.0
         return nothing
     end
 
-    newhops = Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}()
-
-    add_haldane!(newhops, lat, t2, args...)
-
-    newhops = kron(newhops, σZ)
-
-    addhops!(hops, newhops)
-
-    nothing
+    newhops = Hops()
+    addhaldane!(newhops, lat, t2, args...)
+    addhops!(hops, kron(newhops, σZ))
 end
 
-function rashba_hops(lat::Lattice, λ::Function; format=:auto)
+@legacyalias getrashba rashba_hops
+function getrashba(lat::Lattice, λ::Function; format=:auto)
 
     function hop(r1, r2=0.0)
         δr = (r1.-r2)[1:3]
@@ -158,16 +140,16 @@ function rashba_hops(lat::Lattice, λ::Function; format=:auto)
         end
     end
 
-    get_hops(lat, hop; format=format)
+    gethops(lat, hop; format=format)
 end
-rashba_hops(lat::Lattice, λ::AbstractFloat; kwargs...) = rashba_hops(lat, x->λ; kwargs...)
+getrashba(lat::Lattice, λ::AbstractFloat; kwargs...) = getrashba(lat, x->λ; kwargs...)
 
-add_rashba!(hops, lat, rashba::Function; kwargs...) = addhops!(hops, rashba_hops(lat, rashba; kwargs...))
-function add_rashba!(hops, lat, rashba::AbstractFloat)
+@legacyalias addrashba! add_rashba!
+addrashba!(hops, lat, rashba::Function; kwargs...) = addhops!(hops, getrashba(lat, rashba; kwargs...))
+function addrashba!(hops, lat, rashba::AbstractFloat)
     if !(rashba≈0.0)
-        add_rashba!(hops, lat, x->rasbha)
+        addrashba!(hops, lat, x->rasbha)
     end
-    nothing
 end
 
 ################################################################################
@@ -180,10 +162,11 @@ end
 """
 
 norm2(r) = dot(r,r)
-graphene_hops(r1::AbstractVector, r2::AbstractVector; kwargs...) = graphene_hops(r1.-r2; kwargs...)
-graphene_hops(δr::AbstractVector; kwargs...) = graphene_hops(δr[1]^2+δr[2]^2+δr[3]^2, δr[3]^2; kwargs...)
+t_graphene(r1::AbstractVector, r2::AbstractVector; kwargs...) = t_graphene(r1.-r2; kwargs...)
+t_graphene(δr::AbstractVector; kwargs...) = t_graphene(δr[1]^2+δr[2]^2+δr[3]^2, δr[3]^2; kwargs...)
 
-@inline function graphene_hops(δr_sq::AbstractFloat, δz_sq::AbstractFloat;
+@legacyalias t_graphene graphene_hops
+@inline function t_graphene(δr_sq::AbstractFloat, δz_sq::AbstractFloat;
            tz::AbstractFloat=0.46, t0::AbstractFloat=1.0, ℓinter::AbstractFloat=0.125, ℓintra::AbstractFloat=0.08,
            z::AbstractFloat=3.0, a::AbstractFloat=1.0, cutoff::AbstractFloat=5.0)
     """

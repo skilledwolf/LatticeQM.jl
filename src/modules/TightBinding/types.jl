@@ -31,7 +31,7 @@ function Base.kron(a::AnyHops, b)
     a
 end
 
-function extend_space(hoppings, mode=:nospin) #::AbstractHops
+function addspin(hoppings, mode=:nospin) #::AbstractHops
     if mode==:nospin || mode==:id
         return hoppings
     elseif mode==:spinhalf || mode==:σ0
@@ -39,7 +39,7 @@ function extend_space(hoppings, mode=:nospin) #::AbstractHops
     elseif mode==:σx
         hoppings = kron(hoppings, σX)
     else
-        error("Do not recognize mode '$mode' in extend_space(...).")
+        error("Do not recognize mode '$mode' in addspin(...).")
     end
 
     hoppings
@@ -47,7 +47,7 @@ end
 
 const maximum_dense_size = 300
 
-function decide_type(hops::AnyHops, format)
+function decidetype(hops::AnyHops, format)
 
     if format==:auto
         N = size(first(values(hops)), 1)
@@ -62,3 +62,12 @@ function decide_type(hops::AnyHops, format)
 
     hops
 end
+
+###################################################################################################
+# Backwards compatibility
+###################################################################################################
+export extend_space
+@legacyalias addspin extend_space
+
+export decide_type
+@legacyalias decidetype decide_type

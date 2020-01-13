@@ -8,23 +8,33 @@ using LinearAlgebra
 using SparseArrays
 using ElasticArrays, RecursiveArrayTools
 
-import ..Structure: Lattice, positions, positionsND, positions3D, get_A, get_A_3D, atom_count, has_dimension, lattice_dim, assert_dimension, get_positions_in, regulargrid
-import ..BlochTools: chemical_potential
+using ..Utils
+import ..Algebra: σ0, σ1, σ2, σ3, σs
+
+import ..Structure: regulargrid
+import ..Structure.Lattices: Lattice, positions, allpositions, getA, countatoms, hasdimension, latticedim, assertdimension, extrapositions
+import ..Spectrum: chemicalpotential
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-include("../misc/paulimatrices.jl")
-include("TightBinding/types.jl")
-export DenseHops, SparseHops, Hops, AbstractHops, hopdim, extend_space, addhops!, addhops
+include("TightBinding/types.jl") # todo : move to new module Hops
+export DenseHops, SparseHops, Hops, AnyHops, AbstractHops
+export hopdim, addspin, addhops!, addhops
 
-include("TightBinding/bloch.jl")
-include("TightBinding/hamiltonian.jl")
-export get_hops, get_hamiltonian, get_bloch
+include("TightBinding/bloch.jl") # todo : move to new module Hops
+export get_bloch, getbloch
+
+include("TightBinding/hamiltonian.jl") # todo : move to structure
+export get_hops, get_hamiltonian # backwards compatibility
+export gethops, gethamiltonian
 
 include("TightBinding/operators.jl")
-export get_operator, get_projector, @vectorwrap, add_chemicalpotential!, initial_guess, set_filling!
+export getoperator, getprojector
 
-include("TightBinding/find_neighbors.jl")
+include("TightBinding/spin.jl")
+
+@legacymoved get_neighbors "Structure.neighbors"
+@legacymoved find_common_neighbor "Structure.commonneighbor"
 export get_neighbors, find_common_neighbor
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #

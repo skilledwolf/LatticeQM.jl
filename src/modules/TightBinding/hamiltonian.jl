@@ -1,32 +1,28 @@
-@fastmath function get_hamiltonian(args...; mode=:nospin, kwargs...)
-
-    # Build the Bloch matrix by adding the hopping matrices with the correct phases
-    get_bloch(get_hops(args...; kwargs...); mode=mode)
-end
+gethamiltonian(args...; mode=:nospin, kwargs...) = getbloch(gethops(args...; kwargs...); mode=mode)
 
 ###############################################################################
-# Wrapper for custom types to get_hops(...)
+# Wrapper for custom types to gethops(...)
 ###############################################################################
 
-addhops!(hops::AnyHops, lat::Lattice, t::Function; kwargs...) = addhops!(hops, get_hops(lat, t; kwargs...))
+addhops!(hops::AnyHops, lat::Lattice, t::Function; kwargs...) = addhops!(hops, gethops(lat, t; kwargs...))
 
-function get_hops(lat::Lattice, t::Function; format=:auto, precision::Float64=1e-8)# where {T<:AbstractMatrix{Float64}}
+function gethops(lat::Lattice, t::Function; format=:auto, precision::Float64=1e-8)# where {T<:AbstractMatrix{Float64}}
 
     # Get lattice neighbors
     neighbors = [[i;j] for i=-1:1 for j=-1:1 if i+j>=0 && i>=0]
 
-    get_hops(lat, neighbors, t; precision=precision, format=format)
+    gethops(lat, neighbors, t; precision=precision, format=format)
 end
 
 
-function get_hops(lat::Lattice, neighbors::Vector{Vector{Int}}, t::Function; kwargs...)
-    R = positionsND(lat)
+function gethops(lat::Lattice, neighbors::Vector{Vector{Int}}, t::Function; kwargs...)
+    R = allpositions(lat)
     d = size(R,1)
 
-    A = get_A(lat)
+    A = getA(lat)
     neighbor_dict = Dict(δL => padvec(A*δL,d) for δL in neighbors)
 
-    get_hops(R, neighbor_dict, t; kwargs...)
+    gethops(R, neighbor_dict, t; kwargs...)
 end
 
 
@@ -44,10 +40,10 @@ Make sure Vector v has length d, pad with zeros if needed.
 end
 
 ###############################################################################
-# Main routines for get_hops(...)
+# Main routines for gethops(...)
 ###############################################################################
 
-function get_hops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; precision::Float64=1e-8, format=:auto)
+function gethops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; precision::Float64=1e-8, format=:auto)
 
     N = size(R,2)
     hops = Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}()
@@ -84,7 +80,7 @@ function get_hops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64
 end
 
 
-function hopping_matrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64}, V::Array{ComplexF64}, R::Matrix{Float64}, R0::Matrix{Float64}, t::F; precision::Float64) where {F<:Function}
+function hoppingmatrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64}, V::Array{ComplexF64}, R::Matrix{Float64}, R0::Matrix{Float64}, t::F; precision::Float64) where {F<:Function}
 
     # Infer dimensions from array sizes
     d = size(V, 2)
@@ -126,11 +122,10 @@ function hopping_matrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64}
     sparse(IS[1:count], JS[1:count], VS[1:count], N*d, N*d)
 end
 
-################################################################################
-################################################################################
-################################################################################
 
-function build_H(args...; kwargs...)
-    @warn("Deprecation warning: build_H() was renamed to get_hamiltonian() and is marked for removal.")
-    get_hamiltonian(args...; kwargs...)
-end
+###################################################################################################
+# Backwards compatibility
+###################################################################################################
+@legacyalias gethamiltonian build_H
+@legacyalias gethops get_hops
+@legacyalias hoppingmatrix hopping_matrix

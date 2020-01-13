@@ -1,4 +1,4 @@
-function block_sparse_quad(N::Int, I::Vector{Int}, J::Vector{Int}, vec_of_mats::AbstractVector{T}) where {T<:AbstractMatrix}
+function blockmatrix(N::Int, I::Vector{Int}, J::Vector{Int}, vec_of_mats::AbstractVector{<:AbstractMatrix})
 """
     Builds a sparse matrix from block matrices.
 
@@ -26,7 +26,8 @@ end
 ####################################################################################################
 ####################################################################################################
 
-function superlattice_hops(hops::Dict{Vector{Int},AbstractMatrix{T}},lattice_vecs::Matrix{Int}) where {T<:Number}
+@lecayalias superlattice superlattice_hops
+function superlattice(hops::Dict{Vector{Int},AbstractMatrix{T}},lattice_vecs::Matrix{Int}) where {T<:Number}
 """
     Turn a given hopping model into a superlattice model by trivially copying cells.
     This method can be useful as preparation before adding modulations that change the
@@ -34,7 +35,7 @@ function superlattice_hops(hops::Dict{Vector{Int},AbstractMatrix{T}},lattice_vec
 
 """
 
-    intlattice = points_within_supercell(lattice_vecs')
+    intlattice = supercellpoints(lattice_vecs')
     basis_lookup = Dict{Vector{Int}, Int}(vec => ind for (vec, ind) in zip(eachcol(intlattice), 1:(size(intlattice)[2])))
 
     orbdim = size(collect(values(hops))[1])[2]
@@ -81,7 +82,7 @@ function superlattice_hops(hops::Dict{Vector{Int},AbstractMatrix{T}},lattice_vec
     end
 
     suplat_hoppings = Dict(
-        key=>block_sparse_quad(N,suplat_jump_IJ[key][1,:],suplat_jump_IJ[key][2,:],suplat_jump_VALS[key])
+        key=>blockmatrix(N,suplat_jump_IJ[key][1,:],suplat_jump_IJ[key][2,:],suplat_jump_VALS[key])
         for key in keys(suplat_jump_IJ)
     )
 end

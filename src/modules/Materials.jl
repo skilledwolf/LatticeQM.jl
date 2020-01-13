@@ -1,15 +1,26 @@
 # __precompile__()
-module Materials
+module Materials # proposal: rename this module to LatticeOperators
 
 using LinearAlgebra
+using SparseArrays
 
-using ..Structure: Lattice, assert_dimension, has_dimension, get_positions_in, atom_count, positions, get_A, positions3D, get_A_3D, positionsND, lattice_dim, regulargrid
+using ..Utils
+using ..Utils: @scalar2vector
+using ..Algebra: σ0, σ1, σ2, σ3, σs
+
+using ..Structure: regulargrid
+using ..Structure.Lattices: Lattice, assertdimension, hasdimension, extrapositions, countatoms, positions, getA, allpositions, latticedim
 using ..TightBinding
-using ..BlochTools: chemical_potential
+using ..Spectrum: chemicalpotential
 
-include("../misc/paulimatrices.jl")
+include("Materials/nearestneighbor.jl")
 
-include("Materials/generic.jl")
+include("Materials/chemicalpotential.jl")
+export add_chemicalpotential!, initial_guess, set_filling!
+
+include("Materials/zeeman.jl")
+export getzeeman, addzeeman!
+
 include("Materials/graphene.jl")
 
 ####################################################################################

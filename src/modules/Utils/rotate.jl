@@ -1,0 +1,1 @@
+RotationMatrix(θ) = [cos(θ) -sin(θ); sin(θ) cos(θ)]

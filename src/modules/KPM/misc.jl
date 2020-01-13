@@ -1,4 +1,4 @@
-using ..BlochTools: eigmin_sparse, eigmax_sparse
+using ..Algebra: eigmin_sparse, eigmax_sparse
 
 function tounitrange!(H::T; ϵ::Float64=0.01) where T<:AbstractMatrix
 """

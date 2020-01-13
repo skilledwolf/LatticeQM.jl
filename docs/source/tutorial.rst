@@ -67,10 +67,10 @@ Modifying the ``Lattice`` object after creation is discouraged.
 Use the methods ``update_atoms!(lat, atoms)`` and ``update_A!(lat,A)`` if you
 really have to.
 
-To access lattice properties use ``get_A(lat)``, ``get_coordinates(lat)``,
-``get_positions(lat)``, ``get_positions_in(lat, extradim_name)``,
+To access lattice properties use ``getA(lat)``, ``coordinates(lat)``,
+``get_positions(lat)``, ``extrapositions(lat, extradim_name)``,
 ``get_extrapositions(lat)``, ``get_ldim(lat)`` and ``get_sdim(lat)``.
-Reciprocal lattice vectors can be obtained as columns of ``get_B(lat)``.
+Reciprocal lattice vectors can be obtained as columns of ``getB(lat)``.
 
 Several predefined lattices can be found in ``LatticeQM.Geometries2D``, e.g.,
 
@@ -125,7 +125,7 @@ all others are zero:
   f(r1,r2=0.0) = (dot(r1.-r2,r1.-r2)<1.1) ? 1.0 : 0.0 # hopping function
 
   lat = Lattice(2) # single atom square lattice
-  hops = get_hops(lat, f) # get hopping matrix
+  hops = gethops(lat, f) # get hopping matrix
 
 or
 
@@ -176,10 +176,10 @@ There are several predefined tight-binding terms, such as:
   TightBinding.add_chemicalpotential!(hops, lat, 0.1)
   TightBinding.set_filling!(hops, lat, 0.5; nk=100)
 
-  Materials.add_sublatticeimbalance!(hops, lat, 0.1)
-  Materials.add_haldane!(hops, lat, 0.2; spinhalf=true)
+  Materials.addsublatticeimbalance!(hops, lat, 0.1)
+  Materials.addhaldane!(hops, lat, 0.2; spinhalf=true)
   Materials.add_spinorbit!(hops, lat, 0.03)
-  Materials.add_rashba!(hops, lat, 0.2)
+  Materials.addrashba!(hops, lat, 0.2)
   Materials.add_transversepotential!(hops, lat, 0.1)
   Materials.add_zeeman!(hops, lat, [0.0,0.0,0.1])
 
@@ -194,20 +194,21 @@ Bandstructure
 
   lat = Geometries2D.honeycomb()
   hops = Materials.graphene(lat; mode=:spinhalf)
-  h = get_bloch(hops)
+  h = getbloch(hops)
 
   # Build up a valley-observable
   valleyhops = Materials.get_haldane_hops(lat, √3/9; spinhalf=true, mode=:sublatticeA)
-  Materials.add_haldane!(valleyhops, lat, -√3/9; spinhalf=true, mode=:sublatticeB)
-  valley_proj = TightBinding.expvalf(get_bloch(valleyhops))
+  Materials.addhaldane!(valleyhops, lat, -√3/9; spinhalf=true, mode=:sublatticeB)
+  valley_proj = TightBinding.expvalf(getbloch(valleyhops))
 
-  # ks = Structure.get_kpath(lat; num_points=200)
-  ks = get_kpath(Geometries2D.k_hexagonal; num_points=200)
-  bands = get_bands(h, ks; projector=valley_proj) #get_projector(lat, "spin")
+  # ks = Structure.kpath(lat; num_points=200)
+  ks = kpath(Geometries2D.k_hexagonal; num_points=200)
+  bands = get_bands(h, ks; projector=valley_proj) #getprojector(lat, "spin")
 
   # Show bands
   save(bands, "graphene_bands.h5")
   plot(bands, ylabel="\$\\varepsilon/t\$", colorbar_title="valley", size=(330,240), colorbar=true, markercolor=:PiYG)
+
 
 Density of states
 """""""""""""""""

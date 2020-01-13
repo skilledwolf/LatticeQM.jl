@@ -238,7 +238,7 @@ the Pkg package manager. If it ran successfully, then you are good to go.</p>
 <span class="n">h</span> <span class="o">=</span> <span class="n">get_bloch</span><span class="p">(</span><span class="n">hops</span><span class="p">)</span>
 
 <span class="c"># Path in k-space</span>
-<span class="n">ks</span> <span class="o">=</span> <span class="n">Structure</span><span class="o">.</span><span class="n">get_kpath</span><span class="p">(</span><span class="n">lat</span><span class="p">;</span> <span class="n">num_points</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+<span class="n">ks</span> <span class="o">=</span> <span class="n">Structure</span><span class="o">.</span><span class="n">kpath</span><span class="p">(</span><span class="n">lat</span><span class="p">;</span> <span class="n">num_points</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
 
 <span class="c"># Get bandstructure</span>
 <span class="n">bands</span> <span class="o">=</span> <span class="n">get_bands</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">ks</span><span class="p">)</span>
