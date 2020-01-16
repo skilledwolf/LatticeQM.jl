@@ -13,7 +13,7 @@ end
 
 function addchemicalpotential!(hops, lat::Lattice, μ::T; localdim::Int=-1) where T<:AbstractVector{<:Float64}
     zero0 = zeros(Int, latticedim(lat))
-    N = countatoms(lat)
+    N = countorbitals(lat)
 
     if localdim < 0 # if localdim is not set, we determine it from matrix dimensions
         D = hopdim(hops)
@@ -36,10 +36,12 @@ function addchemicalpotential!(hops, lat::Lattice, μ::Function; kwargs...)
 
     nothing
 end
-addchemicalpotential!(hops, lat::Lattice, μ::Float64; kwargs...) = addchemicalpotential!(hops, lat, μ.*ones(countatoms(lat)); kwargs...)
+addchemicalpotential!(hops, lat::Lattice, μ::Float64; kwargs...) = addchemicalpotential!(hops, lat, μ.*ones(countorbitals(lat)); kwargs...)
 
-@legacyalias addtransversepotential! add_transversepotential
-function addtransversepotential!(hops, lat::Lattice, V::Float64; d=3.0, kwargs...)
+@legacyalias addinterlayerbias! add_interlayerbias!
+@legacyalias addinterlayerbias! add_transversepotential!
+@legacyalias addinterlayerbias! addtransversepotential!
+function addinterlayerbias!(hops, lat::Lattice, V::Float64; d=3.0, kwargs...)
 
     # Only go through the trouble of constructing this matrix for finite V
     if abs(V) ≈ 0
@@ -61,8 +63,6 @@ function addtransversepotential!(hops, lat::Lattice, V::Float64; d=3.0, kwargs..
 
     nothing
 end
-@legacyalias addinterlayerbias! add_interlayerbias
-addinterlayerbias! = addtransversepotential!
 
 ###################################################################################################
 # Backwards compatibility

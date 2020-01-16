@@ -3,20 +3,20 @@
 @legacyalias superlattice build_superlattice
 function superlattice(lat::Lattice, superperiods::Matrix{Int}; kwargs...)
 
-    Λ = lat.A * superperiods
+    Λ = getA(lat) * superperiods
     supercellints = supercellpoints(superperiods; kwargs...)
 
     # Existing atoms will now have to be copied
     # (note that the following code should be optimized for large systems, to use less memory...)
-    atoms_super = inv(superperiods) * hcat([lat.atoms .+ vec for vec in eachcol(supercellints)]...)
-    atoms_aux_super = hcat([lat.atoms_aux for vec in eachcol(supercellints)]...) # this will copy info's such as z-coordinate or sublattice
+    orbitalcoordinates_super = inv(superperiods) * hcat([lat.orbitalcoordinates .+ vec for vec in eachcol(supercellints)]...)
+    extrapositions_super = hcat([lat.extrapositions for vec in eachcol(supercellints)]...) # this will copy info's such as z-coordinate or sublattice
 
-    return Lattice(Λ, atoms_super, atoms_aux_super, lat.extradimensions, lat.highsymmetrypoints)
+    return Lattice(Λ, orbitalcoordinates_super, extrapositions_super, lat.extradimensions, lat.specialpoints)
 end
 
 function turn0D!(lat::Lattice)
-    lat.atoms = (lat.A * lat.atoms) # Turn the lattice coordinates into spatial coordinates
-    lat.A = zeros(0,0) # delete the lattice vectors
+    lat.orbitalcoordinates = positions(lat) # Turn the lattice coordinates into spatial coordinates
+    lat.latticevectors = zeros(0,0) # delete the lattice vectors
     nothing
 end
 
@@ -25,30 +25,30 @@ function repeat!(lat::Lattice, repeat=[0:0,0:0])
     @assert latticedim(lat) == 2 # only implemented for 2d lattices at the moment
 
     Λsuper = [[i; j] for i=repeat[1] for j=repeat[2]]
-    lat.atoms = hcat([lat.atoms.+v for v in Λsuper]...)
-    lat.atoms_aux = hcat([lat.atoms_aux for v in Λsuper]...)
+    lat.orbitalcoordinates = hcat([lat.orbitalcoordinates.+v for v in Λsuper]...)
+    lat.extrapositions = hcat([lat.extrapositions for v in Λsuper]...)
     lat
 end
 
 @legacyalias repeat repeat_atoms
 repeat(lat::Lattice, repeat=[0:0,0:0]) = repeat!(deepcopy(lat), repeat)
 
-function repeat(atoms::AbstractMatrix, Λ=Matrix{Float64}(I, 2, 2), repeat=[0:0,0:0])
+function repeat(orbitalcoordinates::AbstractMatrix, Λ=Matrix{Float64}(I, 2, 2), repeat=[0:0,0:0])
 """
 Translates all points in "atom" by lattice vectors as defined by the "repeat" list of iterator.
 """
-    @assert size(atoms,2) == 2 # only implemented for 2d lattices at the moment
+    @assert size(orbitalcoordinates,2) == 2 # only implemented for 2d lattices at the moment
     Λsuper = [Λ * [i; j] for i=repeat[1] for j=repeat[2]]
-    atoms_super = hcat([atoms.+v for v in Λsuper]...)
+    orbitalcoordinates_super = hcat([orbitalcoordinates.+v for v in Λsuper]...)
 end
 
 
 @legacyalias crop2unitcell! crop_to_unitcell!
 @legacyalias crop2unitcell crop_to_unitcell
 function crop2unitcell!(lat::Lattice)#, lat1::Lattice)
-    indices = [i for (i,a) in enumerate(eachcol(lat.atoms)) if inunitrange(a;offset=1e-3)]
-    lat.atoms = lat.atoms[:,indices]
-    lat.atoms_aux = lat.atoms_aux[:,indices]
+    indices = [i for (i,a) in enumerate(eachcol(lat.orbitalcoordinates)) if inunitrange(a;offset=1e-3)]
+    lat.orbitalcoordinates = lat.orbitalcoordinates[:,indices]
+    lat.extrapositions = lat.extrapositions[:,indices]
     lat
 end
 crop2unitcell(positions::AbstractMatrix, Λ::AbstractMatrix) = crop2unitcell(inv(Λ)*positions)
@@ -64,20 +64,20 @@ function bistack(lat::Lattice, δz::Float64; fracshift=[0.0; 0.0])
     Take lattice "lat", shift the copy down by δz.
     """
     if !hasdimension(lat, "z")
-        N = countatoms(lat)
+        N = countorbitals(lat)
         newdimension!(lat, "z", zeros(Float64,1,N))
     end
 
-    A = lat.A
-    atoms1 = lat.atoms
-    atoms2 = deepcopy(atoms1) .+ (A*fracshift)
+    A = getA(lat)
+    orbitalcoordinates1 = lat.orbitalcoordinates
+    orbitalcoordinates2 = deepcopy(orbitalcoordinates1) .+ (A*fracshift)
 
-    atoms_aux1 = lat.atoms_aux
-    atoms_aux2 = deepcopy(atoms_aux1)
-    # atoms_aux1[lat.extradimensions["z"],:] .+= δz/2
-    atoms_aux2[lat.extradimensions["z"],:] .+= δz
+    extrapositions1 = lat.extrapositions
+    extrapositions2 = deepcopy(extrapositions1)
+    # extrapositions1[lat.extradimensions["z"],:] .+= δz/2
+    extrapositions2[lat.extradimensions["z"],:] .+= δz
 
-    return Lattice(A, hcat(atoms,atoms), hcat(atoms_aux1, atoms_aux2), lat.extradimensions)
+    return Lattice(A, hcat(orbitalcoordinates,orbitalcoordinates), hcat(extrapositions1, extrapositions2), lat.extradimensions)
 end
 
 

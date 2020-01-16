@@ -5,6 +5,8 @@ energies(args...; kwargs...) = eigvals(args...; kwargs...)
 wavefunctions(args...; kwargs...) = eigvecs(args...; kwargs...)
 spectrum(args...; kwargs...) = eigen(args...; kwargs...)
 
+# using ..TightBinding: getbloch
+
 
 ###################################################################################################
 # Backwards compatibility

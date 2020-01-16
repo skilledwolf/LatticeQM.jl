@@ -7,7 +7,7 @@ using LatticeQM
 lat = Geometries2D.honeycomb()
 
 # Get nearest-neighbor hops in the honeycomb lattice
-hops = Materials.graphene(lat; mode=:nospin) # or mode=:spinhalf for spin-1/2
+hops = Operatorsgraphene(lat; mode=:nospin) # or mode=:spinhalf for spin-1/2
 
 # Compile Bloch Hamiltonian
 h = getbloch(hops)
@@ -16,7 +16,7 @@ h = getbloch(hops)
 ks = Structure.kpath(lat; num_points=200)
 
 # Get bandstructure
-bands = get_bands(h, ks)
+bands = getbands(h, ks)
 
 save(bands, "bands_example.h5") # save raw data
 p = plot(bands, size=(330,240)) # plot data

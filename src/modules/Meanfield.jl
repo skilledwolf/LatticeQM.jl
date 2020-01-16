@@ -1,12 +1,13 @@
 
 module Meanfield
 
+    using SharedArrays
+    using LinearAlgebra
+
     using ..Utils
     using ..Spectrum: spectrum, chemicalpotential
     using ..TightBinding
     using ..Green: densitymatrix!
-
-    using SharedArrays
 
     include("Meanfield/types.jl")
 
@@ -18,7 +19,7 @@ module Meanfield
 
     include("Meanfield/fixedpoint.jl")
     include("Meanfield/selfconsistent.jl")
-    export solveselfconsistent
+    export solveselfconsistent, solvehartreefockmf_k
 
     include("Meanfield/hartreefock.jl")
     export hartreefock, hartreefock_k

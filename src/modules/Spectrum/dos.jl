@@ -87,12 +87,12 @@ end
     ==================================
 """
 
-function dos_dense(hamiltonian::Function, ks::AbstractMatrix{Float64}, energies::AbstractVector{Float64}; Γ::Float64, mode=:parallel)
-    dos(energies(hamiltonian), ks, energies; type=:dense, Γ=Γ, mode=mode)
+function dos_dense(hamiltonian::Function, ks::AbstractMatrix{Float64}, ϵ::AbstractVector{Float64}; Γ::Float64, mode=:parallel)
+    dos(energies(hamiltonian, format=:dense), ks, ϵ; Γ=Γ, mode=mode)
 end
 
-function dos_sparse(hamiltonian::Function, ks::AbstractMatrix{Float64}, energies::AbstractVector{Float64}; Γ::Float64, mode=:parallel, kwargs...)
-    dos(energies(hamiltonian; kwargs...), ks, energies; type=:sparse, Γ=Γ, mode=mode)
+function dos_sparse(hamiltonian::Function, ks::AbstractMatrix{Float64}, ϵ::AbstractVector{Float64}; Γ::Float64, mode=:parallel, kwargs...)
+    dos(energies(hamiltonian; format=:sparse, kwargs...), ks, ϵ; Γ=Γ, mode=mode)
 end
 
 # function dos_dense_parallel(hamiltonian::Function, ks::AbstractMatrix{Float64}, energies::AbstractVector{Float64}; Γ::Float64)

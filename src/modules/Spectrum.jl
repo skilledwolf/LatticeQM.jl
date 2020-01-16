@@ -2,11 +2,11 @@
 
 module Spectrum
 
-    using Base
     using ElasticArrays, SparseArrays
     using LinearAlgebra
     using Arpack
     using Distributed
+    using SharedArrays
 
     # using ..KSpace
 
@@ -14,7 +14,7 @@ module Spectrum
     using ..Algebra: σ0, σ1, σ2, σ3, σs
     using ..Structure.Paths: kIterable, DiscretePath, eachpoint, points, sumk
 
-    export get_bands, spectrum, eigen, chemicalpotential
+    export getbands, spectrum, eigen, chemicalpotential
     export chemical_potential # backwards compatibility
 
     include("Spectrum/types.jl")

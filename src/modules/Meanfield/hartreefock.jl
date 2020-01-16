@@ -6,6 +6,8 @@
     These functionals can be used to search for a self-consistent solution
     using solve_selfconsistent(...).
 """
+
+
 function hartreefock(h::Function, v::AnyHops)
     mf, E = hartreefock_k(v)
     ℋ(ρ) = k -> (h(k) .+ mf(ρ)(k))
@@ -13,7 +15,11 @@ function hartreefock(h::Function, v::AnyHops)
     ℋ, E
 end
 
-hartreefock(h::AnyHops, v::AnyHops) = ρ::AnyHops -> addhops(h, hartreefock(v)(ρ))
+function hartreefock(h::AnyHops, v::AnyHops)
+    vMF, ϵMF = hartreefock(v)
+
+    ρ::AnyHops -> addhops(h, vMF(ρ)), ϵMF
+end
 
 function hartreefock_k(v::AnyHops)
     vMF, ϵMF = hartreefock(v)

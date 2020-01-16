@@ -1,15 +1,11 @@
-# __precompile__()
-module LatticeQM # renamed from LatticeQM
+__precompile__(false)
+module LatticeQM
 
     using Base, ElasticArrays, SparseArrays, LinearAlgebra
 
-    # Dummy modules (provide stuff that is shared between modules)
-    include("modules/DummySave.jl")
-    using .DummySave
-    export save
-
     include("modules/Utils.jl")
     using .Utils
+    export save
 
     include("modules/Algebra.jl")
     using .Algebra
@@ -18,24 +14,33 @@ module LatticeQM # renamed from LatticeQM
     include("modules/Structure.jl")
     using .Structure
     export Structure
-
-    include("modules/Spectrum.jl")
-    using .Spectrum
-    export Spectrum
-    export get_bands
+    export kpath
 
     include("modules/TightBinding.jl")
     using .TightBinding
     export TightBinding
     export DenseHops, SparseHops, Hops, AbstractHops, hopdim, addhops!, addhops
-    export getoperator, getprojector, get_hops, get_bloch, set_filling!
-    export initial_guess
+    export getoperator, getprojector, set_filling!
+    export gethops, getbloch
+    export initialguess
+    export get_hops, get_bloch # backwards compatibility
+    export initial_guess # backwards compatibility
+
+    include("modules/Spectrum.jl")
+    using .Spectrum
+    export Spectrum
+    export getbands
+    export get_bands # backwards compatibility
 
     include("modules/Green.jl")
     using .Green
     export Green
     export density, density!
     export densitymatrix, densitymatrix!
+
+    include("modules/Operators.jl")
+    using .Operators
+    export Operators
 
     include("modules/Meanfield.jl")
     using .Meanfield
@@ -50,12 +55,4 @@ module LatticeQM # renamed from LatticeQM
     include("modules/Geometries.jl")
     import .Geometries2D
     export Geometries2D
-
-    include("modules/Materials.jl")
-    using .Materials
-    export Materials
-
 end
-
-# using .Structure, .BlochTools, .TightBinding, .KPM
-# using .Geometries2D, .Materials

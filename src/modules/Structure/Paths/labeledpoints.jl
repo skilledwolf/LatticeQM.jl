@@ -1,7 +1,7 @@
 mutable struct LabeledPoints
     coord::Dict{String, AbstractVector{Float64}}
     label::Dict{String, String}
-    default_path::Vector{String}
+    defaultpath::Vector{String}
 end
 
 # Initialization
@@ -31,5 +31,5 @@ end
 function Base.:display(kDict0::LabeledPoints)
     display(kDict0.coord)
     display(kDict0.label)
-    display(kDict0.default_path)
+    display(kDict0.defaultpath)
 end

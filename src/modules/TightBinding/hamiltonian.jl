@@ -46,7 +46,7 @@ end
 function gethops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; precision::Float64=1e-8, format=:auto)
 
     N = size(R,2)
-    hops = Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}()
+    hops = Hops() # Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}()
     maxind = (N>500) ? round(Int, 0.60 * N^2) : N^2 # Preallocate memory: Semi-arbitrary limit for dense allocation
 
     v0 = t(R[:,1])
@@ -68,7 +68,7 @@ function gethops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}
     # Heavy lifting: hopping matrix construction
     for (δL,δa) in neighbors
         R0 .= R.+δa
-        hops[δL] = hopping_matrix!(IS, JS, VS, V, R, R0, t; precision=precision)
+        hops[δL] = hoppingmatrix!(IS, JS, VS, V, R, R0, t; precision=precision)
     end
 
     # Create the Hermitian conjugates
@@ -76,7 +76,7 @@ function gethops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}
         hops[-δL] = T'
     end
 
-    decide_type(hops, format)
+    decidetype(hops, format)
 end
 
 
@@ -126,6 +126,4 @@ end
 ###################################################################################################
 # Backwards compatibility
 ###################################################################################################
-@legacyalias gethamiltonian build_H
 @legacyalias gethops get_hops
-@legacyalias hoppingmatrix hopping_matrix

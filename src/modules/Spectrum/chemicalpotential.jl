@@ -1,6 +1,8 @@
 # TODO: implement chemicalpotential!(bands::AbstractMatrix, ...)
 # the repeated allocation of bands is problematic for large systems!
 
+chemicalpotential(hops::AnyHops, args...; kwargs...) = chemicalpotential(getbloch(hops), args...; kwargs...)
+
 function chemicalpotential(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64; kwargs...)
 
     chemicalpotential(bandmatrix(hamiltonian, ks)[:], ks, filling; kwargs...)

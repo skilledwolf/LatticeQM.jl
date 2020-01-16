@@ -58,6 +58,8 @@ function decidetype(hops::AnyHops, format)
 
     if format==:dense
         hops = DenseHops(hops)
+    elseif format==:sparse
+        hops = SparseHops(hops)
     end
 
     hops

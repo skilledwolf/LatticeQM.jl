@@ -3,7 +3,7 @@ getzeeman(args...; kwargs...) = addzeeman!(Hops(), args...; kwargs...)
 function addzeeman!(hops, lat::Lattice, Mv::Function)
     zero0 = zeros(Int, latticedim(lat))
 
-    N = countatoms(lat)
+    N = countorbitals(lat)
     R = allpositions(lat)
 
     σn(vec) = sum(vec[i] .* σs[i] for i=1:3)
@@ -24,7 +24,7 @@ function addzeeman!(hops, lat::Lattice, Mv::Vector{Float64}; format=:dense)
 
     zero0 = zeros(Int, latticedim(lat))
 
-    N = countatoms(lat)
+    N = countorbitals(lat)
     R = positions(lat)
 
     σn = sum(Mv[i] .* σs[i] for i=1:3)

@@ -13,6 +13,12 @@ function graphene(lat::Lattice; mode=:nospin, format=:auto, kwargs...)
     hops
 end
 
+valleyoperator(args...; kwargs...) = valleyoperator!(Hops(), args...; kwargs...)
+function valleyoperator!(hops, lat::Lattice; spinhalf=false, zmode=:anti, kwargs...)
+    @assert latticedim(lat) == 2 && countorbitals(lat) > 1
+    addhaldane!(hops, lat, √3/9; spinhalf=spinhalf, mode=:anti, zmode=zmode, kwargs...)
+end
+
 @legacyalias addsublatticeimbalance! add_sublatticeimbalance
 function addsublatticeimbalance!(hops, lat::Lattice, Δ::AbstractFloat; kwargs...)
 
@@ -50,12 +56,14 @@ function addhaldane!(hops, lat::Lattice, t2; ϕ=π/2, spinhalf=false, mode=:none
     cross2D(vec1, vec2) = vec1[1] * vec2[2] - vec1[2] * vec2[1] # needed later on in this scope
 
     # NN  = find_neighbors(lat, 1.0)
-    NNN = Structure.neighbors(lat, √3)
+    NNN = Structure.getneighbors(lat, √3)
 
-    N = countatoms(lat)
+    N = countorbitals(lat)
     R = positions(lat) # positions of atoms within unit cell
     sublattice = extrapositions(lat, "sublattice") .- 0.5
-    zpositions = extrapositions(lat, "z")
+    if hasdimension(lat, "z")
+        zpositions = extrapositions(lat, "z")
+    end
     A = getA(lat)
 
     neighbors = [[i;j] for i=-1:1 for j=-1:1]
@@ -84,12 +92,14 @@ function addhaldane!(hops, lat::Lattice, t2; ϕ=π/2, spinhalf=false, mode=:none
                 s = 1
             end
 
-            if zmode==:positive
-                s *= (zpositions[i]>0) ? 1 : 0 #(zpositions[i] > 0) ? 1 : 0
-            elseif zmode==:negative
-                s *= (zpositions[i]<0) ? 1 : 0
-            elseif zmode==:anti
-                s *= sign(zpositions[i])
+            if hasdimension(lat, "z")
+                if zmode==:positive
+                    s *= (zpositions[i]>0) ? 1 : 0 #(zpositions[i] > 0) ? 1 : 0
+                elseif zmode==:negative
+                    s *= (zpositions[i]<0) ? 1 : 0
+                elseif zmode==:anti
+                    s *= sign(zpositions[i]+1e-4)
+                end
             end
 
             for δAi=δAs, δri=eachcol(R)

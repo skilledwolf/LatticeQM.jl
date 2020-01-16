@@ -4,6 +4,10 @@ General functions and definitions that don't necessarily make sense in the Algeb
 # Note: This module must NOT depend on any other module of the package.
 module Utils
 
+    include("Utils/DummySave.jl")
+    export DummySave
+
+
     include("Utils/legacymacros.jl")
     export @legacyalias, @legacymoved, @legacyremoved
 
@@ -11,5 +15,7 @@ module Utils
     include("Utils/fermidirac.jl")
 
     include("Utils/rotate.jl")
-    export rot
+    export RotationMatrix
+
+    include("Utils/grid.jl")
 end

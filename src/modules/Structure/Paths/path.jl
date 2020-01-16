@@ -32,7 +32,7 @@ end
 
 function DiscretePath(kDict0::LabeledPoints; kwargs...)
 
-    named_path = kDict0.default_path
+    named_path = kDict0.defaultpath
     DiscretePath(kDict0, named_path; kwargs...)
 end
 

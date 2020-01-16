@@ -34,9 +34,9 @@ z-coordinates via
   extra_dimensions = ["z"] # allows to specify additional coordinates
 
   A = [[1, 0, 0] [0, 1, 0]] # each column is a lattice vector
-  atoms = [[0, 0, 0] [0.5, 0.5, 1.0]] # each column is an atom within the unit cell (in fractional coordinates)
+  orbitalcoordinates = [[0, 0, 0] [0.5, 0.5, 1.0]] # each column is an atom within the unit cell (in fractional coordinates)
 
-  lat = Lattice(A, atoms, extra_dimensions)
+  lat = Lattice(A, orbitalcoordinates, extra_dimensions)
 
 The case without extra coordinates is
 
@@ -44,9 +44,9 @@ The case without extra coordinates is
   :linenos:
 
   A = [[1, 0] [0, 1]] # each column is a lattice vector
-  atoms = [[0, 0] [0.5, 0.5]] # each column is an atom within the unit cell (in fractional coordinates)
+  orbitalcoordinates = [[0, 0] [0.5, 0.5]] # each column is an atom within the unit cell (in fractional coordinates)
 
-  lat = Lattice(A, atoms)
+  lat = Lattice(A, orbitalcoordinates)
 
 The case with a single atom per unit cell is
 
@@ -64,7 +64,7 @@ or even shorter
   lat = Lattice(2)
 
 Modifying the ``Lattice`` object after creation is discouraged.
-Use the methods ``update_atoms!(lat, atoms)`` and ``update_A!(lat,A)`` if you
+Use the methods ``update_orbitalcoordinates!(lat, orbitalcoordinates)`` and ``update_A!(lat,A)`` if you
 really have to.
 
 To access lattice properties use ``getA(lat)``, ``coordinates(lat)``,
@@ -171,17 +171,17 @@ There are several predefined tight-binding terms, such as:
 
 .. code-block:: julia
 
-  hops = Materials.graphene(lat; mode=:spinhalf)
+  hops = Operatorsgraphene(lat; mode=:spinhalf)
 
   TightBinding.add_chemicalpotential!(hops, lat, 0.1)
   TightBinding.set_filling!(hops, lat, 0.5; nk=100)
 
-  Materials.addsublatticeimbalance!(hops, lat, 0.1)
-  Materials.addhaldane!(hops, lat, 0.2; spinhalf=true)
-  Materials.add_spinorbit!(hops, lat, 0.03)
-  Materials.addrashba!(hops, lat, 0.2)
-  Materials.add_transversepotential!(hops, lat, 0.1)
-  Materials.add_zeeman!(hops, lat, [0.0,0.0,0.1])
+  Operatorsaddsublatticeimbalance!(hops, lat, 0.1)
+  Operatorsaddhaldane!(hops, lat, 0.2; spinhalf=true)
+  Operatorsadd_spinorbit!(hops, lat, 0.03)
+  Operatorsaddrashba!(hops, lat, 0.2)
+  Operatorsadd_transversepotential!(hops, lat, 0.1)
+  Operatorsadd_zeeman!(hops, lat, [0.0,0.0,0.1])
 
 
 Calculations
@@ -193,17 +193,17 @@ Bandstructure
 .. code-block:: julia
 
   lat = Geometries2D.honeycomb()
-  hops = Materials.graphene(lat; mode=:spinhalf)
+  hops = Operatorsgraphene(lat; mode=:spinhalf)
   h = getblochhops)
 
   # Build up a valley-observable
-  valleyhops = Materials.get_haldane_hops(lat, √3/9; spinhalf=true, mode=:sublatticeA)
-  Materials.addhaldane!(valleyhops, lat, -√3/9; spinhalf=true, mode=:sublatticeB)
+  valleyhops = Operatorsget_haldane_hops(lat, √3/9; spinhalf=true, mode=:sublatticeA)
+  Operatorsaddhaldane!(valleyhops, lat, -√3/9; spinhalf=true, mode=:sublatticeB)
   valley_proj = expvalf(getbloch(valleyhops))
 
   # ks = Structure.kpath(lat; num_points=200)
   ks = kpath(Geometries2D.k_hexagonal; num_points=200)
-  bands = get_bands(h, ks; projector=valley_proj) #getprojector(lat, "spin")
+  bands = getbands(h, ks; projector=valley_proj) #getprojector(lat, "spin")
 
   # Show bands
   save(bands, "graphene_bands.h5")
@@ -218,7 +218,7 @@ Density of states
   N = 500
   Λ = 3.1
 
-  ks = Structure.regulargrid(nk=nk)
+  ks = Utils.regulargrid(nk=nk)
   energies = collect(range(-Λ, length=N, stop=Λ))
   Γ = 0.01
   DOS = BlochTools.dos_dense(h, ks, energies; Γ=Γ)

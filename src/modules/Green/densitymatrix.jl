@@ -42,6 +42,7 @@ end
 ################################################################################
 ################################################################################
 ################################################################################
+
 function densitymatrix!(ρs::AnyHops, spectrum::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01)
     L = size(ks,2)
 
@@ -58,7 +59,7 @@ function densitymatrix!(ρs::AnyHops, spectrum::Function, ks::AbstractMatrix{Flo
 
         for δL=keys(ρs)
             for (ϵ, ψ) in zip(energies_k, eachcol(U_k)) # this loop used to be seperate in ρ_k!(...)
-                ρs[δL][:] += (fermidirac(ϵ-μ; T=T) .* transpose(ψ * ψ') .* BlochPhase(-k, δL))[:]
+                ρs[δL][:] += (fermidirac(ϵ-μ; T=T) .* transpose(ψ * ψ') .* fourierphase(-k, δL))[:]
             end
         end
 

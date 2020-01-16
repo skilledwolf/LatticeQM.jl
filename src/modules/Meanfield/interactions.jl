@@ -28,8 +28,8 @@ function getcappedyukawa(lat, neighbors=[[i;j] for i=-1:1 for j=-1:1]; mode=:nos
     addspin(ee_exchange, mode)
 end
 
-# build_CappedYukawa(lat; mode=:nospin, format=:auto, kwargs...) = build_H(lat, r->CappedYukawa(r; kwargs...); mode=mode, format=format)
-# build_Hubbard(lat; mode=:nospin, format=:auto, kwargs...) = build_H(lat, r->Hubbard(r; kwargs...); mode=mode, format=format)
+# build_CappedYukawa(lat; mode=:nospin, format=:auto, kwargs...) = gethamiltonian(lat, r->CappedYukawa(r; kwargs...); mode=mode, format=format)
+# gethamiltonianubbard(lat; mode=:nospin, format=:auto, kwargs...) = gethamiltonian(lat, r->Hubbard(r; kwargs...); mode=mode, format=format)
 
 
 

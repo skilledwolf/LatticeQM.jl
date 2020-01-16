@@ -1,100 +1,70 @@
 using Distributed
 using ProgressMeter
 
-function bandmatrix(h::Function, ks::AbstractMatrix; num_bands=nothing, kwargs...)
-    L = size(ks)[2]         # no. of k points
+using ..Structure.Paths: DiscretePath, points
+using ..TightBinding: expvalf, AnyHops, dim
 
-    if num_bands != nothing
-        M = num_bands
-    else
-        M = size(h(ks[:,1]))[1] # no. of bands
+handleprojector(projector::Nothing) = nothing
+handleprojector(projector::Function) = [projector]
+handleprojector(projector::AnyHops) = handleprojector([projector])
+function handleprojector(projector::AbstractVector)
+    if length(projector) == 0
+        return nothing
     end
 
+    handle(p::Function) = p
+    handle(p::AbstractMatrix) =  expvalf(p)
+    handle(p::AnyHops) =  expvalf(p)
 
-    bands = convert(SharedArray, zeros(Float64, M, L))
-
-    energies = ϵs(h; num_bands=num_bands, kwargs...)
-    @sync @showprogress 1 "Computing bands..."  @distributed for j_=1:L
-
-        bands[:,j_] .= real.(energies(ks[:,j_]))
-    end
-
-    Matrix(bands)
+    return [handle(p) for p in projector]
 end
 
-coloredbandmatrix(h::Function, ks::AbstractMatrix, projector::Function; kwargs...) = coloredbandmatrix(h,ks,[projector];kwargs...)
-function coloredbandmatrix(h::Function, ks0::AbstractMatrix, projector::AbstractVector; num_bands=nothing, kwargs...)
-    """
-        h(k): returns hermitian Hamiltonian at k-point
-        ks: collection of k points (see kIterable)
-        projector: function that returns a real value for a given (k,ψ,E_k).
-            can also be as Vector of such functions.
-    """
-    N = size(ks0, 2)        # no. of k points
-    M = (num_bands!=nothing) ? num_bands : size(h(ks0[:,1]), 1)  # no. of bands
+function bandmatrix(H, ks::AbstractMatrix; num_bands::Int=0, kwargs...)
+    N = size(ks,2) # no. of k points
+    bands = convert(SharedArray, zeros(Float64, num_bands, N))
 
-    bands = zeros(Float64, M, N)
-    obs = zeros(Float64, M, N, length(projector))
+    @sync @showprogress 1 "Computing bands..."  @distributed for j_=1:N
+        bands[:,j_] .= real.(energies(H, ks[:,j_]; num_bands=num_bands, kwargs...))
+    end
 
-    Σ = spectrum(h; num_bands=num_bands, kwargs...)
-    projector = projector
+    convert(Array, bands)
+end
 
-    # Parallized loop
-    bands = convert(SharedArray, bands)
-    obs = convert(SharedArray, obs)
+function bandmatrix(H, ks::AbstractMatrix, projector::AbstractVector; num_bands::Int=0, kwargs...)
+    projector = handleprojector(projector)
+    if !(num_bands>0)
+        num_bands = dim(H, ks)
+    end
 
-    p = Progress(N, "Computing bands... ")
-    channel = RemoteChannel(()->Channel{Bool}(N), 1)
+    N = size(ks, 2) # number of k points
+    L = length(projector)
+    bands = convert(SharedArray, zeros(Float64, num_bands, N))
+    obs   = convert(SharedArray, zeros(Float64, num_bands, N, L))
 
-    @sync begin
-        # this task prints the progress bar
-        @async begin
-            done = 0
-            while done < N
-                take!(channel)
-                next!(p)
-                done = done + 1
-            end
-        end
+    @sync @showprogress 1 "Computing bands..." @distributed for j_=1:N
+        ϵs, U = spectrum(H, ks[:,j_]; num_bands=num_bands, kwargs...)
+        bands[:,j_] .= real.(ϵs)
 
-        # this task does the computation
-        @async begin
-            @distributed for j_=1:N   #@sync @distributed for j_=1:N
-                k = ks0[:,j_]
-                ϵs, U = Σ(k)
-
-                bands[:,j_] .= real.(ϵs)
-
-                for (i_,ψ)=enumerate(eachcol(U))
-                    for (n_, proj)=enumerate(projector)
-                        obs[i_,j_,n_] = proj(k,ψ,ϵs[i_])
-                    end
-                end
-
-                put!(channel, true)
-            end
-#             put!(channel, false) # this tells the printing task to finish
+        for i_=1:size(U,2), n_=1:L
+            obs[i_,j_,n_] = projector[n_](ks[:,j_],U[:,i_],ϵs[i_])
         end
     end
 
-    bands = convert(Array, bands)
-    obs = convert(Array, obs)
-
-    bands, obs
+    convert(Array, bands), convert(Array, obs)
 end
 
-function get_bands(h,ks; projector=nothing, kwargs...)
-    if projector != nothing
-        return coloredbandmatrix(h,ks,projector; kwargs...)
-    else
-        bands = bandmatrix(h,ks; kwargs...)
-        return bands, nothing
-    end
-end
 
-function get_bands(h::Function, ks::DiscretePath; kwargs...)
 
-    bands, obs = get_bands(h, points(ks); kwargs...)
-
+function getbands(H, ks::DiscretePath; kwargs...)
+    bands = bandmatrix(H, points(ks); kwargs...)
+    obs = nothing
     BandData(bands, obs, ks)
 end
+
+function getbands(H, ks::DiscretePath, projector; kwargs...)
+    band, obs = bandmatrix(H, points(ks), projector; kwargs...)
+    BandData(bands, obs, ks)
+end
+
+export get_bands
+@legacyalias getbands get_bands

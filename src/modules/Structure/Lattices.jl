@@ -10,8 +10,9 @@ module Lattices
     export Lattice
 
     include("Lattices/properties.jl")
-    export latticedim, extraspacedim, spacedim, countatoms
-    export getA, getB, coordinates, positions, allpositions, extrapositions, setextrapositions
+    export latticedim, extraspacedim, spacedim, countorbitals
+    export hasdimension, assertdimension
+    export getA, getB, coordinates, positions, allpositions, extrapositions, setextrapositions!
     export filterindices, filterpositions, filtercoordinates, fractionalize, fractionalize!, foldfractional
 
     include("Lattices/methods.jl")

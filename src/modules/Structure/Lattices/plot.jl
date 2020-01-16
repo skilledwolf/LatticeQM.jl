@@ -9,10 +9,10 @@ using Plots
     # Plot the layers
     if filter != ()
         indices = filterindices(lat, filter...)
-        atoms = positions(lat)[:,indices]
+        orbitalcoordinates = positions(lat)[:,indices]
         colors = colors[indices]
     else
-        atoms = positions(lat)
+        orbitalcoordinates = positions(lat)
     end
 
     if colors != nothing
@@ -32,5 +32,5 @@ using Plots
     xlabel --> "x"
     ylabel --> "y"
 
-    atoms[1,:], atoms[2,:]
+    orbitalcoordinates[1,:], orbitalcoordinates[2,:]
 end

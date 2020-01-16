@@ -3,7 +3,7 @@ function getneighbors(lat, d=1.0)
 
     neighbors = [[i;j] for i=-1:1 for j=-1:1] #if i+j>=0 && i>=0]
 
-    N = countatoms(lat)
+    N = countorbitals(lat)
     R = positions(lat)
     Z = extrapositions(lat,"z")
 

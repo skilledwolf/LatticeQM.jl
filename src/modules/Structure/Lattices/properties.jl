@@ -2,34 +2,34 @@
 # Properties
 ###################################################################################################
 
-latticedim(lat::Lattice) = size(lat.A, 1)
-countatoms(lat::Lattice) = size(lat.atoms, 2)
-extraspacedim(lat::Lattice) = size(lat.atoms_aux, 1)
+latticedim(lat::Lattice) = size(getA(lat), 1)
+countorbitals(lat::Lattice) = size(lat.orbitalcoordinates, 2)
+extraspacedim(lat::Lattice) = size(lat.extrapositions, 1)
 spacedim(lat::Lattice) = latticedim(lat) + extraspacedim(lat)
 
 hasdimension(lat::Lattice, name::String) = haskey(lat.extradimensions, name)
 assertdimension(lat::Lattice, name::String) = !hasdimension(lat, name) ? error("No $name coordinates specified.") : Nothing
 
-getA(lat::Lattice) = lat.A
-getB(lat::Lattice) = inv(transpose(lat.A))
+getA(lat::Lattice) = lat.latticevectors
+getB(lat::Lattice) = inv(transpose(getA(lat)))
 
-coordinates(lat::Lattice) = lat.atoms
+coordinates(lat::Lattice) = lat.orbitalcoordinates
 positions(lat::Lattice) = getA(lat) * coordinates(lat)
 allpositions(lat::Lattice, args...) = [ positions(lat); extrapositions(lat, args...) ]
 
-extrapositions(lat::Lattice) = lat.atoms_aux
+extrapositions(lat::Lattice) = lat.extrapositions
 extrapositions(lat::Lattice, dim::String) = extrapositions(lat, [dim])
 function extrapositions(lat::Lattice, dims::Vector{String})
-    for dim in aux_dim
-        assertdimension(lat, dims)
+    for dim in dims
+        assertdimension(lat, dim)
     end
     indices = [lat.extradimensions[dim] for dim=dims]
     extrapositions(lat)[indices, :]
 end
 
-function setextrapositions(lat::Lattice, dim::String, values)
+function setextrapositions!(lat::Lattice, dim::String, values)
     assertdimension(lat, dim)
-    lat.atoms_aux[lat.extradimensions[dim],:] = values
+    lat.extrapositions[lat.extradimensions[dim],:] = values
 end
 
 function filterindices(lat::Lattice, name::String, condition::Function)
@@ -39,10 +39,10 @@ filterpositions(lat::Lattice, args...) = positions(lat)[:,filterindices(lat, arg
 filtercoordinates(lat::Lattice, args...) = coordinates(lat)[:,filterindices(lat, args...)]
 
 function fractionalize(lat::Lattice, positions::AbstractMatrix{Float64})
-    return inv(lat.A) * positions
+    return inv(getA(lat)) * positions
 end
 function fractionalize!(lat::Lattice, positions::AbstractMatrix{Float64})
-    positions[:] = (inv(lat.A) * positions)[:]
+    positions[:] = (inv(getA(lat)) * positions)[:]
 end
 foldfractional(frac_positions::AbstractMatrix{Float64}) = mod.(frac_positions,1)
 
@@ -53,7 +53,7 @@ foldfractional(frac_positions::AbstractMatrix{Float64}) = mod.(frac_positions,1)
 @legacyremoved getA_3D
 
 export atom_count
-@legacyalias countatoms atom_count
+@legacyalias countorbitals atom_count
 
 @legacyalias latticedim lattice_dim
 @legacyalias extraspacedim auxspace_dim
