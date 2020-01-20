@@ -59,4 +59,9 @@ module LatticeQM
     include("modules/Geometries.jl")
     import .Geometries2D
     export Geometries2D
+
+
+
+    include("precompile.jl")
+    _precompile_()
 end

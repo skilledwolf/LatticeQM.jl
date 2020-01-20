@@ -1,13 +1,11 @@
-function setfilling!(hops, lat, filling; nk=100, kwargs...)
+function setfilling!(H, lat, filling; nk=100, kwargs...)
     kgrid = regulargrid(nk=nk)
-    setfilling!(hops, lat, kgrid, filling; kwargs...)
+    setfilling!(H, lat, kgrid, filling; kwargs...)
 end
 
-function setfilling!(hops, lat, kgrid, filling; T=0.0)
-    hops0 = DenseHops(hops)
-    μ = chemicalpotential(getbloch(hops0), kgrid, filling; T=T)
-    addchemicalpotential!(hops, lat, -μ)
-
+function setfilling!(H, lat, kgrid, filling; T=0.0)
+    μ = chemicalpotential(H, kgrid, filling; T=T)
+    addchemicalpotential!(H, lat, -μ)
     μ
 end
 

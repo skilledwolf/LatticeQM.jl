@@ -17,10 +17,10 @@ function fixedpoint!(f!, x1, x0;
     ϵ0 = 0.0
 
     if show_trace #|| show_report
-        println("==============================")
-        println(" FIXPOINT SEARCH ")
+        println("================================")
+        println("  FIXPOINT SEARCH ")
         println(" #  \t error \t time/step [s]")
-        println("==============================")
+        println("================================")
     end
 
     error = 1.0

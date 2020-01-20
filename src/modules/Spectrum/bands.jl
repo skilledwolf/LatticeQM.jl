@@ -20,7 +20,8 @@ function handleprojector(projector::AbstractVector)
     return [handle(p) for p in projector]
 end
 
-function bandmatrix(H, ks::AbstractMatrix; num_bands::Int=0, kwargs...)
+function bandmatrix(H, ks; num_bands::Int=0, kwargs...)
+    ks = points(ks)
     if !(num_bands>0)
         num_bands = dim(H, ks)
     end
@@ -37,8 +38,9 @@ function bandmatrix(H, ks::AbstractMatrix; num_bands::Int=0, kwargs...)
     convert(Array, bands)
 end
 
-function bandmatrix(H, ks::AbstractMatrix, projector; num_bands::Int=0, kwargs...)
+function bandmatrix(H, ks, projector; num_bands::Int=0, kwargs...)
     projector = handleprojector(projector)
+    ks = points(ks)
     if !(num_bands>0)
         num_bands = dim(H, ks)
     end
@@ -60,7 +62,7 @@ function bandmatrix(H, ks::AbstractMatrix, projector; num_bands::Int=0, kwargs..
         end
     end
 
-    convert(Array, bands), convert(Array, obs)
+    Array(bands), Array(obs)
 end
 
 
@@ -78,3 +80,38 @@ end
 
 export get_bands
 @legacyalias getbands get_bands
+
+
+## The following code snippet might come in handy some day:
+# p = Progress(nk)
+# channel = RemoteChannel(()->Channel(nk), 1)
+#
+# @sync begin
+#     # this task prints the progress bar
+#     @async begin
+#         io = open("bandstest.out", "w")
+#         done = 0
+#         while done < nk
+#             (j, energies) = take!(channel)
+#             writedlm(io, [j..., energies...]')
+#             bands[:,j] = energies
+#
+#             next!(p)
+#             done = done + 1
+#         end
+#         close(io)
+#     end
+#
+#
+#     # this task does the computation
+#     @async begin
+#         @sync @distributed for j_=1:nk
+#             k=kgrid[:,j_]
+#
+#             ϵs, U = Σ(k)
+#
+#             put!(channel, (j_, real.(ϵs)))
+#
+#         end
+#     end
+# end

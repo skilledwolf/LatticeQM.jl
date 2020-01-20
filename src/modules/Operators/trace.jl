@@ -14,6 +14,11 @@ trace(hops::AnyHops, lat, names::AbstractVector{String}) = [trace(hops, o) for o
 
 trace(hops::AnyHops, operators::AbstractVector) = [trace(hops,o) for o=operators]
 
+function density(ρ::AnyHops)
+    d = trace(ρ)
+    @assert imag(d) ≈ 0.0 "Complex-valued density? Seems unphysical, please check."
+    real(d)
+end
 
 # This is the correct one to use for contraction with "density matrix"
 expval(h1::AnyHops) = sum(sum(h1[L]) for L=keys(h1))
@@ -24,4 +29,6 @@ expval(hops::AnyHops, name::String, lat::Lattice) = expval(hops, getoperator(lat
 expval(hops::AnyHops, operators::AbstractVector, args...) = [expval(hops,o, args...) for o=operators]
 
 magnetization(ρ, lat::Lattice) = expval(ρ, lat, ["sx", "sy", "sz"])
-magnetization(ρ, A, lat::Lattice) = expval(ρ, [A*s for s=getoperator(lat, ["sx", "sy", "sz"])])
+magnetization(ρ, A::AbstractMatrix, lat::Lattice) = expval(ρ, [A*s for s=getoperator(lat, ["sx", "sy", "sz"])])
+magnetization(ρ, A::AbstractVector{<:AbstractMatrix}, lat::Lattice) = [magnetization(ρ, a, lat) for a=A]
+magnetization(ρ, A::AbstractVector{String}, lat::Lattice) = [magnetization(ρ, getoperator(lat,a), lat) for a=A]
