@@ -1,6 +1,7 @@
 
 using Distributed
 using SharedArrays
+using ProgressMeter
 
 using ..Utils: fermidirac
 
@@ -66,22 +67,19 @@ function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, �
     end
 
     channel = RemoteChannel(()->Channel{Tuple{Int, Vector{Float64}, Matrix{Complex}}}(L), 1)
-
     @sync begin
         @async begin # update ρs
             done = 0
             while done < L
                 (i_, ϵs, U) = take!(channel) # read the result from channel (wait if necessary)
-
                 densitymatrix!(ρs, ks[:,i_], ϵs.-μ, U; T=T)
                 energies0_k[i_] = groundstate_sumk(real(ϵs), μ)
-
                 done = done+1
             end
         end
 
         @async begin # compute spectrum at different k points asynchronosly (good for large/huge systems)
-            @sync @distributed for i_=1:L
+            @sync @showprogress 1 "Eigensolver... " @distributed for i_=1:L
                 k = ks[:,i_]
                 energies_k, U_k = spectrumf(k) # calculation
                 put!(channel, (i_, real.(energies_k), U_k)) # passing the result to the channel
@@ -106,7 +104,7 @@ function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ:
         ρs[δL][:] .= 0.0 #convert(SharedArray, zero(ρ0))[:]
     end
 
-    for i_=1:L
+    @showprogress 1 "Eigensolver... " for i_=1:L
         k = ks[:,i_]
         energies_k, U_k = spectrumf(k) #@time
 
@@ -123,37 +121,6 @@ end
 
 
 densitymatrix!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; parallel::Bool=false, kwargs...) = parallel ? densitymatrix_parallel!(ρs, H, ks, μ; kwargs...) : densitymatrix_serial!(ρs, H, ks, μ; kwargs...)
-
-
-# function densitymatrix!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
-#     L = size(ks,2)
-#
-#     energies0_k = convert(SharedArray, zeros(Float64, L))
-#     spectrumf = spectrum(H; kwargs...)
-#
-#     for (δL,ρ0)=ρs
-#         ρs[δL][:] .= 0.0 #convert(SharedArray, zero(ρ0))[:]
-#     end
-#
-#     @sync @distributed for i_=1:L
-#         k = ks[:,i_]
-#         energies_k, U_k = spectrumf(k) #@time
-#
-#         for δL=keys(ρs)
-#             for (ϵ, ψ) in zip(energies_k, eachcol(U_k)) # this loop used to be seperate in ρ_k!(...)
-#                 ρs[δL][:] += (fermidirac(real(ϵ)-μ; T=T) .* transpose(ψ * ψ') .* fourierphase(-k, δL))[:]
-#             end
-#         end
-#
-#         energies0_k[i_] = groundstate_sumk(real(energies_k), μ)
-#     end
-#
-#     for δL = keys(ρs)
-#         ρs[δL][:] ./= L
-#     end
-#
-#     sum(energies0_k)/L # return the groundstate energy
-# end
 
 ###################################################################################################
 # Legacy maps

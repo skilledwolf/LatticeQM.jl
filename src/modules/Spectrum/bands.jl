@@ -30,8 +30,8 @@ function bandmatrix(H, ks; num_bands::Int=0, kwargs...)
 
     energiesf = energies(H; num_bands=num_bands, kwargs...)
 
-    @sync @showprogress 1 "Computing bands..."  @distributed for j_=1:N
-#     @showprogress 1 "Computing bands..." for j_=1:N
+    @sync @showprogress 1 "Computing bands... "  @distributed for j_=1:N
+#     @showprogress 1 "Computing bands..."  for j_=1:N
         bands[:,j_] .= real.(energiesf(ks[:,j_]))
     end
 
@@ -52,7 +52,7 @@ function bandmatrix(H, ks, projector; num_bands::Int=0, kwargs...)
 
     spectrumf = spectrum(H; num_bands=num_bands, kwargs...)
 
-    @sync @showprogress 1 "Computing bands..." @distributed for j_=1:N
+    @sync @showprogress 1 "Computing bands... " @distributed for j_=1:N
 #     @showprogress 1 "Computing bands..." for j_=1:N
         ϵs, U = spectrumf(ks[:,j_])
         bands[:,j_] .= real.(ϵs)
@@ -64,8 +64,6 @@ function bandmatrix(H, ks, projector; num_bands::Int=0, kwargs...)
 
     Array(bands), Array(obs)
 end
-
-
 
 function getbands(H, ks::DiscretePath; kwargs...)
     bands = bandmatrix(H, points(ks); kwargs...)
