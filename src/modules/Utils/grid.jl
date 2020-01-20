@@ -21,8 +21,6 @@ function randomgrid(;nk::Int=100, dim::Int=2, rot_symmetry::Int=1, B=:id)
     N = div(nk, rot_symmetry) # integer division
     @assert N>0
 
-
-#     @info("Random k grid with (symmetrized) points", N*rot_symmetry)
     println("Random (symmetrized) k grid. # points: ", N*rot_symmetry)
     ks = rand(Float64, (dim,N))
 

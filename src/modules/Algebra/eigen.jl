@@ -2,12 +2,16 @@
 # Additional low-level interfaces (acting on arrays)
 ###################################################################################################
 
-eigmax_sparse(H::AbstractMatrix; kwargs...) = eigs(H; nev=1, which=:LR, kwargs...)[1][1] |> real
-eigmin_sparse(H::AbstractMatrix; kwargs...) = eigs(H; nev=1, which=:SR, kwargs...)[1][1] |> real
+eigmax_sparse(H::AbstractMatrix; kwargs...) = eigs(Hermitian(H); nev=1, which=:LR, kwargs...)[1][1] |> real
+eigmin_sparse(H::AbstractMatrix; kwargs...) = eigs(Hermitian(H); nev=1, which=:SR, kwargs...)[1][1] |> real
 
-eigen_sparse(M::AbstractMatrix; nev::Int, sigma::Float64=1e-8, which=:LM, kwargs...) = eigs(M; nev=nev, sigma=sigma, which=which, kwargs...)
-eigvals_sparse(M::AbstractMatrix; nev::Int, sigma::Float64=1e-8, which=:LM, kwargs...) = real.((eigen_sparse(M; nev=nev, sigma=sigma, which=which, kwargs...))[1])
-eigvecs_sparse(M::AbstractMatrix; nev::Int, sigma::Float64=1e-8, which=:LM, kwargs...) = real.((eigen_sparse(M; nev=nev, sigma=sigma, which=which, kwargs...))[2])
+eigen_dense(H::AbstractMatrix, args...; kwargs...) = eigen(H::AbstractMatrix, args...; kwargs...)
+eigvals_dense(H::AbstractMatrix, args...; kwargs...) = eigvals(H::AbstractMatrix, args...; kwargs...)
+eigvecs_dense(H::AbstractMatrix, args...; kwargs...) = eigvecs(H::AbstractMatrix, args...; kwargs...)
+
+eigen_sparse(M::AbstractMatrix; num_bands::Int, sigma::Float64=1e-8, which=:LM, kwargs...) = eigs(M; nev=num_bands, sigma=sigma, which=which, kwargs...)
+eigvals_sparse(M::AbstractMatrix; num_bands::Int, sigma::Float64=1e-8, which=:LM, kwargs...) = real.((eigen_sparse(M; nev=num_bands, sigma=sigma, which=which, kwargs...))[1])
+eigvecs_sparse(M::AbstractMatrix; num_bands::Int, sigma::Float64=1e-8, which=:LM, kwargs...) = (eigen_sparse(M; nev=num_bands, sigma=sigma, which=which, kwargs...))[2]
 
 
 ###################################################################################################
@@ -32,52 +36,44 @@ eigvals_sparse(h::Function; kwargs...) = k -> eigvals_sparse(h(k); kwargs...)
 eigvecs_sparse(h::Function; kwargs...) = k -> eigvecs_sparse(h(k); kwargs...)
 eigen_sparse(h::Function; kwargs...) = k -> eigen_sparse(h(k); kwargs...)
 
-function LinearAlgebra.eigvals(h::Function; format=:dense, num_bands=nothing, kwargs...)
-    if format==:dense
-        eigvals_dense(h; kwargs...)
-    elseif format==:sparse
 
-        if num_bands==nothing
-            eigvals_sparse(h; kwargs...)
-        else
-            eigvals_sparse(h; nev=num_bands, kwargs...)
-        end
-    end
-end
+geteigvals(h; format=:dense, num_bands=nothing, kwargs...) = (format==:sparse) ?  eigvals_sparse(h; kwargs...) : eigvals_dense(h; kwargs...)
+geteigvecs(h; format=:dense, num_bands=nothing, kwargs...) = (format==:sparse) ?  eigvecs_sparse(h; kwargs...) : eigvecs_dense(h; kwargs...)
+geteigen(h; format=:dense, num_bands=nothing, kwargs...) = (format==:sparse) ?  eigen_sparse(h; kwargs...) : eigen_dense(h; kwargs...)
 
-function LinearAlgebra.eigvecs(h::Function; format=:dense, num_bands=nothing, kwargs...)
-    if format==:dense
-        eigvecs_dense(h; kwargs...)
-    elseif format==:sparse
+# function geteigvals(h; format=:dense, num_bands=nothing, kwargs...)
+#     if format==:dense
+#         eigvals_dense(h; kwargs...)
+#     elseif format==:sparse
+#         if num_bands==nothing
+#             eigvals_sparse(h; kwargs...)
+#         else
+#             eigvals_sparse(h; nev=num_bands, kwargs...)
+#         end
+#     end
+# end
 
-        if num_bands==nothing
-            eigvecs_sparse(h; kwargs...)
-        else
-            eigvecs_sparse(h; nev=num_bands, kwargs...)
-        end
-    end
-end
-
-function LinearAlgebra.eigen(h::Function; format=:dense, num_bands=nothing, kwargs...)
-    if format==:dense
-        eigen_dense(h; kwargs...)
-    elseif format==:sparse
-        if num_bands==nothing
-            eigen_sparse(h; kwargs...)
-        else
-            eigen_sparse(h; nev=num_bands, kwargs...)
-        end
-    end
-end
-
-
-###################################################################################################
-# Interfaces for discretized k-path
-###################################################################################################
-# using RecursiveArrayTools
-# matrixcollect(it) = convert(Array, VectorOfArray(collect(it)))
-
-LinearAlgebra.eigvals(h::Function, ks::AbstractMatrix; kwargs...) = Base.Generator(eigvals(h; kwargs...), eachcol(ks))
-LinearAlgebra.eigvecs(h::Function, ks::AbstractMatrix; kwargs...) = Base.Generator(eigvecs(h; kwargs...), eachcol(ks))
-LinearAlgebra.eigen(h::Function, ks::AbstractMatrix; kwargs...) = Base.Generator(eigen(h; kwargs...), eachcol(ks))
-
+# function geteigvecs(h::Function; format=:dense, num_bands=nothing, kwargs...)
+#     if format==:dense
+#         eigvecs_dense(h; kwargs...)
+#     elseif format==:sparse
+#         if num_bands==nothing
+#             eigvecs_sparse(h; kwargs...)
+#         else
+#             eigvecs_sparse(h; nev=num_bands, kwargs...)
+#         end
+#     end
+# end
+#
+# function geteigen(h::Function; format=:dense, num_bands=nothing, kwargs...)
+#     if format==:dense
+#         eigen_dense(h; kwargs...)
+#     elseif format==:sparse
+#         if num_bands==nothing
+#             eigen_sparse(h; kwargs...)
+#         else
+#             eigen_sparse(h; nev=num_bands, kwargs...)
+#         end
+#     end
+# end
+#

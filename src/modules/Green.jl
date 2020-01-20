@@ -2,8 +2,9 @@
 module Green
 
     using ..Utils
-    using ..Spectrum: spectrum
-    using ..TightBinding: AnyHops
+    using ..Utils: fermidirac
+    using ..Spectrum: spectrum, groundstate_sumk
+    using ..TightBinding: AnyHops, fourierphase
 
     include("Green/density.jl")
     export density, density!

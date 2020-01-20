@@ -4,7 +4,7 @@ using SharedArrays
 
 using ..Utils: fermidirac
 
-function ρ_k!(ρ0::AbstractMatrix, ϵs::AbstractVector, U::AbstractMatrix, μ::Float64; T::Float64=0.01, φk::ComplexF64=1.0+0.0im)
+function densitymatrix!(ρ0::AbstractMatrix, ϵs::AbstractVector, U::AbstractMatrix, μ::Float64; T::Float64=0.01, φk::ComplexF64=1.0+0.0im)
 
     for (ϵ, ψ) in zip(ϵs, eachcol(U))
         ρ0[:] .+= (fermidirac(ϵ-μ; T=T) .* (ψ * ψ') .* φk)[:]
@@ -13,15 +13,26 @@ function ρ_k!(ρ0::AbstractMatrix, ϵs::AbstractVector, U::AbstractMatrix, μ::
     nothing
 end
 
-function ρ!(ρ0::AbstractMatrix, spectrum::Function, ks::AbstractMatrix, μ::Float64=0.0; T::Float64=0.01)
+using ..TightBinding: dim
+function densitymatrix(H, ks::AbstractMatrix{Float64}, μ::Float64; kwargs...)
+    d = dim(H, ks)
+    ρ0 = zeros(ComplexF64, d, d)
+    densitymatrix!(ρ0, H, ks, μ; kwargs...)
+
+    ρ0
+end
+
+function densitymatrix!(ρ0::AbstractMatrix, H, ks::AbstractMatrix, μ::Float64=0.0; T::Float64=0.01, kwargs...)
     ρ0[:] .= zero(ρ0)[:]
     L = size(ks)[2]
+
+    spectrumH = spectrum(H; kwargs...)
 
     ρ0[:] = @distributed (+) for j=1:L
         ρtmp = zero(ρ0)    ## <-- it annoys me that I don't know how to get around this allocation
 
-        ϵs, U = spectrum(ks[:,j])
-        ρ_k!(ρtmp, ϵs, U, μ; T=T) #; format=format)
+        ϵs, U = spectrumH(ks[:,j])
+        densitymatrix!(ρtmp, ϵs, U, μ; T=T) #; format=format)
 
         ρtmp
     end
@@ -31,39 +42,31 @@ function ρ!(ρ0::AbstractMatrix, spectrum::Function, ks::AbstractMatrix, μ::Fl
     nothing
 end
 
-function ρ(spectrum::Function, d::Int, ks::AbstractMatrix{Float64}, μ::Float64; kwargs...)
-    ρ0 = zeros(ComplexF64, d, d)
-    ρ!(ρ0, spectrum, ks, μ; kwargs...)
+###################################################################################################
+###################################################################################################
+###################################################################################################
 
-    ρ0
-end
-
-################################################################################
-################################################################################
-################################################################################
-################################################################################
-
-function densitymatrix!(ρs::AnyHops, spectrum::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01)
+function densitymatrix!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
     L = size(ks,2)
 
     energies0_k = convert(SharedArray, zeros(Float64, L))
+    spectrumf = spectrum(H; kwargs...)
 
     for (δL,ρ0)=ρs
         ρs[δL][:] .= 0.0 #convert(SharedArray, zero(ρ0))[:]
     end
 
     @sync @distributed for i_=1:L
-
         k = ks[:,i_]
-        energies_k, U_k = spectrum(k) #@time
+        energies_k, U_k = spectrumf(k) #@time
 
         for δL=keys(ρs)
             for (ϵ, ψ) in zip(energies_k, eachcol(U_k)) # this loop used to be seperate in ρ_k!(...)
-                ρs[δL][:] += (fermidirac(ϵ-μ; T=T) .* transpose(ψ * ψ') .* fourierphase(-k, δL))[:]
+                ρs[δL][:] += (fermidirac(real(ϵ)-μ; T=T) .* transpose(ψ * ψ') .* fourierphase(-k, δL))[:]
             end
         end
 
-        energies0_k[i_] = groundstate_sumk(energies_k, μ)
+        energies0_k[i_] = groundstate_sumk(real(energies_k), μ)
     end
 
     for δL = keys(ρs)

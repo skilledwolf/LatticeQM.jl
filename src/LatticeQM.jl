@@ -1,4 +1,4 @@
-__precompile__(false)
+# __precompile__(false)
 module LatticeQM
 
     using Base, ElasticArrays, SparseArrays, LinearAlgebra
@@ -22,7 +22,7 @@ module LatticeQM
     export DenseHops, SparseHops, Hops, AbstractHops, hopdim, addhops!, addhops
     export getoperator, getprojector, set_filling!
     export gethops, getbloch
-    export initialguess
+
     export get_hops, get_bloch # backwards compatibility
     export initial_guess # backwards compatibility
 
@@ -41,11 +41,15 @@ module LatticeQM
     include("modules/Operators.jl")
     using .Operators
     export Operators
+    export getoperator, getprojector
+    export trace, expval
 
     include("modules/Meanfield.jl")
     using .Meanfield
     export self_consistent # backwards compatibility
     export selfconsistent, hartreefock
+    export initialguess
+    export gethubbard
 
     include("modules/KPM.jl")
     using .KPM

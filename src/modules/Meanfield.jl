@@ -1,10 +1,11 @@
 
 module Meanfield
 
-    using SharedArrays
+    using SharedArrays, SparseArrays
     using LinearAlgebra
 
     using ..Utils
+    using ..Algebra
     using ..Spectrum: spectrum, chemicalpotential
     using ..TightBinding
     using ..Green: densitymatrix!
@@ -23,7 +24,5 @@ module Meanfield
 
     include("Meanfield/hartreefock.jl")
     export hartreefock, hartreefock_k
-
-
 
 end

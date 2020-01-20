@@ -7,7 +7,6 @@
     using solve_selfconsistent(...).
 """
 
-
 function hartreefock(h::Function, v::AnyHops)
     mf, E = hartreefock_k(v)
     ℋ(ρ) = k -> (h(k) .+ mf(ρ)(k))
@@ -35,24 +34,29 @@ function hartreefock(v::AnyHops)
     """
 
     V0 = sum(v[L] for L in keys(v))
+    vmf = empty(v)
 
     function vMF(ρ::AnyHops)
-        v = Hops([0,0] => spdiagm(0 => V0 * diag(ρ[[0,0]]))) # Hartree contribution
+        empty!(vmf)
 
-        for (L,ρL) in ρ
-            v[L] .*= -v[L] .* ρ[L] # Fock contribution
+        for L in keys(ρ)
+            vmf[L] = -v[L] .* transpose(ρ[L]) # Fock contribution
         end
-        v
+
+        addhops!(vmf, Hops([0,0] => spdiagm(0 => V0 * diag(ρ[[0,0]])))) # Hartree contribution
+
+        vmf
     end
 
     function ϵMF(ρs::AnyHops)
         vρ = diag(ρs[[0,0]])
 
-        hartree = - 1/2 * (transpose(vρ) * V0 * vρ) # Hartree contribution
-        fock =  1/2 * sum(sum(ρL .* conj.(ρL) .* v[L] for (L,ρL) in ρs)) # Fock contribution
+        energy = - 1/2 * (transpose(vρ) * V0 * vρ) # Hartree contribution
+        energy +=  1/2 * sum(sum(ρL .* conj.(ρL) .* v[L] for (L,ρL) in ρs)) # Fock contribution
 
-        @assert imag(hartree) ≈ 0 && imag(fock) ≈ 0
-        real(hartree + fock)
+
+        @assert imag(energy) ≈ 0
+        real(energy)
     end
 
     vMF, ϵMF

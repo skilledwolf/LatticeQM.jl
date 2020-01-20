@@ -12,7 +12,7 @@ module KPM
     expansion is numerically stable. The stochastic trace requires fewer random
     vectors for larger systems.
 
-    For details on how the method works and for which problems it can be applied,
+    For details on how the method works and to which problems it can be applied,
     please refer to the review paper Ref. [1].
 
     [1] Weisse et al, Rev. Mod. Phys. 78 275

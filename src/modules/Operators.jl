@@ -14,6 +14,12 @@ using ..Structure.Lattices
 using ..TightBinding
 using ..Spectrum: chemicalpotential
 
+include("Operators/getoperator.jl")
+export getoperator, getprojector
+
+include("Operators/trace.jl")
+export trace, expval, magnetization
+
 include("Operators/spin.jl")
 
 include("Operators/nearestneighbor.jl")
@@ -28,9 +34,6 @@ include("Operators/graphene.jl")
 
 include("Operators/sublattice.jl")
 include("Operators/layer.jl")
-
-include("Operators/getoperator.jl")
-export getoperator, getprojector
 
 ####################################################################################
 end

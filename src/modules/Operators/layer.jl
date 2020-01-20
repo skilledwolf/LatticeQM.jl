@@ -10,5 +10,5 @@ function layerprojection(lat::Lattice, d=1)
 
     z = 2.0 .* ( (z .- zmin) ./ (zmax-zmin) .- 0.5 )
 
-    kron(Diagonal(z), Diagonal(ones(d)))
+    kron(Diagonal(z[:]), Diagonal(ones(d)))
 end

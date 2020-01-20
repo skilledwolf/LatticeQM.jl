@@ -4,6 +4,8 @@ General functions and definitions that don't necessarily make sense in the Algeb
 # Note: This module must NOT depend on any other module of the package.
 module Utils
 
+    using LinearAlgebra
+
     include("Utils/DummySave.jl")
     export DummySave
 

@@ -28,7 +28,7 @@ function addsublatticeimbalance!(hops, lat::Lattice, Δ::AbstractFloat; kwargs..
     end
 
     μ = Δ .* (extrapositions(lat, "sublattice") .- 0.5)
-    addchemicalpotential!(hops, lat, μ)
+    addchemicalpotential!(hops, lat, vec(μ))
 
     nothing
 end

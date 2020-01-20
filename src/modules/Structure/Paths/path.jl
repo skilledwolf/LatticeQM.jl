@@ -51,7 +51,11 @@ points(ks::T2) where {T2<:AbstractVector{<:AbstractVector{Float64}}} = hcat(ks..
 
 function sumk(f_k::Function, ks::kIterable)
     ks = points(ks)
+    sum(f_k(k) for k=eachcol(ks))/size(ks,2)
+end
 
+function sumk(f_k::Function; klin::Int)
+    ks = Utils.regulargrid(;nk=klin^2)
     sum(f_k(k) for k=eachcol(ks))/size(ks,2)
 end
 

@@ -1,19 +1,24 @@
-function bandgap_filling_dense(hamiltonian::Function, ks::AbstractMatrix{Float64}, filling::Float64; kwargs...)
+using ..Utils: regulargrid
 
-    # Calculate the gap around in which the Fermi level lies
-    bands = bandmatrix(hamiltonian, ks)
-    μ = chemicalpotential(bands, ks, filling; kwargs...)
-
-    bandgap_μ_dense(bands, μ)
+function bandgap_filling(H, filling::Float64; klin=30, kwargs...)
+    kgrid = regulargrid(;nk=klin^2)
+    bandgap_filling(H, kgrid, filling; kwargs...)
 end
 
-function bandgap_μ_dense(hamiltonian::Function, ks::AbstractMatrix{Float64}, μ::Float64)
-
+function bandgap_filling(H, ks, filling::Float64; kwargs...)
     # Calculate the gap around in which the Fermi level lies
-    bandgap_μ_dense(bandmatrix(hamiltonian, ks), μ)
+    bands = bandmatrix(H, points(ks)) # dense diagonalization (default)!
+    μ = chemicalpotential(bands, filling; kwargs...)
+
+    bandgap_energy(bands, μ)
 end
 
-function bandgap_μ_dense(bands::AbstractMatrix, μ::Float64)
+function bandgap_energy(H, ks, μ::Float64) # Note: dense diagonalization!
+    # Calculate the gap around in which the Fermi level lies
+    bandgap_energy(bandmatrix(H, points(ks)), μ)
+end
+
+function bandgap_energy(bands::AbstractMatrix, μ::Float64)
 
     ϵlower = maximum(bands[bands.<= μ])
     ϵupper = minimum(bands[bands.>= μ])

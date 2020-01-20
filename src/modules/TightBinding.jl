@@ -9,7 +9,7 @@ using SparseArrays
 using ElasticArrays, RecursiveArrayTools
 
 using ..Utils
-import ..Algebra: σ0, σ1, σ2, σ3, σs
+import ..Algebra: σ0, σ1, σ2, σ3, σX, σY, σZ, σs
 
 import ..Utils: regulargrid
 import ..Structure.Lattices: Lattice, positions, allpositions, getA, countorbitals, hasdimension, latticedim, assertdimension, extrapositions
@@ -29,6 +29,7 @@ export get_hops, get_hamiltonian # backwards compatibility
 export gethops, gethamiltonian
 
 include("TightBinding/operators.jl")
+
 
 # Legacy definitions:
 @legacymoved get_neighbors "Structure.neighbors"
