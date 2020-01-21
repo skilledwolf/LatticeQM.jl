@@ -44,6 +44,9 @@ module LatticeQM
     export getoperator, getprojector
     export trace, expval
 
+    include("modules/LinearResponse.jl")
+    using .LinearResponse
+
     include("modules/Meanfield.jl")
     using .Meanfield
     export self_consistent # backwards compatibility
@@ -59,8 +62,6 @@ module LatticeQM
     include("modules/Geometries.jl")
     import .Geometries2D
     export Geometries2D
-
-
 
     include("precompile.jl")
     _precompile_()

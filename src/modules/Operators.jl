@@ -30,6 +30,8 @@ export addchemicalpotential!, setfilling!
 include("Operators/zeeman.jl")
 export getzeeman, addzeeman!
 
+include("Operators/current.jl")
+
 include("Operators/graphene.jl")
 
 include("Operators/sublattice.jl")

@@ -12,6 +12,7 @@ module Spectrum
 
     using ..Utils
     using ..Algebra: σ0, σ1, σ2, σ3, σs
+    using ..Structure: Lattice
     using ..Structure.Paths: kIterable, DiscretePath, eachpoint, points, sumk
 
     export getbands, spectrum, eigen, chemicalpotential

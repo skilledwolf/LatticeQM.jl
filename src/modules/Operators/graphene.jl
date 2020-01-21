@@ -13,6 +13,7 @@ function graphene(lat::Lattice; mode=:nospin, format=:auto, kwargs...)
     hops
 end
 
+
 valleyoperator(args...; kwargs...) = valleyoperator!(Hops(), args...; kwargs...)
 function valleyoperator!(hops, lat::Lattice; spinhalf=false, zmode=:anti, kwargs...)
     @assert latticedim(lat) == 2 && countorbitals(lat) > 1
