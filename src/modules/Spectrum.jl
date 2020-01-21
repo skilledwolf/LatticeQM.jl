@@ -15,7 +15,7 @@ module Spectrum
     using ..Structure: Lattice
     using ..Structure.Paths: kIterable, DiscretePath, eachpoint, points, sumk
 
-    export getbands, spectrum, eigen, chemicalpotential
+    export getbands, spectrum, chemicalpotential
     export chemical_potential # backwards compatibility
 
     include("Spectrum/types.jl")

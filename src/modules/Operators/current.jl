@@ -22,16 +22,16 @@ function getcurrentoperators(lat::Lattice, hops::AnyHops) # todo: test
     D = hopdim(hops)
 
     @assert D>=N && mod(D,N) == 0
-    n = div(N,d) # for spin-1/2 we would have n=2
+    n = div(D,N) # for spin-1/2 we would have n=2
 
     r = positions(lat)
 
     Ls = Dict(L => getA(lat) * L for L in keys(hops))
 
-    currentoperators = [copy(hops) for l_=1:d]
+    currentoperators = [deepcopy(hops) for l_=1:d]
     for (L,A) in Ls, l_=1:d
         for i_=1:N, j_=1:N # todo: test!
-            currentoperators[l_][L][i_+(i_-1)*n:i_+(i_-1)*n+(n-1),j_+(j_-1)*n:j_+(j_-1)*n+(n-1)] .*= -1im * (r[i_]+A-r[j_])[l_] * ones(n,n)
+            currentoperators[l_][L][1+(i_-1)*n:n+(i_-1)*n,1+(j_-1)*n:n+(j_-1)*n] .*= -1im * (r[:,i_]+A-r[:,j_])[l_] * ones(n,n)
         end
     end
 

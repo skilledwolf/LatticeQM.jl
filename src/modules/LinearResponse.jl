@@ -2,6 +2,7 @@
 module LinearResponse
 
     using ProgressMeter
+    using LinearAlgebra
 
     using ..Structure
     using ..Spectrum
