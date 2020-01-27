@@ -28,7 +28,7 @@ expval(h1::AbstractMatrix, h2::AnyHops) = expval(Hops(h1), h2)
 expval(hops::AnyHops, name::String, lat::Lattice) = expval(hops, getoperator(lat, name)')
 expval(hops::AnyHops, operators::AbstractVector, args...) = [expval(hops,o, args...) for o=operators]
 
-magnetization(ρ, lat::Lattice) = expval(ρ, lat, ["sx", "sy", "sz"])
+magnetization(ρ, lat::Lattice) = expval(ρ, ["sx", "sy", "sz"], lat)
 magnetization(ρ, A::AbstractMatrix, lat::Lattice) = expval(ρ, [A*s for s=getoperator(lat, ["sx", "sy", "sz"])])
 magnetization(ρ, A::AbstractVector{<:AbstractMatrix}, lat::Lattice) = [magnetization(ρ, a, lat) for a=A]
 magnetization(ρ, A::AbstractVector{String}, lat::Lattice) = [magnetization(ρ, getoperator(lat,a), lat) for a=A]

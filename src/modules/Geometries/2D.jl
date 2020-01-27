@@ -41,7 +41,7 @@ module Geometries2D
     triangular_supercell(a::Float64=1.0) = Lattice(
         a .* A_tri * [[1;1] [-1;2]], #[[2;-1] [-1;2]]
         [[0.0;0.0]  [1/3;1/3]  [-1/3;2/3]],
-        [zeros(1,3); 0 1 1],
+        [zeros(1,3); 1 2 3],
         extradimensions=["z", "sublattice"],
         specialpoints=kdict_tri
     )

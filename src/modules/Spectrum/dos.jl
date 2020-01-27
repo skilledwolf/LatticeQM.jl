@@ -6,44 +6,61 @@ using Distributed
     DOS = dos(...)
 """
 
-function dos_serial(ϵs::Function, ks::AbstractMatrix{Float64}, energies::AbstractVector{Float64}; Γ::Float64)
-    L = size(ks)[2]
-    DOS = zero(energies)
+function dos!(DOS, energy::Number, frequencies; broadening::Float64)
+    DOS .+=(imag.( 1.0./(frequencies .- 1.0im .* broadening .- energy) ))
+end
+function dos!(DOS, energies::AbstractVector, args...; kwargs...)
+    for ϵ in energies
+        dos!(DOS, ϵ, args...; kwargs...)
+    end
+end
 
-    for k=eachcol(ks) # j=1:L
-        for ϵ in ϵs(k) #(ks[:,j])
-            DOS .+= imag.( 1.0./(energies .- 1.0im .* Γ .- ϵ) )
-        end
+function dos_serial(h, ks::AbstractMatrix{Float64}, frequencies::AbstractVector{Float64}; Γ::Float64, kwargs...)
+    L = size(ks)[2]
+    DOS = zero(frequencies)
+
+    ϵs = energies(h; kwargs...)
+
+    @showprogress 1 "Computing DOS... " for k=eachcol(ks) # j=1:L
+        dos!(tmpdos, ϵs(k), frequencies; broadening=Γ)
     end
 
     DOS / L / π
 end
 
-function dos_parallel(ϵs::Function, ks::AbstractMatrix{Float64}, energies::AbstractVector{Float64}; Γ::Float64)
+function dos_parallel(h, ks::AbstractMatrix{Float64}, frequencies::AbstractVector{Float64}; Γ::Float64, kwargs...)
     L = size(ks)[2]
 
-    dos = @distributed (+) for j=1:L # over ks
-        tmpdos = zero(energies)
+    ϵs = energies(h; kwargs...)
 
-        for ϵ in ϵs(ks[:,j]) # over bands at k
-            tmpdos .+= imag.( 1.0./(energies .- 1.0im .* Γ .- ϵ) )
-        end
-
-        tmpdos / L / π
+    dos = @sync @showprogress 1 "Computing DOS... " @distributed (+) for j=1:L # over ks
+        tmpdos = zero(frequencies)
+        dos!(tmpdos, ϵs(ks[:,j]), frequencies; broadening=Γ)
+        tmpdos
     end
 
-    dos
+    dos / L / π
 end
 
-function dos(ϵs::Function, ks::AbstractMatrix{Float64}, energies::AbstractVector{Float64}; Γ::Float64, mode=:parallel)
+using ..Utils: regulargrid
+
+function dos(h, frequencies::AbstractVector{Float64}; klin::Int, kwargs...)
+    ks = regulargrid(nk=klin^2)
+    dos(h, ks, frequencies; kwargs...)
+end
+
+function dos(h, ks::AbstractMatrix{Float64}, frequencies::AbstractVector{Float64}; mode=:parallel, kwargs...)
     if mode==:parallel
-        dos_parallel(ϵs, ks, energies; Γ=Γ)
+        dos_parallel(h, ks, frequencies; kwargs...)
     elseif mode==:serial
-        dos_serial(ϵs, ks, energies; Γ=Γ)
+        dos_serial(h, ks, frequencies; kwargs...)
     else
         error("Invalid mode value dos(...). Must be :parallel or :serial.")
     end
 end
+
+dos_dense(h, args...; kwargs...) = dos(h, args...; format=:dense, kwargs...)
+dos_sparse(h, args...; kwargs...) = dos(h, args...; format=:sparse, kwargs...)
 
 
 """
@@ -80,42 +97,3 @@ function dos_quad_parallel(ϵs::Function, energies::AbstractVector{Float64};  Γ
 
     DOS/π, ERROR
 end
-
-
-"""
-    Interface to dense/sparse routines
-    ==================================
-"""
-
-function dos_dense(hamiltonian::Function, ks::AbstractMatrix{Float64}, ϵ::AbstractVector{Float64}; Γ::Float64, mode=:parallel)
-    dos(energies(hamiltonian, format=:dense), ks, ϵ; Γ=Γ, mode=mode)
-end
-
-function dos_sparse(hamiltonian::Function, ks::AbstractMatrix{Float64}, ϵ::AbstractVector{Float64}; Γ::Float64, mode=:parallel, kwargs...)
-    dos(energies(hamiltonian; format=:sparse, kwargs...), ks, ϵ; Γ=Γ, mode=mode)
-end
-
-# function dos_dense_parallel(hamiltonian::Function, ks::AbstractMatrix{Float64}, energies::AbstractVector{Float64}; Γ::Float64)
-#
-#     L = size(ks)[2]
-#
-#     dos = @distributed (+) for j=1:L # over ks
-#         tmpdos = zero(energies)
-#
-#         for ϵ in ϵs_dense(hamiltonian)(ks[:,j]) # over bands at k
-#             tmpdos .+= imag.( 1.0./(energies .- 1.0im .* Γ .- ϵ) )
-#         end
-#
-#         tmpdos / L / π
-#     end
-#
-#     dos
-# end
-
-# function dos_dense_parallel(hamiltonian::Function, ks::AbstractMatrix{Float64}, ωmin::Float64, ωmax::Float64, num::Int)
-#
-#     energies = collect(range(ωmin, length=num, stop=ωmax))
-#     Γ = 0.1 * abs(ωmax-ωmin)/(num-1)
-#
-#     energies, dos_dense_parallel(hamiltonian, ks, energies; Γ=Γ)
-# end
