@@ -41,7 +41,7 @@ function dos_parallel(h, ks::AbstractMatrix{Float64}, frequencies::AbstractVecto
         dos!(DOS, ϵs(ks[:,j]), frequencies; broadening=Γ)
     end
 
-    dos / L / π
+    DOS / L / π
 end
 
 # function dos_parallel(h, ks::AbstractMatrix{Float64}, frequencies::AbstractVector{Float64}; Γ::Float64, kwargs...)
