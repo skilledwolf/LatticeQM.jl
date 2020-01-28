@@ -28,19 +28,35 @@ function dos_serial(h, ks::AbstractMatrix{Float64}, frequencies::AbstractVector{
     DOS / L / π
 end
 
+using SharedArrays
+
 function dos_parallel(h, ks::AbstractMatrix{Float64}, frequencies::AbstractVector{Float64}; Γ::Float64, kwargs...)
     L = size(ks)[2]
 
+    DOS = SharedArray(zero(frequencies))
+
     ϵs = energies(h; kwargs...)
 
-    dos = @sync @showprogress 1 "Computing DOS... " @distributed (+) for j=1:L # over ks
-        tmpdos = zero(frequencies)
-        dos!(tmpdos, ϵs(ks[:,j]), frequencies; broadening=Γ)
-        tmpdos
+    @sync @showprogress 1 "Computing DOS... " @distributed for j=1:L # over ks
+        dos!(DOS, ϵs(ks[:,j]), frequencies; broadening=Γ)
     end
 
     dos / L / π
 end
+
+# function dos_parallel(h, ks::AbstractMatrix{Float64}, frequencies::AbstractVector{Float64}; Γ::Float64, kwargs...)
+#     L = size(ks)[2]
+#
+#     ϵs = energies(h; kwargs...)
+#
+#     dos = @sync @showprogress 1 "Computing DOS... " @distributed (+) for j=1:L # over ks
+#         tmpdos = zero(frequencies)
+#         dos!(tmpdos, ϵs(ks[:,j]), frequencies; broadening=Γ)
+#         tmpdos
+#     end
+#
+#     dos / L / π
+# end
 
 using ..Utils: regulargrid
 
