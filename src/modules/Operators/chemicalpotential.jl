@@ -57,7 +57,7 @@ function addinterlayerbias!(hops, lat::Lattice, V::Float64; d=3.0, kwargs...)
     layer .= (layer .- min)./(max-min)
     μ = V .* (layer .- 0.5)
 
-    add_chemicalpotential!(hops, lat, μ)
+    addchemicalpotential!(hops, lat, vec(μ))
 
     nothing
 end

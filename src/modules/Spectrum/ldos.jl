@@ -30,6 +30,6 @@ using ..TightBinding: dim
 ldos(H, ks, frequency::Float64; kwargs...) = ldos(H, ks, [frequency]; kwargs...)
 function ldos(H, ks, frequencies::AbstractVector{Float64}; format=:sparse, kwargs...)
     n = zeros(Float64, dim(H,ks))
-    ldos!(n, H, ks, frequencies; format=:sparse, kwargs...)
+    ldos!(n, H, ks, frequencies; format=format, kwargs...)
     n
 end
