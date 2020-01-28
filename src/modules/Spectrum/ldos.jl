@@ -1,9 +1,7 @@
 using Distributed
-
 using ProgressMeter
 
-function ldos!(n::AbstractVector{Float64}, spectrum::Function, k::AbstractVector{Float64}, ωs::AbstractVector{Float64}; Γ::Float64=0.1)
-    ϵs, U = spectrum(k)
+function ldos!(n::AbstractVector{Float64}, ϵs::AbstractVector, U::AbstractMatrix, ωs::AbstractVector{Float64}; Γ::Float64=0.1)
     for (ϵ, ψ) in zip(ϵs, eachcol(U))
         for ω in ωs
             n[:] .+= imag( abs2.(ψ)./(ω + 1.0im * Γ - ϵ) )
@@ -12,24 +10,26 @@ function ldos!(n::AbstractVector{Float64}, spectrum::Function, k::AbstractVector
     n[:] ./= size(ωs)
 end
 
-function ldos!(n::AbstractVector{Float64}, spectrum::Function, ks::AbstractMatrix{Float64}, ωs::AbstractVector{Float64}; Γ::Float64=0.1)
+function ldos!(n::AbstractVector{Float64}, h, ks::AbstractMatrix{Float64}, ωs::AbstractVector{Float64}; Γ::Float64=0.1, kwargs...)
     L = size(ks,2)
+
+    spectrumf = spectrum(H; kwargs...)
 
     n[:] = @sync @showprogress 1 "Computing LDOS..." @distributed (+) for j=1:L
         n0 = zero(n)
-        ldos!(n0, spectrum, ks[:,j], ωs; Γ=Γ)
+        ϵs, U = spectrumf(ks[:,j])
+        ldos!(n0, ϵs, U, ωs; Γ=Γ)
         n0
     end
     n[:] .= -n ./ L ./ π
 end
 
-ldos(hamiltonian::Function, ks::AbstractMatrix{Float64}, ω::Float64; kwargs...) = ldos(hamiltonian, ks, [ω]; kwargs...)
-function ldos(hamiltonian::Function, ks::AbstractMatrix{Float64}, ωs::AbstractVector{Float64}; Γ::Float64, format=:sparse, kwargs...)
 
-    n = zeros(Float64, size(hamiltonian(ks[:,1]))[1])
+using ..TightBinding: dim
 
-    eigen = spectrum(hamiltonian; format=format, kwargs...)
-
-    ldos!(n, eigen, ks, ωs; Γ=Γ)
+ldos(H, ks, frequency::Float64; kwargs...) = ldos(H, ks, [frequency]; kwargs...)
+function ldos(H, ks, frequencies::AbstractVector{Float64}; format=:sparse, kwargs...)
+    n = zeros(Float64, dim(H,ks))
+    ldos!(n, H, ks, frequencies; format=:sparse, kwargs...)
     n
 end

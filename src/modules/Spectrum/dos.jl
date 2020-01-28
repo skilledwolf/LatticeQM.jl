@@ -22,7 +22,7 @@ function dos_serial(h, ks::AbstractMatrix{Float64}, frequencies::AbstractVector{
     ϵs = energies(h; kwargs...)
 
     @showprogress 1 "Computing DOS... " for k=eachcol(ks) # j=1:L
-        dos!(tmpdos, ϵs(k), frequencies; broadening=Γ)
+        dos!(DOS, ϵs(k), frequencies; broadening=Γ)
     end
 
     DOS / L / π

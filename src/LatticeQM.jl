@@ -42,6 +42,7 @@ module LatticeQM
     using .Operators
     export Operators
     export getoperator, getprojector
+    export setfilling!
     export trace, expval
 
     include("modules/LinearResponse.jl")
