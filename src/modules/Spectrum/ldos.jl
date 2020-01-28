@@ -10,7 +10,7 @@ function ldos!(n::AbstractVector{Float64}, ϵs::AbstractVector, U::AbstractMatri
     n[:] ./= size(ωs)
 end
 
-function ldos!(n::AbstractVector{Float64}, h, ks::AbstractMatrix{Float64}, ωs::AbstractVector{Float64}; Γ::Float64=0.1, kwargs...)
+function ldos!(n::AbstractVector{Float64}, H, ks::AbstractMatrix{Float64}, ωs::AbstractVector{Float64}; Γ::Float64=0.1, kwargs...)
     L = size(ks,2)
 
     spectrumf = spectrum(H; kwargs...)
