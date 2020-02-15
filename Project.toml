@@ -1,7 +1,7 @@
 name = "LatticeQM"
 uuid = "606d2a7e-9b17-11e9-1c5c-455b84f60309"
 authors = ["Tobias Wolf <wolft@itp.phys.ethz.ch>"]
-version = "0.5.4"
+version = "0.5.5"
 
 [deps]
 Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"

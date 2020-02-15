@@ -188,27 +188,18 @@ graphene_intralayer(δz, Δ; a, ℓintra, ℓz) = (1 - δz^2 /(Δ^2)) * exp(-(Δ
     if Δmax > Δ > Δmin
         @views δz = r[3]
         χ = δz^2 /(Δ^2)
-        result +=  t0 * χ * exp(-(Δ-z)/ℓinter) + tz * (1-χ) * exp(-(Δ-a)/ℓintra) * exp(-δz^2 /ℓz^2)
+        result +=  (-t0) * (1-χ) * exp(-(Δ-a)/ℓintra) * exp(-δz^2 /ℓz^2) - tz * χ * exp(-(Δ-z)/ℓinter)
     end
     result
 end
 
-# function t_graphene!(out::Vector{Float64}, r::Vector{Float64}; tz::Float64=0.46, t0::Float64=1.0, ℓinter::Float64=0.125, ℓintra::Float64=0.08, ℓz::Float64=0.01,z::Float64=3.0, a::Float64=1.0,
-#            Δmin::Float64=0.1, Δmax::Float64=5.0)
-#     @views out[1] = sqrt.(sum(abs2,r[1:3]))
-#     out[2] = 0.0
-#     if Δmax > out[1] > Δmin
-#         @views out[2] = r[3]^2 /(out[1]^2)
-#         @views out[3] =  t0 * out[2] * exp(-(out[1]-z)/ℓinter) + tz * (1-out[2]) * exp(-(out[1]-a)/ℓintra) * exp(-r[3]^2 /ℓz^2)
-#     end
-#     out
-# end
-
 using ..TightBinding: MAX_DENSE, MAX_DIAGS
 
-function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-7, tz::Float64=0.46, t0::Float64=1.0, ℓinter::Float64=0.125, ℓintra::Float64=0.08, ℓz::Float64=0.01,z::Float64=3.0, a::Float64=1.0,
-           Δmin::Float64=0.1, Δmax::Float64=5.0,
-           kwargs...)
+function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-7, tz::Float64=0.46, t0::Float64=1.0,
+    ℓinter::Float64=0.125, ℓintra::Float64=0.08, ℓz::Float64=0.01,z::Float64=3.0, a::Float64=1.0,
+    Δmin::Float64=0.1, Δmax::Float64=5.0,
+    kwargs...)
+
     N = size(R1,2)
 
     # Preallocate memory: important for huge sparse matrices
@@ -218,7 +209,7 @@ function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-7, tz::Flo
     VS = similar(IS, Float64)
     δR = similar(R1)
 
-    count = 1
+    count = 0
     @fastmath @inbounds for j=1:N
         @views δR .= R1 .- R2[:,j]
 
@@ -231,21 +222,23 @@ function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-7, tz::Flo
 
             δz = δR[3,i]
             χ = δz^2 /(Δ^2)
-            v =  t0 * χ * exp(-(Δ-z)/ℓinter) + tz * (1-χ) * exp(-(Δ-a)/ℓintra) * exp(-δz^2 /ℓz^2)
+            v =  -t0 * (1-χ) * exp(-(Δ-a)/ℓintra) * exp(-δz^2 /ℓz^2) - tz * χ * exp(-(Δ-z)/ℓinter)
 
             if abs(v) < tmin
                 continue
             end
 
-            IS[count], JS[count], VS[count] = i, j, v
             count = count+1
+            IS[count], JS[count], VS[count] = i, j, v
         end
     end
-    count = count - 1
 
     @views sparse(IS[1:count],JS[1:count],complex(VS[1:count]), N, N)
 end
 
+# ####
+# # This version is more natural but 4x slower than the fastest implementation
+# ####
 # function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-7,
 #            kwargs...) #where {T<:AbstractMatrix}
 #

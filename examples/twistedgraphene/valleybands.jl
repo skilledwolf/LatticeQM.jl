@@ -8,9 +8,11 @@ using LatticeQM.Operators: addinterlayerbias!, setfilling!, gethaldane, addrashb
 println("Generating lattice geometry...")
 lat = Geometries2D.honeycomb_twisted(11)
 
-println("Generating lattice operators...")
+println("Generating valley operator...")
 valley = valleyoperator(lat; spinhalf=false)
+println("Generating Hamiltonian operator...")
 hops = graphene(lat; format=:sparse, mode=:nospin, tz=0.32)
+println("Setting filling...")
 setfilling!(hops, lat, 0.5+0.0/hopdim(hops); nk=9)
 # addinterlayerbias!(hops, lat, 0.05)
 # addhaldane!(hops, lat, 0.1; spinhalf=true, mode=:anti)
