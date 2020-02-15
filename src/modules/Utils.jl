@@ -20,4 +20,17 @@ module Utils
     export RotationMatrix
 
     include("Utils/grid.jl")
+
+    function padvec(v::T, d::Int) where T<:AbstractVector{<:AbstractFloat}
+    """
+    Make sure Vector v has length d, pad with zeros if needed.
+    """
+        L = length(v)
+        if L > d
+            error("Vector exceeds specified length $d.")
+        elseif L==d
+            return v
+        end
+        return vcat(v,zeros(d-L))
+    end
 end

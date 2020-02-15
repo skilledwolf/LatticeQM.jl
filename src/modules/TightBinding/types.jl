@@ -29,19 +29,23 @@ multiplyhops(h1::AnyHops, h2::AbstractMatrix) = multiplyhops(h1,Hops(h2))
 multiplyhops(h1::AnyHops, h2::AnyHops) = Hops(k=>h1[k]*h2[k] for k=intersect(keys(h1),keys(h2)))
 
 function Base.kron(a, b::AnyHops)
+    b2 = deepcopy(b)
+
     for (δL, t) in b
-        b[δL] = kron(a, t) # add spin degree of freedom # we made the choice to group the matrix in spin blocks
+        b2[δL] = kron(a, t) # add spin degree of freedom # we made the choice to group the matrix in spin blocks
     end
 
-    b
+    b2
 end
 
 function Base.kron(a::AnyHops, b)
+    a2 = deepcopy(a)
+
     for (δL, t) in a
-        a[δL] = kron(t, b) # add spin degree of freedom # we made the choice to group the matrix in spin blocks
+        a2[δL] = kron(t, b) # add spin degree of freedom # we made the choice to group the matrix in spin blocks
     end
 
-    a
+    a2
 end
 
 function addspin(hoppings, mode=:nospin) #::AbstractHops

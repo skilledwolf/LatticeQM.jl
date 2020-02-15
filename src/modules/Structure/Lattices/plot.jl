@@ -17,7 +17,7 @@ using Plots
 
     if colors != nothing
         # Note that colors::Vector{Float64} must be provide a color for each site
-        zcolor := repeat(colors, length(supercell[1])*length(supercell[2]))
+        zcolor := vcat(fill(colors, length(supercell[1])*length(supercell[2]))...)
         markercolor --> markercolor
         clims --> clims
     end

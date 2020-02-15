@@ -54,6 +54,8 @@ module Geometries2D
         specialpoints=kdict_tri
     )
 
+    graphene() = honeycomb(1.42)
+
     honeycomb_AA(a::Float64=1.0, z::Float64=3.0) = Lattice(
         a .* A_hex,
         [[0.0;0.0]  δ_hex [0.0;0.0] δ_hex],

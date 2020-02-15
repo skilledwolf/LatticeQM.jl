@@ -33,7 +33,7 @@ end
 #
 #     nothing
 # end
-densitymatrix(ϵ::Number, ψ::AbstractVector; T::Float64=0.01) = fermidirac(real(ϵ); T=T) .* transpose(ψ * ψ')
+densitymatrix(ϵ::Number, ψ::AbstractVector; T::Float64=0.01) = fermidirac(real(ϵ); T=T) .* transpose(ψ * ψ') #transpose(ψ * ψ') # (ψ * ψ')
 
 function densitymatrix!(ρ0::AbstractMatrix, ϵs::AbstractVector, U::AbstractMatrix; φk::ComplexF64=1.0+0.0im, kwargs...)
     for (ϵ, ψ) in zip(ϵs, eachcol(U))
@@ -46,7 +46,7 @@ end
 function densitymatrix!(ρs::AnyHops, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; kwargs...)
     for δL=keys(ρs)
         for (ϵ, ψ) in zip(ϵs, eachcol(U))
-            ρs[δL][:] .+= (densitymatrix(ϵ, ψ; kwargs...) .* fourierphase(-k, δL))[:] # ϵ-μ
+            ρs[δL][:] .+= (densitymatrix(ϵ, ψ; kwargs...) .* fourierphase(-k, δL))[:] # ϵ-μ # -k
         end
     end
     ρs

@@ -4,9 +4,9 @@ twistangle(n::Int; m::Int=1) = acos((3.0*n^2 + 3*n*m + m^2/2.0)/(3.0*n^2 + 3*n*m
 @legacyalias twist twist_triangular_2D
 twist(lat::Lattice, n::Int; kwargs...) = twist(lat,lat,n; kwargs...)
 function twist(lat1::Lattice, lat2::Lattice, n::Int; z::Float64=3, m::Int=1, verbose=true)
-    @assert latticedim(lat1) == 2 && latticedim(lat2) == 2 # make sure we are working with twodimensional lattices
-    @assert getA(lat1) ≈ getA(lat2) # make sure the two lattices are identical
-    @assert abs(dot(getA(lat1)[:,1], getA(lat1)[:,2])/(norm(getA(lat1)[:,1])*norm(getA(lat1)[:,1]))) ≈ 0.5 # make sure we are working with triangular lattices
+    @assert latticedim(lat1) == 2 && latticedim(lat2) == 2 "twist(...) is only defined for 2D lattices."
+    @assert getA(lat1) ≈ getA(lat2) "The two lattices must have the same lattice vectors."
+    @assert abs(dot(getA(lat1)[:,1], getA(lat1)[:,2])/(norm(getA(lat1)[:,1])*norm(getA(lat1)[:,1]))) ≈ 0.5 "twist(...) is only defined for triangular lattices."
     """
     This function assumes that the triangular 2D lattice "lat11,2" has at least one layer
     with z=0 (and possibly more layers with z>0).
@@ -14,7 +14,7 @@ function twist(lat1::Lattice, lat2::Lattice, n::Int; z::Float64=3, m::Int=1, ver
     """
     lat2 = deepcopy(lat2) # just to be save
 
-    # Crucual parameters
+    # Crucial parameters
     angle = twistangle(n)
     superperiods = [[n; n+m] [-n-m; 2*n+m]]
 
@@ -35,10 +35,6 @@ function twist(lat1::Lattice, lat2::Lattice, n::Int; z::Float64=3, m::Int=1, ver
     superlat2 = superlattice(lat2, superperiods)
     newdimension!(superlat2, "layer", fill(1.0, (1, countorbitals(superlat2))))
 
-    # Make sure all points lie in the primitive unit cell
-#     foldcoordinates!(superlat1)
-#     foldcoordinates!(superlat2)
-
     # Rotate the atom positions (keeping the lattice vectors fixed)
     if verbose
         println("Twist α="*string(round(angle/π*180; digits=3))*"°   (n,m)=($n,$m)")
@@ -50,6 +46,5 @@ function twist(lat1::Lattice, lat2::Lattice, n::Int; z::Float64=3, m::Int=1, ver
     mergelattices!(superlat1, superlat2)
     foldcoordinates!(superlat1)
 
-#     superlat1.orbitalcoordinates = unique(round.(superlat1.orbitalcoordinates,digits=12), dims=2)
     superlat1
 end

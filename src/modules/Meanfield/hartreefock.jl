@@ -40,7 +40,7 @@ function hartreefock(v::AnyHops)
         empty!(vmf)
 
         for L in keys(ρ)
-            vmf[L] = -v[L] .* transpose(ρ[L]) # Fock contribution
+            vmf[L] = -v[L] .* conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
         end
 
         addhops!(vmf, Hops([0,0] => spdiagm(0 => V0 * diag(ρ[[0,0]])))) # Hartree contribution

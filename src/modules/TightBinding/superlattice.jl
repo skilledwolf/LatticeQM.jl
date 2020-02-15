@@ -26,6 +26,8 @@ end
 ####################################################################################################
 ####################################################################################################
 
+using ..Structure.Lattices: supercellpoints
+
 @lecayalias superlattice superlattice_hops
 function superlattice(hops::Dict{Vector{Int},AbstractMatrix{T}},lattice_vecs::Matrix{Int}) where {T<:Number}
 """

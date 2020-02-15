@@ -16,7 +16,6 @@ using ..Utils
 include("Structure/Paths.jl")
 using .Paths
 
-
 include("Structure/Lattices.jl")
 using .Lattices
 export Lattice
@@ -26,7 +25,7 @@ export kpath
 ################################################################################
 
 include("Structure/neighbors.jl")
-include("Structure/supercell.jl")
+# include("Structure/supercell.jl") # moved to .Lattices
 include("Structure/twist.jl")
 
 ################################################################################

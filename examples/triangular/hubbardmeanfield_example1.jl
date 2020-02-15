@@ -63,5 +63,5 @@ mkpath("scf_example1"); savefig("scf_example1/bandsmeanfield.pdf")
 using DelimitedFiles
 XYZ = transpose(Structure.allpositions(lat, "z"))
 M = transpose(hcat([m1,m2,m3]...))
-mkpath("scf_example1"); writedlm("scf/positions.out", XYZ)
-mkpath("scf_example1"); writedlm("scf/magnetization.out", M)T
+mkpath("scf_example1"); writedlm("scf_example1/positions.out", XYZ)
+mkpath("scf_example1"); writedlm("scf_example1/magnetization.out", M)

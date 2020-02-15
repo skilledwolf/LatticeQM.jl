@@ -2,6 +2,7 @@ module Lattices
 
     using Plots
     using LinearAlgebra
+    using RecursiveArrayTools
 
     using ...Utils
     using ..Paths
@@ -21,6 +22,10 @@ module Lattices
 
     include("Lattices/path.jl")
     export kpath
+
+
+    include("Lattices/supercell.jl")
+    export superlattice, turn0D!, repeat!, repeat, crop2unitcell, crop2unitcell!, bistack
 
     include("Lattices/plot.jl")
 end
