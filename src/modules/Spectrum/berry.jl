@@ -3,29 +3,31 @@ function L(State1::T, State2::T) where {T<:AbstractArray{<:Complex,N}} where N
     return res/abs(res)
 end
 
-
-function PlaquettePhase(S00::T, S10::T, S01::T, S11::T) where {T<:AbstractArray{<:Complex, N}} where N
+@legacyalias plaquettephase PlaquettePhase
+function plaquettephase(S00::T, S10::T, S01::T, S11::T) where {T<:AbstractArray{<:Complex, N}} where N
     real(1.0/(2π*1.0im) * log( L(S00, S10) * L(S10, S11) * L(S01, S11)^(-1) * L(S00,S01)^(-1) ))
 end
 
+function berry(statesgrid::AbstractArray{<:Complex, 4})
 
-function BerryF(StatesGrid::AbstractArray{<:Complex, 4})
-
-    (n,m) = size(StatesGrid)[1:2]
+    (n,m) = size(statesgrid)[1:2]
     F = zeros(n-1,m-1)
 
     for i=1:n-1, j=1:n-1
-        S00 = StatesGrid[i,  j, :, :]
-        S10 = StatesGrid[i+1,j, :, :]
-        S01 = StatesGrid[i, j+1, :, :]
-        S11 = StatesGrid[i+1, j+1, :, :]
-        F[i,j] = PlaquettePhase(S00, S10, S01, S11)
+        S00 = statesgrid[i,  j, :, :]
+        S10 = statesgrid[i+1,j, :, :]
+        S01 = statesgrid[i, j+1, :, :]
+        S11 = statesgrid[i+1, j+1, :, :]
+        F[i,j] = plaquettephase(S00, S10, S01, S11)
     end
 
     F
 end
 
-function BerryF(wavefunctions::Function, NX::Int, NY::Int=0, bandindex=1)
+@legacyalias berry BerryF
+function berry(wavefunctions::Function, NX::Int, NY::Int=0, bandindex=1)
+    # wavefunctions(k::Vector) -> Matrix{Complex}
+
     if NY < 1
         NY = NX
     end
@@ -35,19 +37,19 @@ function BerryF(wavefunctions::Function, NX::Int, NY::Int=0, bandindex=1)
 
     kgrid = [[x;y] for x=range(0; stop=1, length=NX), y=range(0; stop=1, length=NY)]
 
-    StatesGrid = convert(SharedArray, zeros(ComplexF64, NX, NY, M1, M2))
+    statesgrid = convert(SharedArray, zeros(ComplexF64, NX, NY, M1, M2))
 
     indices = collect(Iterators.product(1:NX, 1:NY))
 
     @sync @distributed for (i_,j_) in indices
-        StatesGrid[i_,j_, :, :] = wavefunctions(kgrid[i_,j_])[:,bandindex]
+        statesgrid[i_,j_, :, :] = wavefunctions(kgrid[i_,j_])[:,bandindex]
     end
 
-    BerryF(StatesGrid)
+    berry(statesgrid)
 end
 
-
-function BerryCurvature(wavefunctions::Function, kpoints::T) where T<:AbstractMatrix{<:Float64}
+@legacyalias berryalongpath BerryCurvature
+function berryalongpath(wavefunctions::Function, kpoints::T) where T<:AbstractMatrix{<:Float64}
 """
     Calculate the abelian Berry Curvature for each band along a path of discrete k points
 """
@@ -79,7 +81,7 @@ function BerryCurvature(wavefunctions::Function, kpoints::T) where T<:AbstractMa
         States = [wavefunctions(k) for k in eachcol(plaquette)]
 
         for i_=1:M
-            berryc[i_,j_-1] = PlaquettePhase(
+            berryc[i_,j_-1] = plaquettephase(
                 [U[:,i_] for U in States]...
             )
         end
@@ -89,8 +91,9 @@ function BerryCurvature(wavefunctions::Function, kpoints::T) where T<:AbstractMa
     berryc
 end
 
-function get_berry!(bands::BandData, h, ks)
-    obs = Array(BerryCurvature(wavefunctions(h), ks.points))
+@legacyalias getberry! get_berry!
+function getberry!(bands::BandData, h, ks)
+    obs = Array(berryalongpath(wavefunctions(h), ks.points))
     obs = reshape(obs, (size(obs)...,1))
 
     if bands.obs == nothing

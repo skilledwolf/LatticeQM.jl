@@ -105,7 +105,8 @@ function hoppingmatrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64},
     maxind = div(length(IS),d^2) # preallocated memory
 
     count = 0 # counter for added matrix elements
-    @fastmath for i=1:N, j=1:N
+
+    @fastmath for i=1:N,j=1:N
         @views V[1:d, 1:d] .= t(Ri[:,i], Rj[:,j])
 
         for i0=1:d, j0=1:d

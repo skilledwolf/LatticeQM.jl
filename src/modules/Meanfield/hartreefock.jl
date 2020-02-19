@@ -39,8 +39,8 @@ function hartreefock(v::AnyHops)
     function vMF(ρ::AnyHops)
         empty!(vmf)
 
-        for L in keys(ρ)
-            vmf[L] = -v[L] .* conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
+        for L in keys(v)
+            vmf[L] = -v[L] .* conj(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
         end
 
         addhops!(vmf, Hops([0,0] => spdiagm(0 => V0 * diag(ρ[[0,0]])))) # Hartree contribution
@@ -52,7 +52,7 @@ function hartreefock(v::AnyHops)
         vρ = diag(ρs[[0,0]])
 
         energy = - 1/2 * (transpose(vρ) * V0 * vρ) # Hartree contribution
-        energy +=  1/2 * sum(sum(ρL .* conj.(ρL) .* v[L] for (L,ρL) in ρs)) # Fock contribution
+        energy +=  1/2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L,vL) in v)) # Fock contribution
 
 
         @assert imag(energy) ≈ 0
