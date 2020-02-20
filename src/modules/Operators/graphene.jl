@@ -158,6 +158,8 @@ function getrashba(lat::Lattice, λ::Function; format=:auto, tmin=1e-7)
         R0 = similar(R1)
 
         count = 0
+        # do not tamper with this loop.
+        # this way is orders of magnitude faster than any other implementation
         @fastmath @inbounds for j=1:N
             @views δR .= R1 .- R2[:,j]
             @views R0 .= (R1 .+ R2[:,j])./2
@@ -165,7 +167,7 @@ function getrashba(lat::Lattice, λ::Function; format=:auto, tmin=1e-7)
             for i=1:N
                 @views Δ = sqrt(sum(abs2,δR[1:3,i]))
 
-                if 1.1 < Δ || Δ < 0.9 || abs(δR[3,i]) < 0.2
+                if 1.1 < Δ || Δ < 0.9 || abs(δR[3,i]) > 0.2
                     continue
                 end
 
@@ -190,7 +192,7 @@ getrashba(lat::Lattice, λ::AbstractFloat; kwargs...) = getrashba(lat, x->λ; kw
 
 @legacyalias addrashba! add_rashba!
 addrashba!(hops, lat, rashba::Function; kwargs...) = addhops!(hops, getrashba(lat, rashba; kwargs...))
-function addrashba!(hops, lat, rashba::AbstractFloat)
+function addrashba!(hops, lat, rashba::Number)
     if !(rashba≈0.0)
         addrashba!(hops, lat, x->rasbha)
     end
