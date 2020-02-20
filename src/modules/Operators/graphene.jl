@@ -136,22 +136,55 @@ function addspinorbit!(hops, lat, t2, args...)
     addhops!(hops, kron(newhops, σZ))
 end
 
+using ..TightBinding: MAX_DENSE, MAX_DIAGS
+
 @legacyalias getrashba rashba_hops
-function getrashba(lat::Lattice, λ::Function; format=:auto)
+function getrashba(lat::Lattice, λ::Function; format=:auto, tmin=1e-7)
 
-    function hop(r1, r2=0.0)
-        δr = (r1.-r2)[1:3]
-        dr = norm(δr)
+    function hop(R1, R2)
+        # this is a "vectorized" hopping function, i.e., it expects
+        # coordinate matrices R1 and R2 as inputs
+        # (had to be implemented this way for performance)
 
-        if 0.9 < dr && dr < 1.1 && abs(δr[3]) < 0.2
-            δr ./= dr
-            return 1.0im .* λ((r1.+r2)./2.0) .* (σX.*δr[2] .- σY.*δr[1])
-        else
-            return zero(σ0)
+        N = size(R1,2)
+        d = 2
+
+        # Preallocate memory: important for huge sparse matrices
+        maxind = (N>MAX_DENSE) ? round(Int, MAX_DIAGS * N) : N^2 # MIN_SPARSITY * N^2 # semi-arbitrary limit for dense allocation
+        IS = Vector{Int}(undef, maxind*d^2)
+        JS = similar(IS)
+        VS = similar(IS, Float64)
+        δR = similar(R1)
+        R0 = similar(R1)
+
+        count = 0
+        @fastmath @inbounds for j=1:N
+            @views δR .= R1 .- R2[:,j]
+            @views R0 .= (R1 .+ R2[:,j])./2
+
+            for i=1:N
+                @views Δ = sqrt(sum(abs2,δR[1:3,i]))
+
+                if 1.1 < Δ || Δ < 0.9 || abs(δR[3,i]) < 0.2
+                    continue
+                end
+
+                V = 1.0im .* λ(R0[:,i]) .* (σX.*δR[2,i] .- σY.*δR[1,i])
+
+                for i0=1:d, j0=1:d
+                    if abs(v) < tmin
+                        continue
+                    end
+                    count = count+1
+                    IS[count], JS[count], VS[count] = (i-1)*d + i0,  (j-1)*d + j0, V[i0,j0]
+                end
+            end
         end
+
+        @views sparse(IS[1:count],JS[1:count],complex(VS[1:count]), d*N, d*N)
     end
 
-    gethops(lat, hop; format=format)
+    gethops(lat, hop; vectorized=true, format=format)
 end
 getrashba(lat::Lattice, λ::AbstractFloat; kwargs...) = getrashba(lat, x->λ; kwargs...)
 
