@@ -153,7 +153,7 @@ function getrashba(lat::Lattice, λ::Function; format=:auto, tmin=1e-7)
         maxind = (N>MAX_DENSE) ? round(Int, MAX_DIAGS * N) : N^2 # MIN_SPARSITY * N^2 # semi-arbitrary limit for dense allocation
         IS = Vector{Int}(undef, maxind*d^2)
         JS = similar(IS)
-        VS = similar(IS, Float64)
+        VS = similar(IS, ComplexF64)
         δR = similar(R1)
         R0 = similar(R1)
 
