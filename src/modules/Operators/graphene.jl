@@ -172,7 +172,7 @@ function getrashba(lat::Lattice, λ::Function; format=:auto, tmin=1e-7)
                 V = 1.0im .* λ(R0[:,i]) .* (σX.*δR[2,i] .- σY.*δR[1,i])
 
                 for i0=1:d, j0=1:d
-                    if abs(v) < tmin
+                    if abs(V[i0,j0]) < tmin
                         continue
                     end
                     count = count+1
