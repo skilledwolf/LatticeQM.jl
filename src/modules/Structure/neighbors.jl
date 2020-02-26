@@ -33,6 +33,51 @@ function getneighbors(lat, d=1.0)
     return pairs
 end
 
+
+"""
+    A naive implementation to find a list of n-th-nearest neighboring unit cells.
+    If halfspace=true, the list only contain [I,J] without its partner [-I,-J].
+"""
+function getneighborcells(lat, k=1; halfspace=true, innerpoints=false, excludeorigin=true)
+
+    n = ceil(Int,sqrt(3)*(k+1))
+    D = Matrix{Float64}(undef, 2*n+1, 2*n+1)
+    I = -n:n
+    J = -n:n
+
+    A = getA(lat)
+
+    IJ = [[i;j] for i=I, j=J]
+
+    for (i0,i)=enumerate(I), (j0,j)=enumerate(J)
+        D[i0,j0] = round.(norm(A*[i,j]); digits=7)
+    end
+
+    d = sort(unique(D)) # unique distances from origin unit cell
+
+    if innerpoints
+        result = IJ[D .<= d[k+1]]
+    else
+        result = IJ[D .== d[k+1]]
+    end
+
+    # naive iteration to make sure [I,J] and [-I,-J] do not both appear
+    if halfspace
+        if excludeorigin
+            for el=result
+                filter!(x->x != -1 .* el, result)
+            end
+        else
+            for el=result
+                filter!(x->(x==zero(el)) || (x != -1 .* el), result)
+            end
+        end
+
+    end
+
+    return result
+end
+
 @legacyalias commonneighbor find_common_neighbor
 function commonneighbor(i,j,NN)
 

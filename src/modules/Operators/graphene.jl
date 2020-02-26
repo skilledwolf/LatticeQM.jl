@@ -249,7 +249,7 @@ function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-7, tz::Flo
         @views δR .= R1 .- R2[:,j]
 
         for i=1:N
-            @views Δ = sqrt(sum(abs2,δR[1:3,i]))
+            @views Δ = sqrt(sum(abs2,δR[1:3,i])) # absolute value of distance vector
 
             if Δmax < Δ || Δ < Δmin
                 continue

@@ -4,12 +4,15 @@ gethamiltonian(args...; mode=:nospin, kwargs...) = getbloch(gethops(args...; kwa
 # Wrapper for custom types to gethops(...)
 ###############################################################################
 
+using ..Structure: getneighborcells
+
 addhops!(hops::AnyHops, lat::Lattice, t::Function; kwargs...) = addhops!(hops, gethops(lat, t; kwargs...))
 
-function gethops(lat::Lattice, t::Function; format=:auto, precision::Float64=1e-6, kwargs...)# where {T<:AbstractMatrix{Float64}}
+function gethops(lat::Lattice, t::Function; cellrange=1, format=:auto, precision::Float64=1e-6, kwargs...)# where {T<:AbstractMatrix{Float64}}
 
     # Get lattice neighbors
-    neighbors = [[i;j] for i=-1:1 for j=-1:1 if i+j>=0 && i>=0]
+#     neighbors = [[i;j] for i=-1:1 for j=-1:1 if i+j>=0 && i>=0]
+    neighbors = getneighborcells(lat, cellrange; halfspace=true, innerpoints=true, excludeorigin=false)
 
     gethops(lat, neighbors, t; precision=precision, format=format, kwargs...)
 end

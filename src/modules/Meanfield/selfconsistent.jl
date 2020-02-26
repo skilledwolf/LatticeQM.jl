@@ -29,7 +29,7 @@ mutable struct Hamiltonian
 end
 
 function solveselfconsistent!(ρ0::AnyHops, ρ1::AnyHops, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, ks::AbstractMatrix{Float64};
-    parallel=false, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
+    convergenceerror=false, parallel=false, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
     """
         Searches a self-consistent meanfield solution for the functional ℋ: ρ → h
         at given filling (between 0 and 1). k space is discretized with the given points ks.
@@ -60,9 +60,13 @@ function solveselfconsistent!(ρ0::AnyHops, ρ1::AnyHops, ℋ_op::Function, ℋ_
     end
 
     # Compute the ground state energy for the mean-field fixed point
-    ϵ_GS, error, converged = fixedpoint!(update!, ρ1, ρ0; iterations=iterations, tol=tol, kwargs...)
+    ϵ_GS, Error, converged = fixedpoint!(update!, ρ1, ρ0; iterations=iterations, tol=tol, kwargs...)
+
+    if convergenceerror && !converged
+        error("Convergence error.")
+    end
 
     updateH!(H, ρ1)
 
-    ρ1, ϵ_GS, H, converged, error
+    ρ1, ϵ_GS, H, converged, Error
 end
