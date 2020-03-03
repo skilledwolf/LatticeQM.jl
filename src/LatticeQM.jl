@@ -5,7 +5,8 @@ module LatticeQM
 
     include("modules/Utils.jl")
     using .Utils
-    export save
+    using .DummySave
+    export save, savedlm
 
     include("modules/Algebra.jl")
     using .Algebra
