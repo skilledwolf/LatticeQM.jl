@@ -139,7 +139,7 @@ end
 using ..TightBinding: MAX_DENSE, MAX_DIAGS
 
 @legacyalias getrashba rashba_hops
-function getrashba(lat::Lattice, λ::Function; format=:auto, tmin=1e-7)
+function getrashba(lat::Lattice, λ::Function; cellrange=2, format=:auto, tmin=1e-7)
 
     function hop(R1, R2)
         # this is a "vectorized" hopping function, i.e., it expects
@@ -186,7 +186,7 @@ function getrashba(lat::Lattice, λ::Function; format=:auto, tmin=1e-7)
         @views sparse(IS[1:count],JS[1:count],complex(VS[1:count]), d*N, d*N)
     end
 
-    gethops(lat, hop; vectorized=true, format=format)
+    gethops(lat, hop; vectorized=true, cellrange=cellrange, format=format)
 end
 getrashba(lat::Lattice, λ::AbstractFloat; kwargs...) = getrashba(lat, x->λ; kwargs...)
 
@@ -258,11 +258,6 @@ function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-7, tz::Flo
             δz = δR[3,i]
             χ = δz^2 /(Δ^2)
 
-#             if δz < Δmin
-#                 v =  - t0 * (1-χ) * exp(-(Δ-a)/ℓintra)
-#             else
-#                 v =  - tz * χ * exp(-(Δ-z)/ℓinter)
-#             end
             v =  -t0 * (1-χ) * exp(-(Δ-a)/ℓintra) * exp(-δz^2 /ℓz^2) - tz * χ * exp(-(Δ-z)/ℓinter)
 
             if abs(v) < tmin
