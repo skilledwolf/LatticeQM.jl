@@ -4,7 +4,7 @@
     in twisted bilayer graphene.
 """
 
-function gethaldanelike(args...; t1, t2, cellrange=3, kwargs...)
+function gethaldanelike(lat; t1, t2, cellrange=3, kwargs...)
     hops0 = gethops(lat, (r1,r2=0)->t_haldanelike(r1,r2;t=t1); cellrange=cellrange)
     addhops!(hops0, lat, (r1,r2=0)->t_haldanelike(r1,r2;d0=√3,t=t2); cellrange=cellrange)
 
