@@ -34,6 +34,8 @@ include("Operators/current.jl")
 
 include("Operators/graphene.jl")
 
+include("Operators/haldanelike.jl")
+
 include("Operators/sublattice.jl")
 include("Operators/layer.jl")
 
