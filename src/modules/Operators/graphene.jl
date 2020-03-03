@@ -1,10 +1,10 @@
 using SparseArrays
 
-function graphene(lat::Lattice; mode=:nospin, format=:auto, kwargs...)
+function graphene(lat::Lattice; mode=:nospin, format=:auto, cellrange=2, kwargs...)
 
     t(args...) = t_graphene(args...; kwargs...)
 
-    hops = gethops(lat, t; format=format, vectorized=true)
+    hops = gethops(lat, t; cellrange=cellrange, format=format, vectorized=true)
 
     if mode==:spinhalf
         hops = addspin(hops, mode)
