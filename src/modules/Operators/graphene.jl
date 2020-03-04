@@ -258,7 +258,7 @@ function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-7, tz::Flo
             δz = δR[3,i]
             χ = δz^2 /(Δ^2)
 
-            if δz < a
+            if abs(δz) < a
                 v = -t0 * (1-χ) * exp(-(Δ-a)/ℓintra) #* exp(-δz^2 /ℓz^2)
             else
                 v = -tz * χ * exp(-(Δ-z)/ℓinter)
