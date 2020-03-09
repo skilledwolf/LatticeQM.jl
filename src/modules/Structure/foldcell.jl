@@ -1,7 +1,7 @@
 
 @legacyalias foldcell! foldBZ!
 function foldcell!(M, points::AbstractMatrix)
-    @assert size(M)=(2,2) # only implemented for 2d lattices at the moment
+    @assert size(M)==(2,2) # only implemented for 2d lattices at the moment
 
     """
     Fold all points into the two-dimensional cell with the metric M.
