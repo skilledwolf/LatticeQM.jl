@@ -20,13 +20,26 @@ function turn0D!(lat::Lattice)
     nothing
 end
 
-@legacyalias repeat! repeat_atoms!
-function repeat!(lat::Lattice, repeat=[0:0,0:0])
-    @assert latticedim(lat) == 2 # only implemented for 2d lattices at the moment
+function repeat!(lat::Lattice, repeat::UnitRange=0:0)
+    d = latticedim(lat)
+    repeat!(lat, Iterators.repeated(repeat,d))
+end
 
-    Λsuper = [[i; j] for i=repeat[1] for j=repeat[2]]
-    lat.orbitalcoordinates = hcat([lat.orbitalcoordinates.+v for v in Λsuper]...)
-    lat.extrapositions = hcat([lat.extrapositions for v in Λsuper]...)
+@legacyalias repeat! repeat_atoms!
+function repeat!(lat::Lattice, repeat::AbstractVector{<:AbstractRange})
+    Λsuper = Vector{Int64}[]
+    for I in Iterators.product(repeat...) #Iterators.repeated(1:5,3)
+        append!(Λsuper, [ [I...] ])
+    end
+
+    println(Λsuper)
+
+    repeat!(lat, Λsuper)
+end
+
+function repeat!(lat::Lattice, intvectors::Vector{Vector{Int64}})
+    lat.orbitalcoordinates = hcat([lat.orbitalcoordinates.+v for v in intvectors]...)
+    lat.extrapositions = hcat([lat.extrapositions for v in intvectors]...)
     lat
 end
 
