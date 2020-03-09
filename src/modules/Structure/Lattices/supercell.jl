@@ -42,6 +42,20 @@ Translates all points in "atom" by lattice vectors as defined by the "repeat" li
     orbitalcoordinates_super = hcat([orbitalcoordinates.+v for v in Λsuper]...)
 end
 
+function sortextraposition!(lat::Lattice, name::String)
+"""
+Sorts all coordinates in the lattice according to extraposition "name" (e.g. z coordinates or sublattice).
+This is useful for example when plotting, such layers get plotted one on top of each other (even in supercells).
+"""
+
+    perm = sortperm(vec(extrapositions(lat,name)))
+
+    lat.extrapositions[:,:] = lat.extrapositions[:,perm]
+    lat.orbitalcoordinates[:,:] = lat.orbitalcoordinates[:,perm]
+
+    lat
+end
+
 
 @legacyalias crop2unitcell! crop_to_unitcell!
 @legacyalias crop2unitcell crop_to_unitcell

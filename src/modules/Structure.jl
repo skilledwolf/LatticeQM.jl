@@ -27,7 +27,7 @@ export kpath
 include("Structure/neighbors.jl")
 # include("Structure/supercell.jl") # moved to .Lattices
 include("Structure/twist.jl")
-include("Structure/foldBZ.jl")
+include("Structure/foldcell.jl")
 
 ################################################################################
 ################################################################################
