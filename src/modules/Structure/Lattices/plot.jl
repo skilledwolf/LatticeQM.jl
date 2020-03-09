@@ -4,7 +4,7 @@ using Plots
     # filter could be for example filter=("layer", z->z==0.0)
 
     if isa(colors, String) # If colors is a string it is to be understood as an extraposition
-        colors = extrapositions(lat0, colors)
+        colors = vec(extrapositions(lat0, colors))
     end
 
     lat = deepcopy(lat0)

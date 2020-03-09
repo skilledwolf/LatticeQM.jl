@@ -32,8 +32,6 @@ function repeat!(lat::Lattice, repeat::AbstractVector{<:AbstractRange})
         append!(Λsuper, [ [I...] ])
     end
 
-    println(Λsuper)
-
     repeat!(lat, Λsuper)
 end
 
