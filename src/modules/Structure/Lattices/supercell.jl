@@ -53,7 +53,7 @@ This is useful for example when plotting, such layers get plotted one on top of 
     lat.extrapositions[:,:] = lat.extrapositions[:,perm]
     lat.orbitalcoordinates[:,:] = lat.orbitalcoordinates[:,perm]
 
-    lat
+    perm
 end
 
 

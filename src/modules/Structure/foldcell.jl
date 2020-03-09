@@ -54,12 +54,12 @@ function foldPC!(lat::Lattice)
     # Note: this part is not thorough tested.
     α = acos(dot(A[:,1],A[:,2])/(norm(A[:,1])*norm(A[:,2])))/(2π)
     if norm(α)≈1/6
+        println("Modifying lattice vectors...")
         T = [1 -1*sign(α); 0 1*sign(α)]
         lat.latticevectors = lat.latticevectors * T
         lat.orbitalcoordinates = inv(T) * lat.orbitalcoordinates
     end
 
-    M = transpose(A) * A
     foldcell!(transpose(A) * A, lat.orbitalcoordinates)
 
     lat

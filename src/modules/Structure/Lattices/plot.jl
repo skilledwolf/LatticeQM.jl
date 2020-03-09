@@ -7,7 +7,10 @@ using Plots
     repeat!(lat, supercell)
 
     if sort != false
-        sortextraposition!(lat, sort)
+        perm = sortextraposition!(lat, sort)
+        if colors != nothing
+            colors[:] = colors[perm]
+        end
     end
 
     # Plot the layers
