@@ -43,7 +43,7 @@ foldBZ!(lat::Lattice, points::AbstractMatrix) = foldBZ!(transpose(getB(lat))*get
 """
 Fold all orbitalcoordinates into the first primitive unit cell.
 """
-function foldPZ!(lat::Lattice)
+function foldPC!(lat::Lattice)
     @assert latticedim(lat) == 2
 
     A = getA(lat)
@@ -54,7 +54,7 @@ function foldPZ!(lat::Lattice)
     # Note: this part is not thorough tested.
     α = acos(dot(A[:,1],A[:,2])/(norm(A[:,1])*norm(A[:,2])))/(2π)
     if norm(α)≈1/6
-        T = [1 -1*sign(α); 0 1*\sign(α)]
+        T = [1 -1*sign(α); 0 1*sign(α)]
         lat.latticevectors = lat.latticevectors * T
         lat.orbitalcoordinates = inv(T) * lat.orbitalcoordinates
     end
