@@ -1,6 +1,6 @@
 using Plots
 
-@recipe function f(lat0::Lattice, colors::Union{Nothing,Vector{Float64},String}=nothing; filter=(), sort=false, supercell=[0:1,0:1], markercolor=:RdYlBu, clims=:auto)
+@recipe function f(lat0::Lattice, colors::Union{Nothing,Vector{Float64},String}=nothing; filter=(), sort=false, supercell=0:0, markercolor=:RdYlBu, clims=:auto)
     # filter could be for example filter=("layer", z->z==0.0)
 
     if isa(colors, String) # If colors is a string it is to be understood as an extraposition

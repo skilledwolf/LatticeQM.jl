@@ -58,6 +58,10 @@ function foldPC!(lat::Lattice)
         T = [1 -1*sign(α); 0 1*sign(α)]
         lat.latticevectors = A * T
         lat.orbitalcoordinates = inv(T) * lat.orbitalcoordinates
+
+        for (k,v) in lat.specialpoints.coord # update high-symmetry points
+            lat.specialpoints.coord[k] = inv(T) * v
+        end
     end
 
     A = lat.latticevectors
