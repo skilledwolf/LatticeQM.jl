@@ -47,6 +47,7 @@ function foldPC!(lat::Lattice)
     @assert latticedim(lat) == 2
 
     A = getA(lat)
+    
 
     # This piece of code handles the special case of a triangular lattice.
     # We ensure that the primitive lattice vectors have angle 2π/3, not 2π/6
@@ -54,14 +55,17 @@ function foldPC!(lat::Lattice)
     # Note: this part is not thorough tested.
     α = acos(dot(A[:,1],A[:,2])/(norm(A[:,1])*norm(A[:,2])))/(2π)
     if norm(α)≈1/6
+        specialpoints = deepcopy(lat.specialpoints)
+        
         # println("Modifying lattice vectors...")
         T = [1 -1*sign(α); 0 1*sign(α)]
         lat.latticevectors = A * T
         lat.orbitalcoordinates = inv(T) * lat.orbitalcoordinates
 
         for (k,v) in lat.specialpoints.coord # update high-symmetry points
-            lat.specialpoints.coord[k] = transpose(T) * v
+            specialpoints.coord[k] = transpose(T) * v
         end
+        lat.specialpoints = specialpoints
     end
 
     A = getA(lat)
