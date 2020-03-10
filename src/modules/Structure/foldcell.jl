@@ -43,11 +43,11 @@ foldBZ!(lat::Lattice, points::AbstractMatrix) = foldBZ!(transpose(getB(lat))*get
 """
 Fold all orbitalcoordinates into the first primitive unit cell.
 """
-function foldPC!(lat::Lattice)
+function foldPC!(lat::Lattice; shift=0.0)
     @assert latticedim(lat) == 2
 
     A = getA(lat)
-    
+    lat.orbitalcoordinates .-= shift
 
     # This piece of code handles the special case of a triangular lattice.
     # We ensure that the primitive lattice vectors have angle 2π/3, not 2π/6
@@ -56,7 +56,7 @@ function foldPC!(lat::Lattice)
     α = acos(dot(A[:,1],A[:,2])/(norm(A[:,1])*norm(A[:,2])))/(2π)
     if norm(α)≈1/6
         specialpoints = deepcopy(lat.specialpoints)
-        
+
         # println("Modifying lattice vectors...")
         T = [1 -1*sign(α); 0 1*sign(α)]
         lat.latticevectors = A * T
