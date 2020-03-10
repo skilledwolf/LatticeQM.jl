@@ -32,7 +32,7 @@ function foldcell!(M, points::AbstractMatrix)
         points[:,j_] -= δk
     end
 
-    nothing
+    points
 end
 
 """
@@ -64,7 +64,7 @@ function foldPC!(lat::Lattice)
         end
     end
 
-    A = lat.latticevectors
+    A = getA(lat)
     foldcell!(transpose(A) * A, lat.orbitalcoordinates)
 
     lat
