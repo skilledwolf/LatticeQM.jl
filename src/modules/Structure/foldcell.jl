@@ -60,7 +60,7 @@ function foldPC!(lat::Lattice)
         lat.orbitalcoordinates = inv(T) * lat.orbitalcoordinates
 
         for (k,v) in lat.specialpoints.coord # update high-symmetry points
-            lat.specialpoints.coord[k] = inv(T) * v
+            lat.specialpoints.coord[k] = transpose(T) * v
         end
     end
 
