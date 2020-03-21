@@ -28,6 +28,28 @@ multiplyhops(h1::AbstractMatrix, h2::AnyHops) = multiplyhops(Hops(h1),h2)
 multiplyhops(h1::AnyHops, h2::AbstractMatrix) = multiplyhops(h1,Hops(h2))
 multiplyhops(h1::AnyHops, h2::AnyHops) = Hops(k=>h1[k]*h2[k] for k=intersect(keys(h1),keys(h2)))
 
+"""
+Naive implementation of combining the linear spaces of two hopping models.
+"""
+function addhopspace(h1::AnyHops, h2::AnyHops)
+    d1 = hopdim(h1)
+    d2 = hopdim(h2)
+    D = d1+d2
+
+    for δL in keys(h1)
+        tmp = spzeros(D,D)
+        tmp[1:d1,1:d1] .= h1[δL]
+        h1[δL] = tmp
+    end
+    for δL in keys(h2)
+        tmp = spzeros(D,D)
+        tmp[d1+1:D,d1+1:D] .= h2[δL]
+        h2[δL] = tmp
+    end
+
+    addhops(h1,h2)
+end
+
 function Base.kron(a, b::AnyHops)
     b2 = deepcopy(b)
 

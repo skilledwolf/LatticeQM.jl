@@ -58,7 +58,7 @@ module LatticeQM
 
     include("modules/KPM.jl")
     using .KPM
-    export KPM
+    # export KPM
 
     ### Higher-level modules
     include("modules/Geometries.jl")

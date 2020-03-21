@@ -40,6 +40,7 @@ function twist(lat1::Lattice, lat2::Lattice, n::Int; z::Float64=3, m::Int=1, ver
         println("Twist α="*string(round(angle/π*180; digits=3))*"°   (n,m)=($n,$m)")
     end
     repeat!(superlat2, [-1:1,-1:1])
+    # rotatecoordinates!(superlat1, -angle/2)
     rotatecoordinates!(superlat2, angle)
     crop2unitcell!(superlat2)
 
