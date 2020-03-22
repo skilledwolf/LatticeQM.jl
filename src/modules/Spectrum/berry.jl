@@ -49,7 +49,7 @@ function berry(wavefunctions::Function, NX::Int, NY::Int=0, bandindex=1)
 end
 
 @legacyalias berryalongpath BerryCurvature
-function berryalongpath(wavefunctions::Function, kpoints::T) where T<:AbstractMatrix{<:Float64}
+function berryalongpath(wavefunctions::Function, kpoints::AbstractMatrix{<:Float64})
 """
     Calculate the abelian Berry Curvature for each band along a path of discrete k points
 """
@@ -73,8 +73,8 @@ function berryalongpath(wavefunctions::Function, kpoints::T) where T<:AbstractMa
 
         δkR = (kpoints[:,j_+1]-k0)/2
         δkL = (kpoints[:,j_-1]-k0)/2
-        δkU = (RotationMatrix(π/2)*δkR + RotationMatrix(-π/2)*δkL)/2
-        δkD = (RotationMatrix(-π/2)*δkR + RotationMatrix(π/2)*δkL)/2
+        δkU = (rotation2D(π/2)*δkR + rotation2D(-π/2)*δkL)/2
+        δkD = (rotation2D(-π/2)*δkR + rotation2D(π/2)*δkL)/2
 
         plaquette = k0 .+  hcat(δkR, δkU, δkD, δkL)
 

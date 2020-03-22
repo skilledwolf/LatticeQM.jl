@@ -22,10 +22,9 @@ export hopdim, addspin, addhops!, addhops
 # export decidetype
 
 include("TightBinding/bloch.jl") # todo : move to new module Hops
-export get_bloch, getbloch
+export getbloch
 
 include("TightBinding/hamiltonian.jl") # todo : move to structure
-export get_hops, get_hamiltonian # backwards compatibility
 export gethops, gethamiltonian
 
 include("TightBinding/operators.jl")
@@ -35,8 +34,8 @@ include("TightBinding/operators.jl")
 @legacymoved get_neighbors "Structure.neighbors"
 @legacymoved find_common_neighbor "Structure.commonneighbor"
 @legacymoved initial_guess "Meanfield.initialguess"
-@legacymoved set_filling! "Operatorssetfilling!"
-@legacymoved add_chemicalpotential! "Operatorsaddchemicalpotential!"
+@legacymoved set_filling! "Operators.setfilling!"
+@legacymoved add_chemicalpotential! "Operators.addchemicalpotential!"
 
 @legacymoved get_operator "Operators.getoperator"
 @legacymoved get_projector "Operators.get_projector"

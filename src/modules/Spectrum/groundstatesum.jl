@@ -1,4 +1,4 @@
-@fastmath function groundstate_sumk(ϵs_k::AbstractVector{Float64}, μ::Float64=0.0)
+@fastmath function groundstate_sumk(ϵs_k::AbstractVector{T}, μ::T=0.0) where {T<:Number}
     tmp = 0.0
     for ϵ in ϵs_k
         if ϵ <= μ
@@ -9,7 +9,7 @@
     tmp
 end
 
-function groundstate_energy(ϵs::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0; kwargs...)
+function groundstate_energy(ϵs::Function, ks::AbstractMatrix{T}, μ::T=0.0; kwargs...) where {T<:Number}
     # Σ = ϵs(hamiltonian; format=format)
     L = size(ks)[2]
 

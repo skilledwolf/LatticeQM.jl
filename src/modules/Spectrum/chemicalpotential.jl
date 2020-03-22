@@ -20,7 +20,7 @@ end
 #     chemicalpotential!(en, nk, filling; kwargs...)
 # end
 
-function chemicalpotential!(energies::AbstractVector{Float64}, nk::Int, filling::Float64; T::Real=0.0)
+function chemicalpotential!(energies::AbstractVector{T1}, nk::Int, filling::Float64; T::T1=0.0) where T1<:Real
     if T==zero(T)
         return chemicalpotential_0!(energies, filling)
     else
@@ -28,7 +28,7 @@ function chemicalpotential!(energies::AbstractVector{Float64}, nk::Int, filling:
     end
 end
 
-function chemicalpotential_0!(energies::AbstractVector{Float64}, filling::Float64)
+function chemicalpotential_0!(energies::AbstractVector{T1}, filling::T1) where T1<:Real
 
     i = floor(Int, filling * length(energies)) # fill a fraction of states according to ,,filling''
     e1, e2 = partialsort!(energies, i:i+1) # oldversion: sort!(energies); e1, e2 = energies[i:i+1]
@@ -36,11 +36,11 @@ function chemicalpotential_0!(energies::AbstractVector{Float64}, filling::Float6
     (e1+e2)/2
 end
 
-using NLsolve
+using NLsolve # add 2-3 seconds of load time to the package :(
 
 using ..Utils: fermidirac
 
-function chemicalpotential_T!(energies::AbstractVector{Float64}, nk::Int, filling::Float64; T::Float64=0.01)
+function chemicalpotential_T!(energies::AbstractVector{T1}, nk::Int, filling::T1; T::T1=0.01) where T1<:Real
 
     d = div(length(energies),nk) # number of bands
 

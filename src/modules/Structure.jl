@@ -1,12 +1,11 @@
 # __precompile__()
 
-module Structure # renamed from Structure
+module Structure
 ################################################################################
 ################################################################################
 
 using LinearAlgebra
 using RecursiveArrayTools
-using HDF5
 
 using ..Utils
 
@@ -20,14 +19,6 @@ include("Structure/Lattices.jl")
 using .Lattices
 export Lattice
 export kpath
-
-################################################################################
-################################################################################
-
-include("Structure/neighbors.jl")
-# include("Structure/supercell.jl") # moved to .Lattices
-include("Structure/twist.jl")
-include("Structure/foldcell.jl")
 
 ################################################################################
 ################################################################################

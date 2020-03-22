@@ -17,11 +17,11 @@ module Utils
     include("Utils/fermidirac.jl")
 
     include("Utils/rotate.jl")
-    export RotationMatrix
+    export rotation2D
 
     include("Utils/grid.jl")
 
-    function padvec(v::T, d::Int) where T<:AbstractVector{<:AbstractFloat}
+    function padvec(v::AbstractVector, d::Int)
     """
     Make sure Vector v has length d, pad with zeros if needed.
     """

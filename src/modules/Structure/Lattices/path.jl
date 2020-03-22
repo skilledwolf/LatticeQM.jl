@@ -1,3 +1,4 @@
+using ..Paths
 
 function Paths.DiscretePath(lat::Lattice; kwargs...)
     named_path = lat.specialpoints.defaultpath

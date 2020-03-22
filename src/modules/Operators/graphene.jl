@@ -230,7 +230,7 @@ end
 
 using ..TightBinding: MAX_DENSE, MAX_DIAGS
 
-function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-7, tz::Float64=0.46, t0::Float64=1.0,
+@polly function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-7, tz::Float64=0.46, t0::Float64=1.0,
     ℓinter::Float64=0.125, ℓintra::Float64=0.08, ℓz::Float64=0.001,z::Float64=3.0, a::Float64=1.0,
     Δmin::Float64=0.1, Δmax::Float64=5.0,
     kwargs...)

@@ -26,7 +26,7 @@ function randomgrid(;nk::Int=100, dim::Int=2, rot_symmetry::Int=1, B=:id)
 
     # symmetrized sampling
     for i=1:(rot_symmetry-1)
-        ks = Matrix([ks inv(B)*RotationMatrix(2π/rot_symmetry*i)*B*ks])
+        ks = Matrix([ks inv(B)*rotation2D(2π/rot_symmetry*i)*B*ks])
     end
 
     ks

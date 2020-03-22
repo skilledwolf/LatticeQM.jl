@@ -6,12 +6,12 @@ end
 @legacyalias rotatebasis! rotate_A_XY!
 function rotatebasis!(lat::Lattice, α::Float64)
     @assert latticedim(lat) == 2
-    lat.latticevectors[1:2,1:2] .= (RotationMatrix(α) * getA(lat)[1:2,1:2])
+    lat.latticevectors[1:2,1:2] .= (rotation2D(α) * getA(lat)[1:2,1:2])
 end
 
 @legacyalias rotatecoordinates! rotate_atoms_XY!
 function rotatecoordinates!(lat::Lattice, θ::Float64)
-    mat = inv(getA(lat)) * RotationMatrix(θ)* getA(lat)
+    mat = inv(getA(lat)) * rotation2D(θ)* getA(lat)
     lat.orbitalcoordinates[1:2,:] .= mat * lat.orbitalcoordinates[1:2,:]
 end
 

@@ -1,7 +1,7 @@
 using Distributed
 using ProgressMeter
 
-function ldos!(n::AbstractVector{Float64}, ϵs::AbstractVector, U::AbstractMatrix, ωs::AbstractVector{Float64}; Γ::Float64=0.1)
+function ldos!(n::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix, ωs::AbstractVector; Γ::Real=0.1)
     for (ϵ, ψ) in zip(ϵs, eachcol(U))
         for ω in ωs
             n[:] .+= imag( abs2.(ψ)./(ω + 1.0im * Γ - ϵ) )
@@ -10,7 +10,7 @@ function ldos!(n::AbstractVector{Float64}, ϵs::AbstractVector, U::AbstractMatri
     n[:] ./= size(ωs)
 end
 
-function ldos!(n::AbstractVector{Float64}, H, ks::AbstractMatrix{Float64}, ωs::AbstractVector{Float64}; Γ::Float64=0.1, kwargs...)
+function ldos!(n::AbstractVector, H, ks::AbstractMatrix, ωs::AbstractVector; Γ::Real=0.1, kwargs...)
     L = size(ks,2)
 
     spectrumf = spectrum(H; kwargs...)
@@ -27,8 +27,8 @@ end
 
 using ..TightBinding: dim
 
-ldos(H, ks, frequency::Float64; kwargs...) = ldos(H, ks, [frequency]; kwargs...)
-function ldos(H, ks, frequencies::AbstractVector{Float64}; format=:sparse, kwargs...)
+ldos(H, ks, frequency::Real; kwargs...) = ldos(H, ks, [frequency]; kwargs...)
+function ldos(H, ks, frequencies::AbstractVector; format=:sparse, kwargs...)
     n = zeros(Float64, dim(H,ks))
     ldos!(n, H, ks, frequencies; format=format, kwargs...)
     n

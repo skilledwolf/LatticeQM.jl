@@ -13,7 +13,6 @@ eigen_sparse(M::AbstractMatrix; num_bands::Int, sigma::Float64=1e-8, which=:LM, 
 eigvals_sparse(M::AbstractMatrix; num_bands::Int, sigma::Float64=1e-8, which=:LM, kwargs...) = real.((eigen_sparse(M; num_bands=num_bands, sigma=sigma, which=which, kwargs...))[1])
 eigvecs_sparse(M::AbstractMatrix; num_bands::Int, sigma::Float64=1e-8, which=:LM, kwargs...) = (eigen_sparse(M; num_bands=num_bands, sigma=sigma, which=which, kwargs...))[2]
 
-
 ###################################################################################################
 # Interfaces for matrix functions
 ###################################################################################################
@@ -21,59 +20,21 @@ eigvecs_sparse(M::AbstractMatrix; num_bands::Int, sigma::Float64=1e-8, which=:LM
 # Dense methods
 eigvals_dense(h::Function; kwargs...) = k -> eigvals(Matrix(h(k)); kwargs...)
 eigvecs_dense(h::Function; kwargs...) = k -> eigvecs(Matrix(h(k)); kwargs...)
-# f(x) = (x.values, x.vectors)
-# eigen_dense(h::Function; kwargs...) = k -> f(eigen(Hermitian(h(k)); kwargs...))
-function eigen_dense(h::Function; kwargs...)
-    function atK(k::AbstractVector)
-        F = eigen(h(k); kwargs...) #Hermitian(h(k))
-        F.values, F.vectors
-    end
-    atK
-end
+f(x) = (x.values, x.vectors)
+eigen_dense(h::Function; kwargs...) = k -> f(eigen(Hermitian(h(k)); kwargs...))
+# function eigen_dense(h::Function; kwargs...)
+#     function atK(k::AbstractVector)
+#         F = eigen(h(k); kwargs...) #Hermitian(h(k))
+#         F.values, F.vectors
+#     end
+#     atK
+# end
 
 # Sparse methods
 eigvals_sparse(h::Function; kwargs...) = k -> eigvals_sparse(h(k); kwargs...)
 eigvecs_sparse(h::Function; kwargs...) = k -> eigvecs_sparse(h(k); kwargs...)
 eigen_sparse(h::Function; kwargs...) = k -> eigen_sparse(h(k); kwargs...)
 
-
 geteigvals(h; format=:dense, num_bands=nothing, kwargs...) = (format==:sparse) ?  eigvals_sparse(h; num_bands=num_bands, kwargs...) : eigvals_dense(h; kwargs...)
 geteigvecs(h; format=:dense, num_bands=nothing, kwargs...) = (format==:sparse) ?  eigvecs_sparse(h; num_bands=num_bands, kwargs...) : eigvecs_dense(h; kwargs...)
 geteigen(h; format=:dense,   num_bands=nothing, kwargs...) = (format==:sparse) ?  eigen_sparse(h; num_bands=num_bands, kwargs...) : eigen_dense(h; kwargs...)
-
-# function geteigvals(h; format=:dense, num_bands=nothing, kwargs...)
-#     if format==:dense
-#         eigvals_dense(h; kwargs...)
-#     elseif format==:sparse
-#         if num_bands==nothing
-#             eigvals_sparse(h; kwargs...)
-#         else
-#             eigvals_sparse(h; nev=num_bands, kwargs...)
-#         end
-#     end
-# end
-
-# function geteigvecs(h::Function; format=:dense, num_bands=nothing, kwargs...)
-#     if format==:dense
-#         eigvecs_dense(h; kwargs...)
-#     elseif format==:sparse
-#         if num_bands==nothing
-#             eigvecs_sparse(h; kwargs...)
-#         else
-#             eigvecs_sparse(h; nev=num_bands, kwargs...)
-#         end
-#     end
-# end
-#
-# function geteigen(h::Function; format=:dense, num_bands=nothing, kwargs...)
-#     if format==:dense
-#         eigen_dense(h; kwargs...)
-#     elseif format==:sparse
-#         if num_bands==nothing
-#             eigen_sparse(h; kwargs...)
-#         else
-#             eigen_sparse(h; nev=num_bands, kwargs...)
-#         end
-#     end
-# end
-#

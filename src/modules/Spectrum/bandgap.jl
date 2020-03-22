@@ -1,11 +1,11 @@
 using ..Utils: regulargrid
 
-function bandgap_filling(H, filling::Float64; klin=30, kwargs...)
+function bandgap_filling(H, filling::Real; klin=30, kwargs...)
     kgrid = regulargrid(;nk=klin^2)
     bandgap_filling(H, kgrid, filling; kwargs...)
 end
 
-function bandgap_filling(H, ks, filling::Float64; kwargs...)
+function bandgap_filling(H, ks, filling::Real; kwargs...)
     # Calculate the gap around in which the Fermi level lies
     bands = bandmatrix(H, points(ks)) # dense diagonalization (default)!
     μ = chemicalpotential(bands, filling; kwargs...)
@@ -13,12 +13,12 @@ function bandgap_filling(H, ks, filling::Float64; kwargs...)
     bandgap_energy(bands, μ)
 end
 
-function bandgap_energy(H, ks, μ::Float64) # Note: dense diagonalization!
+function bandgap_energy(H, ks, μ::Real) # Note: dense diagonalization!
     # Calculate the gap around in which the Fermi level lies
     bandgap_energy(bandmatrix(H, points(ks)), μ)
 end
 
-function bandgap_energy(bands::AbstractMatrix, μ::Float64)
+function bandgap_energy(bands::AbstractMatrix, μ::Real)
 
     ϵlower = maximum(bands[bands.<= μ])
     ϵupper = minimum(bands[bands.>= μ])

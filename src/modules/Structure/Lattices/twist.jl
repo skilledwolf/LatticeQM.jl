@@ -1,9 +1,10 @@
 @legacyalias twistangle α
 twistangle(n::Int; m::Int=1) = acos((3.0*n^2 + 3*n*m + m^2/2.0)/(3.0*n^2 + 3*n*m + m^2))
 
+
 @legacyalias twist twist_triangular_2D
 twist(lat::Lattice, n::Int; kwargs...) = twist(lat,lat,n; kwargs...)
-function twist(lat1::Lattice, lat2::Lattice, n::Int; z::Float64=3, m::Int=1, verbose=true)
+function twist(lat1::Lattice, lat2::Lattice, n::Int; z::Float64=3, m::Int=1, verbose::Bool=true)
     @assert latticedim(lat1) == 2 && latticedim(lat2) == 2 "twist(...) is only defined for 2D lattices."
     @assert getA(lat1) ≈ getA(lat2) "The two lattices must have the same lattice vectors."
     @assert abs(dot(getA(lat1)[:,1], getA(lat1)[:,2])/(norm(getA(lat1)[:,1])*norm(getA(lat1)[:,1]))) ≈ 0.5 "twist(...) is only defined for triangular lattices."
@@ -49,3 +50,4 @@ function twist(lat1::Lattice, lat2::Lattice, n::Int; z::Float64=3, m::Int=1, ver
 
     superlat1
 end
+precompile(twist, (Lattice, Lattice, Int))

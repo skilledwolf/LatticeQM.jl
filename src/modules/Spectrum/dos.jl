@@ -15,7 +15,7 @@ function dos!(DOS, energies::AbstractVector, args...; kwargs...)
     end
 end
 
-function dos_serial(h, ks::AbstractMatrix{Float64}, frequencies::AbstractVector{Float64}; Γ::Float64, kwargs...)
+function dos_serial(h, ks::AbstractMatrix{T}, frequencies::AbstractVector{T}; Γ::T, kwargs...) where {T<:Number}
     L = size(ks)[2]
     DOS = zero(frequencies)
 
@@ -30,7 +30,7 @@ end
 
 using SharedArrays
 
-function dos_parallel(h, ks::AbstractMatrix{Float64}, frequencies::AbstractVector{Float64}; Γ::Float64, kwargs...)
+function dos_parallel(h, ks::AbstractMatrix{T}, frequencies::AbstractVector{T}; Γ::T, kwargs...) where {T<:Number}
     L = size(ks)[2]
 
     DOS = SharedArray(zero(frequencies))
@@ -60,12 +60,12 @@ end
 
 using ..Utils: regulargrid
 
-function dos(h, frequencies::AbstractVector{Float64}; klin::Int, kwargs...)
+function dos(h, frequencies::AbstractVector; klin::Int, kwargs...)
     ks = regulargrid(nk=klin^2)
     dos(h, ks, frequencies; kwargs...)
 end
 
-function dos(h, ks::AbstractMatrix{Float64}, frequencies::AbstractVector{Float64}; mode=:parallel, kwargs...)
+function dos(h, ks::AbstractMatrix{T}, frequencies::AbstractVector{T}; mode=:parallel, kwargs...) where {T<:Number}
     if mode==:parallel
         dos_parallel(h, ks, frequencies; kwargs...)
     elseif mode==:serial
@@ -100,7 +100,7 @@ dos_sparse(h, args...; kwargs...) = dos(h, args...; format=:sparse, kwargs...)
 
 using Cubature
 
-function dos_quad_parallel(ϵs::Function, energies::AbstractVector{Float64};  Γ::Float64, kwargs...)
+function dos_quad_parallel(ϵs::Function, energies::AbstractVector{T};  Γ::T, kwargs...) where {T<:Number}
     fdim = length(energies)
     f0(k) = sum( imag.( 1.0./(energies .- 1.0im .* Γ .- ϵ) ) for ϵ=ϵs(k) )
     function f(ks, v)

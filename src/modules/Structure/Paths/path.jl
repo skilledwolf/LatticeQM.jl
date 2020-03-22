@@ -5,6 +5,7 @@ struct DiscretePath
     points::Matrix{Float64}
 end
 
+using HDF5
 using ...DummySave
 function DummySave.save!(file, ks::DiscretePath) # file should be hdf5 output stream
     g = g_create(file, "path")
