@@ -59,7 +59,7 @@ module Geometries2D
     honeycomb_AA(a::Float64=1.0, z::Float64=3.0) = Lattice(
         a .* A_hex,
         [[0.0;0.0]  δ_hex [0.0;0.0] δ_hex],
-        [ 0 0 z z; 0 1 0 1 ];
+        [ -z/2 -z/2 z/2 z/2; 0 1 0 1 ];
         extradimensions=["z", "sublattice"],
         specialpoints=kdict_tri
     )
@@ -67,7 +67,7 @@ module Geometries2D
     honeycomb_AB(a::Float64=1.0, z::Float64=3.0) = Lattice(
         a .* A_hex,
         [[0.0;0.0]  δ_hex   -δ_hex   δ_hex],
-        [ 0 0 z z; 0 1 0 1 ];
+        [ -z/2 -z/2 z/2 z/2; 0 1 0 1 ];
         extradimensions=["z", "sublattice"],
         specialpoints=kdict_tri
     )
@@ -75,7 +75,7 @@ module Geometries2D
     honeycomb_BA(a::Float64=1.0, z::Float64=3.0) = Lattice(
         a .* A_hex,
         [[0.0;0.0]  -δ_hex   δ_hex   -δ_hex],
-        [ 0 0 z z; 0 1 0 1 ];
+        [ -z/2 -z/2 z/2 z/2; 0 1 0 1 ];
         extradimensions=["z", "sublattice"],
         specialpoints=kdict_tri
     )

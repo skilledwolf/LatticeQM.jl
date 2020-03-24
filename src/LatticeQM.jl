@@ -1,4 +1,4 @@
-# __precompile__(false)
+__precompile__(true)
 module LatticeQM
 
     using Base, ElasticArrays, SparseArrays, LinearAlgebra
@@ -59,6 +59,11 @@ module LatticeQM
     include("modules/Geometries.jl")
     import .Geometries2D
     export Geometries2D
+
+    ### Plotting recipes
+    using RecipesBase
+    include("plotting/Lattice.jl")
+    include("plotting/Bands.jl")
 
 # #     include("precompile.jl")
 # #     _precompile_()
