@@ -1,7 +1,8 @@
 @legacyalias getneighbors get_neighbors
-function getneighbors(lat, d=1.0)
+function getneighbors(lat, d=1.0; cellrange::Int=1)
 
-    neighbors = [[i;j] for i=-1:1 for j=-1:1] #if i+j>=0 && i>=0]
+    # neighbors = [[i;j] for i=-1:1 for j=-1:1] #if i+j>=0 && i>=0]
+    neighbors = getneighborcells(lat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)
 
     N = countorbitals(lat)
     R = positions(lat)
@@ -38,7 +39,7 @@ end
     A naive implementation to find a list of n-th-nearest neighboring unit cells.
     If halfspace=true, the list only contain [I,J] without its partner [-I,-J].
 """
-function getneighborcells(lat, k=1; halfspace=true, innerpoints=false, excludeorigin=true)
+function getneighborcells(lat, k::Int=1; halfspace=true, innerpoints=false, excludeorigin=true)
 
     n = ceil(Int,sqrt(3)*(k+1))
     D = Matrix{Float64}(undef, 2*n+1, 2*n+1)
