@@ -19,7 +19,7 @@ import LatticeQM.Structure.Lattices: Lattice, extrapositions, repeat!, sortextra
     if sort != false
         perm = sortextraposition!(lat, sort)
         colors = colors[perm]
-        orbitalcoordinates = orbitalcoordinates[perm]
+        orbitalcoordinates = orbitalcoordinates[:,perm]
     end
 
     # Plot the layers
