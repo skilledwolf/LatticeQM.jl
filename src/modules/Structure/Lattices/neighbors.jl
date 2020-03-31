@@ -23,7 +23,7 @@ function getneighbors(lat, d=1.0; cellrange::Int=1)
             for j=1:N
                 Rj = R[:,j]
 
-                if d-0.001 < norm(Ri-Rj) < d+0.001 && abs2(Z[i]-Z[j]) < 0.1
+                if d-0.01 < norm(Ri-Rj) < d+0.01 && abs2(Z[i]-Z[j]) < 0.01
                     # pairs[δR][i,j] = 1
                     append!(pairs[δR], [(i,j)])
                 end

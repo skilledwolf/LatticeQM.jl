@@ -35,7 +35,7 @@ function addsublatticeimbalance!(hops, lat::Lattice, Δ::AbstractFloat; kwargs..
 end
 
 @legacyalias addhaldane add_haldane
-function addhaldane!(hops, lat::Lattice, t2; ϕ=π/2, spinhalf=false, mode=:none, zmode=:none)
+function addhaldane!(hops, lat::Lattice, t2; ϕ=π/2, spinhalf=false, cellrange=1, mode=:none, zmode=:none)
     """
     This method is a somewhat inefficient way to compute the haldane hopping matrix.
     The only upside to it is that it uses methods that I already implemented and
@@ -57,7 +57,7 @@ function addhaldane!(hops, lat::Lattice, t2; ϕ=π/2, spinhalf=false, mode=:none
     cross2D(vec1, vec2) = vec1[1] * vec2[2] - vec1[2] * vec2[1] # needed later on in this scope
 
     # NN  = find_neighbors(lat, 1.0)
-    NNN = Structure.getneighbors(lat, √3)
+    NNN = Structure.getneighbors(lat, √3; cellrange=cellrange)
 
     N = countorbitals(lat)
     R = positions(lat) # positions of atoms within unit cell
