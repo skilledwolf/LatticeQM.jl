@@ -54,3 +54,4 @@ function opticalconductivity(frequencies::AbstractVector, H, J1::Function, J2::F
 #     (OC.-OC[1]) ./ (frequencies .+ 1im*Γ) # Calculate the optical conductivity tensor
     OC
 end
+

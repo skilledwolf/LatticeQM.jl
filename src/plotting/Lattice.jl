@@ -9,24 +9,29 @@ import LatticeQM.Structure.Lattices: Lattice, extrapositions, repeat!, sortextra
 
     lat = deepcopy(lat0)
     repeat!(lat, supercell)
+    if colors != nothing
+        colors = vcat(fill(colors, countorbitals(lat))...)
+    end
+
+    orbitalcoordinates = positions(lat)
 
     perm = (:)
     if sort != false
         perm = sortextraposition!(lat, sort)
+        colors = colors[perm]
+        orbitalcoordinates = orbitalcoordinates[perm]
     end
 
     # Plot the layers
     if filter != ()
         indices = filterindices(lat, filter...)
-        orbitalcoordinates = positions(lat)[:,indices]
+        orbitalcoordinates = orbitalcoordinates[:,indices]
         colors = colors[indices]
-    else
-        orbitalcoordinates = positions(lat)
     end
 
     if colors != nothing
         # Note that colors::Vector{Float64} must be provide a color for each site
-        zcolor := vcat(fill(colors, countorbitals(lat0))...)[perm]
+        zcolor := colors
         markercolor --> markercolor
         clims --> clims
     end

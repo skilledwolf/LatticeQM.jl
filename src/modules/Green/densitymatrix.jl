@@ -120,7 +120,7 @@ function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ:
 end
 
 
-densitymatrix!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; parallel::Bool=false, kwargs...) = parallel ? densitymatrix_parallel!(ρs, H, ks, μ; kwargs...) : densitymatrix_serial!(ρs, H, ks, μ; kwargs...)
+densitymatrix!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; parallel::Bool=false, kwargs...) = (parallel && nprocs()>1) ? densitymatrix_parallel!(ρs, H, ks, μ; kwargs...) : densitymatrix_serial!(ρs, H, ks, μ; kwargs...)
 
 ###################################################################################################
 # Legacy maps
