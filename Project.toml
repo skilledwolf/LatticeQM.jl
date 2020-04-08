@@ -1,10 +1,11 @@
 name = "LatticeQM"
 uuid = "606d2a7e-9b17-11e9-1c5c-455b84f60309"
 authors = ["Tobias Wolf <wolft@itp.phys.ethz.ch>"]
-version = "0.5.8"
+version = "0.6.0"
 
 [deps]
 Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
+BinaryProvider = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
 Cubature = "667455a9-e2ce-5579-9412-b964f529a492"
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
