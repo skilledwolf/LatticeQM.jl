@@ -31,7 +31,7 @@ import LatticeQM.Structure.Lattices: Lattice, extrapositions, repeat!, sortextra
 
     if colors != nothing
         # Note that colors::Vector{Float64} must be provide a color for each site
-        zcolor := colors
+        marker_z := colors
         markercolor --> markercolor
         clims --> clims
     end
@@ -43,8 +43,8 @@ import LatticeQM.Structure.Lattices: Lattice, extrapositions, repeat!, sortextra
     legend --> :none
     grid --> false
 
-    xlabel --> "x"
-    ylabel --> "y"
+    xguide --> "x"
+    yguide --> "y"
 
     orbitalcoordinates[1,:], orbitalcoordinates[2,:]
 end

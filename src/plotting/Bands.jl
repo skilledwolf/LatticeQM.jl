@@ -19,7 +19,7 @@ import LatticeQM.Structure.Paths: scaleticks
         end
 
         # mycolors = data.obs[:,:,n]
-        zcolor      := transpose(mycolors)#transpose(mycolors)
+        marker_z      := transpose(mycolors)#transpose(mycolors)
         markercolor --> :RdYlBu #ColorGradient([:red,:limegreen,:blue])#
         clim --> (-max,max)
 
@@ -33,7 +33,7 @@ import LatticeQM.Structure.Paths: scaleticks
 
     end
     background_color_inside --> :lightgray
-    ylabel --> "Energy"
+    yguide --> "Energy"
     legend := :none
     seriestype  :=  :scatter
     markersize --> 1.5
