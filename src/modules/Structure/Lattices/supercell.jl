@@ -22,7 +22,9 @@ end
 
 function repeat!(lat::Lattice, repeat::UnitRange=0:0)
     d = latticedim(lat)
-    repeat!(lat, Iterators.repeated(repeat,d))
+    if d > 0
+        repeat!(lat, Iterators.repeated(repeat,d))
+    end
 end
 
 @legacyalias repeat! repeat_atoms!

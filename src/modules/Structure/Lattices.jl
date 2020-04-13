@@ -32,5 +32,7 @@ module Lattices
 
     include("Lattices/foldcell.jl")
     export foldcell!, foldBZ!, foldPC!
+
+    include("Lattices/fillregion.jl")
     
 end

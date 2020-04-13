@@ -1,4 +1,4 @@
-import LatticeQM.Structure.Lattices: Lattice, extrapositions, repeat!, sortextraposition!, filterindices, positions, countorbitals
+import LatticeQM.Structure.Lattices: Lattice, allpositions, extrapositions, repeat!, sortextraposition!, filterindices, positions, countorbitals
 
 @recipe function f(lat0::Lattice, colors::Union{Nothing,Vector{Float64},String}=nothing; filter=(), sort=false, supercell=0:0, markercolor=:RdYlBu, clims=:auto)
     # filter could be for example filter=("layer", z->z==0.0)
@@ -13,7 +13,7 @@ import LatticeQM.Structure.Lattices: Lattice, extrapositions, repeat!, sortextra
         colors = vcat(fill(colors, countorbitals(lat))...)
     end
 
-    orbitalcoordinates = positions(lat)
+    orbitalcoordinates = allpositions(lat)[1:2,:]
 
     perm = (:)
     if sort != false
