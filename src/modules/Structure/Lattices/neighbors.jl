@@ -3,6 +3,7 @@ function getneighbors(lat, d=1.0; cellrange::Int=1)
 
     # neighbors = [[i;j] for i=-1:1 for j=-1:1] #if i+j>=0 && i>=0]
     neighbors = getneighborcells(lat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)
+    neighbors = map(x->[x...], neighbors)
 
     N = countorbitals(lat)
     R = positions(lat)
@@ -41,18 +42,19 @@ end
 """
 function getneighborcells(lat, k::Int=1; halfspace=true, innerpoints=false, excludeorigin=true)
 
-    n = ceil(Int,sqrt(3)*(k+1))
-    D = Matrix{Float64}(undef, 2*n+1, 2*n+1)
-    I = -n:n
-    J = -n:n
 
+    ldim = latticedim(lat)
     A = getA(lat)
 
-    IJ = [[i;j] for i=I, j=J]
-
-    for (i0,i)=enumerate(I), (j0,j)=enumerate(J)
-        D[i0,j0] = round.(norm(A*[i,j]); digits=7)
+    if ldim == 0 # special case
+        return excludeorigin ? Vector{Int64}[] : Vector{Int64}[Int64[]]
     end
+
+    n = ceil(Int,sqrt(3)*(k+1))
+    IJ  = collect(Iterators.product(Iterators.repeated(-n:n, ldim)...))
+    IJ = map(x->[x...], IJ)
+
+    D = map(x->round.(norm(A*[x...]); digits=7), IJ) # cell distances
 
     d = sort(unique(D)) # unique distances from origin unit cell
 
@@ -70,7 +72,7 @@ function getneighborcells(lat, k::Int=1; halfspace=true, innerpoints=false, excl
             end
         else
             for el=result
-                filter!(x->(x==zero(el)) || (x != -1 .* el), result)
+                filter!(x->(x==zeros(eltype(el), length(el))) || (x != -1 .* el), result)
             end
         end
 

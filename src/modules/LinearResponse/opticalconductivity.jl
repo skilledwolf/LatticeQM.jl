@@ -1,5 +1,3 @@
-
-
 # Convenient interfaces for hopping Hamiltonian
 
 function opticalconductivityXX(frequencies::AbstractVector, H::AnyHops, lat::Lattice, args...; kwargs...)

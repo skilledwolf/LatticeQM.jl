@@ -14,7 +14,9 @@ function gethops(lat::Lattice, t::Function; cellrange=1, format=:auto, precision
 #     neighbors = [[i;j] for i=-1:1 for j=-1:1 if i+j>=0 && i>=0]
     neighbors = getneighborcells(lat, cellrange; halfspace=true, innerpoints=true, excludeorigin=false)
 
-    gethops(lat, neighbors, t; precision=precision, format=format, kwargs...)
+    hops = gethops(lat, neighbors, t; precision=precision, format=format, kwargs...)
+
+    (latticedim(lat) == 0) ? first(values(hops)) : hops
 end
 
 using ..Utils: padvec

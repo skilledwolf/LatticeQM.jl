@@ -7,6 +7,9 @@ function minsum(x::AbstractVector,y::AbstractVector)
 	end
 end
 
+
+circleregion(lat::Lattice, r=30.0) = fillregion(lat, p-> norm(p) < r)
+
 function fillregion(lat::Lattice, f::Function)
 """
 Takes the d-dimensional lattice and tiles the d-dimensional region defined function f.

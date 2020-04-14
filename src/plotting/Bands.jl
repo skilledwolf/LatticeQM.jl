@@ -21,15 +21,15 @@ import LatticeQM.Structure.Paths: scaleticks
         # mycolors = data.obs[:,:,n]
         marker_z      := transpose(mycolors)#transpose(mycolors)
         markercolor --> :RdYlBu #ColorGradient([:red,:limegreen,:blue])#
-        clim --> (-max,max)
+        clims --> (-max,max)
 
 #         max = Statistics.quantile(abs.(mycolors)[:], 0.97)
-#         clim := (-max,max)
+#         clims := (-max,max)
 
         # max = Statistics.quantile(filter(x->x>0, data.obs[:,:,n]), 0.95)
         # min = Statistics.quantile(filter(x->x<0, data.obs[:,:,n]), 0.05)
         # max = maximum(abs.([min,max]))
-        zlim --> (-max,max)
+        zlims --> (-max,max)
 
     end
     background_color_inside --> :lightgray
