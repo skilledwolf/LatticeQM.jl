@@ -16,7 +16,7 @@ trace(hops::AnyHops, operators::AbstractVector) = [trace(hops,o) for o=operators
 
 function density(ρ::AnyHops)
     d = trace(ρ)
-    @assert imag(d) ≈ 0.0 "Complex-valued density? Seems unphysical, please check."
+    @assert isapprox(imag(d),0; atol=sqrt(eps())) "Complex-valued density? Seems unphysical, please check."
     real(d)
 end
 

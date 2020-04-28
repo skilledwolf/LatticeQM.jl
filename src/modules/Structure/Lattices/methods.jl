@@ -1,18 +1,19 @@
-@legacyalias foldcoordinates! fold_atoms!
 function foldcoordinates!(lat::Lattice)
     lat.orbitalcoordinates[:] .= (mod.(lat.orbitalcoordinates, 1))[:]
 end
 
-@legacyalias rotatebasis! rotate_A_XY!
 function rotatebasis!(lat::Lattice, α::Float64)
     @assert latticedim(lat) == 2
     lat.latticevectors[1:2,1:2] .= (rotation2D(α) * getA(lat)[1:2,1:2])
 end
 
-@legacyalias rotatecoordinates! rotate_atoms_XY!
 function rotatecoordinates!(lat::Lattice, θ::Float64)
-    mat = inv(getA(lat)) * rotation2D(θ)* getA(lat)
-    lat.orbitalcoordinates[1:2,:] .= mat * lat.orbitalcoordinates[1:2,:]
+    R = positions(lat); D = spacedim(lat); d = latticedim(lat)
+    R[1:2,:] .= rotation2D(θ) * R[1:2,:]
+    fractionalize!(lat, R)
+
+    lat.orbitalcoordinates[1:d,:] .= R[1:d,:]
+    lat.extrapositions[1:D-d,:] .= R[d+1:D,:]
 end
 
 function translate!(lat::Lattice, name::String, δ::Float64)
@@ -38,8 +39,6 @@ function newdimension!(lat::Lattice, name::String, extrapositions::AbstractMatri
     lat
 end
 
-@legacyalias mergelattices combine_lattices
-@legacyalias mergelattices! combine_lattices!
 mergelattices(lat1::Lattice, lat2::Lattice) = mergelattices!(copy(lat1),lat2)
 function mergelattices!(lat1::Lattice, lat2::Lattice)
     @assert getA(lat1) ≈ getA(lat2)

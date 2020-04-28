@@ -42,7 +42,7 @@ addchemicalpotential!(hops, lat::Lattice, μ::Float64; kwargs...) = addchemicalp
 function addinterlayerbias!(hops, lat::Lattice, V::Float64; d=3.0, kwargs...)
 
     # Only go through the trouble of constructing this matrix for finite V
-    if abs(V) ≈ 0
+    if isapprox(V,0; atol=sqrt(eps()))
         return nothing
     end
 
@@ -50,7 +50,7 @@ function addinterlayerbias!(hops, lat::Lattice, V::Float64; d=3.0, kwargs...)
     layer = extrapositions(lat, "z")
     min = minimum(layer); max = maximum(layer)
 
-    if abs(min-max) ≈ 0
+    if isapprox(abs(min-max), 0; atol=sqrt(eps()))
         error("Requires at least two layers.")
     end
 

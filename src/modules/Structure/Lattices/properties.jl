@@ -2,22 +2,50 @@
 # Properties
 ###################################################################################################
 
-latticedim(lat::Lattice) = size(getA(lat), 1)
+latticedim(lat::Lattice) = size(getA(lat), 2)
 countorbitals(lat::Lattice) = size(lat.orbitalcoordinates, 2)
-extraspacedim(lat::Lattice) = size(lat.extrapositions, 1)
-spacedim(lat::Lattice) = latticedim(lat) + extraspacedim(lat)
+extraspacedim(lat::Lattice) = size(lat.extrapositions, 1) - latticedim(lat) # used to be size(lat.extrapositions, 1)
+spacedim(lat::Lattice) = size(getA(lat), 1) # used to be latticedim(lat) + extraspacedim(lat)
 
 hasdimension(lat::Lattice, name::String) = haskey(lat.extradimensions, name)
 assertdimension(lat::Lattice, name::String) = !hasdimension(lat, name) ? error("No $name coordinates specified.") : Nothing
 
 getA(lat::Lattice) = lat.latticevectors
-getB(lat::Lattice) = inv(transpose(getA(lat)))
+
+"""
+Calculate the dual lattice of lat.A.
+Here we use the general formula \$B = A * (A^T * A)^-1\$. That works also 
+when the d-dim lattice is embedded in D-dim space.
+"""
+function getB(lat::Lattice)
+    A = getA(lat)
+    return A * inv(transpose(A)*A)
+end
 
 coordinates(lat::Lattice) = lat.orbitalcoordinates
-positions(lat::Lattice) = getA(lat) * coordinates(lat)
-allpositions(lat::Lattice, args...) = [ positions(lat); extrapositions(lat, args...) ]
+# positions(lat::Lattice) = getA(lat) * coordinates(lat)
+function positions(lat::Lattice)
+    d = latticedim(lat)
+    D = spacedim(lat)
+    A = getA(lat)
 
-extrapositions(lat::Lattice) = lat.extrapositions
+    X = coordinates(lat)
+    R = extrapositions(lat)[1:D-d,:]
+
+    R0 = A * X
+    R0[d+1:D,:] .+= R
+
+    R0
+end
+
+function allpositions(lat::Lattice, args...)
+    d = latticedim(lat)
+    D = spacedim(lat)
+
+    [ positions(lat); extrapositions(lat, args...)[1+D-d:end,:] ]
+end
+
+extrapositions(lat::Lattice) = lat.extrapositions#[spacedim(lat)+1:end,:]
 extrapositions(lat::Lattice, dim::String) = extrapositions(lat, [dim])
 function extrapositions(lat::Lattice, dims::Vector{String})
     for dim in dims
@@ -39,44 +67,14 @@ filterpositions(lat::Lattice, args...) = positions(lat)[:,filterindices(lat, arg
 filtercoordinates(lat::Lattice, args...) = coordinates(lat)[:,filterindices(lat, args...)]
 
 function fractionalize(lat::Lattice, positions::AbstractMatrix{Float64})
-    return inv(getA(lat)) * positions
+    A = getA(lat)
+    return transpose(A * inv(transpose(A) * A)) * positions
 end
 function fractionalize!(lat::Lattice, positions::AbstractMatrix{Float64})
-    positions[:] = (inv(getA(lat)) * positions)[:]
+    A = getA(lat)
+    d = latticedim(lat)
+
+    positions[1:d,:] .= (transpose(A * inv(transpose(A) * A)) * positions)
 end
-foldfractional(frac_positions::AbstractMatrix{Float64}) = mod.(frac_positions,1)
-
-###################################################################################################
-# Backwards compatibility
-###################################################################################################
-@legacyremoved positions3D
-@legacyremoved getA_3D
-
-export atom_count
-@legacyalias countorbitals atom_count
-
-@legacyalias latticedim lattice_dim
-@legacyalias extraspacedim auxspace_dim
-@legacyalias spacedim space_dim
-
-export has_dimension, assert_dimension
-@legacyalias hasdimension has_dimension
-@legacyalias assertdimension assert_dimension
-
-export get_A, get_B
-@legacyalias getA get_A
-@legacyalias getB get_B
-
-@legacyalias coordinates get_coordinates
-@legacyalias allpositions positionsND
-@legacyalias extrapositions get_positions_in
-@legacyalias setextrapositions set_positions_in
-
-@legacyalias filterindices get_filtered_indices
-@legacyalias filterpositions get_filtered_positions
-@legacyalias filtercoordinates get_filtered_coordinates
-
-@legacyalias fractionalize to_fractional
-@legacyalias fractionalize! to_fractional!
-@legacyalias foldfractional frac_to_unitcell
+foldfractional(fracpositions::AbstractMatrix{Float64}) = mod.(fracpositions,1) 
 

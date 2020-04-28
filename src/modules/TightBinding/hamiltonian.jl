@@ -16,7 +16,8 @@ function gethops(lat::Lattice, t::Function; cellrange=1, format=:auto, precision
 
     hops = gethops(lat, neighbors, t; precision=precision, format=format, kwargs...)
 
-    (latticedim(lat) == 0) ? first(values(hops)) : hops
+    # (latticedim(lat) == 0) ? first(values(hops)) : hops
+    hops
 end
 
 using ..Utils: padvec

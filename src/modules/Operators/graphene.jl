@@ -15,16 +15,19 @@ end
 
 
 valleyoperator(args...; kwargs...) = valleyoperator!(Hops(), args...; kwargs...)
-function valleyoperator!(hops, lat::Lattice; spinhalf=false, zmode=:anti, kwargs...)
+function valleyoperator!(hops, lat::Lattice, fz::Function=x->sign(x[3]+1e-3); spinhalf=false, kwargs...)
     @assert latticedim(lat) == 2 && countorbitals(lat) > 1
-    addhaldane!(hops, lat, √3/9; spinhalf=spinhalf, mode=:anti, zmode=zmode, kwargs...)
+
+    t20 = √3/9
+    f(R) = sign(R[4]-0.5)
+
+    addhaldane!(hops, lat, x-> t20 * f(x) * fz(x); spinhalf=spinhalf, kwargs...)
 end
 
-@legacyalias addsublatticeimbalance! add_sublatticeimbalance
-function addsublatticeimbalance!(hops, lat::Lattice, Δ::AbstractFloat; kwargs...)
+function addsublatticeimbalance!(hops, lat::Lattice, Δ::Real; kwargs...)
 
     # Only go through the trouble of constructing this matrix for finite Δ
-    if abs(Δ) ≈ 0
+    if isapprox(Δ,0; atol=sqrt(eps()))
         return nothing
     end
 
@@ -34,40 +37,27 @@ function addsublatticeimbalance!(hops, lat::Lattice, Δ::AbstractFloat; kwargs..
     nothing
 end
 
-@legacyalias addhaldane add_haldane
-function addhaldane!(hops, lat::Lattice, t2; ϕ=π/2, spinhalf=false, cellrange=1, mode=:none, zmode=:none)
+addhaldane!(hops, lat::Lattice, t2::Number; kwargs...) = addhaldane!(hops, lat, x->t2; kwargs...)
+function addhaldane!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=false, cellrange=1, mode=:none, zmode=:none)
     """
     This method is a somewhat inefficient way to compute the haldane hopping matrix.
     The only upside to it is that it uses methods that I already implemented and
     that it is fairly general.
     """
 
-    t2 = hcat(t2) # turn scalars into 1x1 matrix
-
-    if norm(t2) ≈ 0
-        return nothing
-    end
-
-    if spinhalf
-        t2 = addspin(t2, :spinhalf)
-    end
-
-    d = size(t2,1)
-
-    cross2D(vec1, vec2) = vec1[1] * vec2[2] - vec1[2] * vec2[1] # needed later on in this scope
+    d=1    
+    cross2D(x, y) = x[1] * y[2] - x[2] * y[1] # needed later on in this scope
 
     # NN  = find_neighbors(lat, 1.0)
     NNN = Structure.getneighbors(lat, √3; cellrange=cellrange)
 
     N = countorbitals(lat)
-    R = positions(lat) # positions of atoms within unit cell
-    sublattice = extrapositions(lat, "sublattice") .- 0.5
-    if hasdimension(lat, "z")
-        zpositions = extrapositions(lat, "z")
-    end
+    D = spacedim(lat)
+    R = allpositions(lat) # positions of atoms within unit cell
+
     A = getA(lat)
 
-    neighbors = [[i;j] for i=-1:1 for j=-1:1]
+    neighbors = Structure.getneighborcells(lat, 1; halfspace=false, innerpoints=true, excludeorigin=false) #[[i;j] for i=-1:1 for j=-1:1]
     δAs = [A * v for v in neighbors]
 
     # hops = Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}()
@@ -79,55 +69,36 @@ function addhaldane!(hops, lat::Lattice, t2; ϕ=π/2, spinhalf=false, cellrange=
 
     for (δR, NNN_pairs) = NNN
         for (i,j) in NNN_pairs
-
-            Ri = R[:,i] .+ (A * δR)
+            Ri = R[:,i]
+            Ri[1:D] .+= (A * δR)
             Rj = R[:,j]
 
-            if mode==:sublatticeA
-                s = (sublattice[i]>0) ? 1 : 0 #sign(sublattice[i])
-            elseif mode==:sublatticeB
-                s = (sublattice[i]<0) ? 1 : 0
-            elseif mode==:anti
-                s = sign(sublattice[i])
-            else
-                s = 1
-            end
-
-            if hasdimension(lat, "z")
-                if zmode==:positive
-                    s *= (zpositions[i]>0) ? 1 : 0 #(zpositions[i] > 0) ? 1 : 0
-                elseif zmode==:negative
-                    s *= (zpositions[i]<0) ? 1 : 0
-                elseif zmode==:anti
-                    s *= sign(zpositions[i]+1e-4)
-                end
-            end
-
-            for δAi=δAs, δri=eachcol(R)
-
+            for δAi=δAs, δri=eachcol(R[1:D,:])
                 R0 = δAi .+ δri
-
-                if 0.9 < norm(Ri-R0) < 1.1 && 0.9 < norm(Rj-R0) < 1.1 # we found the common
-                    hops[δR][1+d*(i-1):d+d*(i-1), 1+d*(j-1):d+d*(j-1)] += s * t2 * I * 1.0im * sign( cross2D(R0.-Rj, Ri.-R0) ) #* exp(1.0im * ϕ * sign( cross2D(R0.-Rj, Ri.-R0) ) )
+                
+                x = Ri[1:D]-R0[1:D]; y=Rj[1:D]-R0[1:D]
+                if isapprox(norm(x), 1; atol=sqrt(eps())) && isapprox(norm(y), 1; atol=sqrt(eps())) # we found the common
+                    hops[δR][1+d*(i-1):d+d*(i-1), 1+d*(j-1):d+d*(j-1)] += t2((Ri+Rj)/2) * I * exp(1.0im * ϕ * sign( cross2D(-y, x) ) )#* 1im * sign( cross2D(R0.-Rj, Ri.-R0) ) #
                     break
                 end
             end
         end
     end
 
+    if spinhalf
+        hops = addspin(hops, :spinhalf)
+    end
     hops
 end
 
-@legacyalias gethaldane get_haldane_hops
 function gethaldane(args...; kwargs...)
     newhops = Hops()
     addhaldane!(newhops, args...; kwargs...)
 end
 
-@legacyalias addspinorbit! add_spinorbit!
 function addspinorbit!(hops, lat, t2, args...)
 
-    if t2≈0.0
+    if isapprox(t2, 0; atol=sqrt(eps()))
         return nothing
     end
 
@@ -138,7 +109,6 @@ end
 
 using ..TightBinding: MAX_DENSE, MAX_DIAGS
 
-@legacyalias getrashba rashba_hops
 function getrashba(lat::Lattice, λ::Function; cellrange=2, format=:auto, tmin=1e-7)
 
     function hop(R1, R2)
@@ -190,10 +160,10 @@ function getrashba(lat::Lattice, λ::Function; cellrange=2, format=:auto, tmin=1
 end
 getrashba(lat::Lattice, λ::AbstractFloat; kwargs...) = getrashba(lat, x->λ; kwargs...)
 
-@legacyalias addrashba! add_rashba!
+
 addrashba!(hops, lat, rashba::Function; kwargs...) = addhops!(hops, getrashba(lat, rashba; kwargs...))
 function addrashba!(hops, lat, rashba::Number)
-    if !(rashba≈0.0)
+    if !isapprox(rashba, 0, 1e-8)
         addrashba!(hops, lat, x->rasbha)
     end
 end
@@ -208,8 +178,6 @@ end
 """
 
 norm2(r) = dot(r,r)
-
-@legacyalias t_graphene graphene_hops
 
 using ..Utils: heaviside
 
@@ -230,7 +198,8 @@ end
 
 using ..TightBinding: MAX_DENSE, MAX_DIAGS
 
-@polly function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-7, tz::Float64=0.46, t0::Float64=1.0,
+## @polly 
+function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-5, tz::Float64=0.46, t0::Float64=1.0,
     ℓinter::Float64=0.125, ℓintra::Float64=0.08, ℓz::Float64=0.001,z::Float64=3.0, a::Float64=1.0,
     Δmin::Float64=0.1, Δmax::Float64=5.0,
     kwargs...)
@@ -283,19 +252,19 @@ end
 # ####
 # function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-7,
 #            kwargs...) #where {T<:AbstractMatrix}
-#
+
 #     N = size(R1,2)
-#
+
 #     # Preallocate memory: important for huge sparse matrices
 #     maxind = (N>MAX_DENSE) ? round(Int, MAX_DIAGS * N) : N^2 # semi-arbitrary limit for dense allocation
 #     IS = Vector{Int}(undef, maxind)
 #     JS = similar(IS)
 #     VS = similar(IS, Float64)
-#
+
 #     δR = similar(R1)
-#
+
 #     t0(args...) = t_graphene(args...; kwargs...)
-#
+
 #     count = 1
 #     @fastmath @inbounds for j=1:N
 #         @views δR .= R1 .- R2[:,j]
@@ -308,7 +277,7 @@ end
 #         end
 #     end
 #     count = count - 1
-#
-#
+
+
 #     @views sparse(IS[1:count],JS[1:count],complex(VS[1:count]), N, N)
 # end

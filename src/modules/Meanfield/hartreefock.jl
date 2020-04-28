@@ -55,7 +55,7 @@ function hartreefock(v::AnyHops)
         energy +=  1/2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L,vL) in v)) # Fock contribution
 
 
-        @assert imag(energy) ≈ 0
+        @assert isapprox(imag(energy),0; atol=sqrt(eps()))
         real(energy)
     end
 

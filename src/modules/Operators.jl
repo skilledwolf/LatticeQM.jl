@@ -32,6 +32,8 @@ export getzeeman, addzeeman!
 
 include("Operators/current.jl")
 
+include("Operators/peierls.jl")
+
 include("Operators/graphene.jl")
 
 include("Operators/haldanelike.jl")

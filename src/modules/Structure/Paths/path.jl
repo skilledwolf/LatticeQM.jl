@@ -26,7 +26,7 @@ function DiscretePath(kDict0::LabeledPoints, named_path::Vector{String}; B::Abst
 
     ticklabels = [kDict0.label[key] for key in named_path]
 
-    ticks, positions, points = names_to_path(named_path, kDict0.coord, num_points; B=B)
+    ticks, positions, points = names2path(named_path, kDict0.coord, num_points; B=B)
 
     DiscretePath(ticks, ticklabels, positions, points)
 end

@@ -10,9 +10,9 @@ module Geometries2D
 
     # Dictionary to construct Paths in k space
     kdict_tri = LabeledPoints(
-        ["γ", "κ", "μ", "κ'", "μ2", "μ3"],
-        [[0.0;  0.0], [1/3;  2/3], [1/2;  1/2], [2/3;  1/3], [0, 1/2], [1/2,0]],
-        ["\$\\gamma\$", "\$\\kappa\$", "\$\\mu\$", "\$\\kappa'\$", "\$\\mu_2\$", "\$\\mu_3\$"],
+        ["γ", "κ", "μ", "κ'", "μ2", "μ3", "γ1"],
+        [[0.0;  0.0], [1/3;  2/3], [1/2;  1/2], [2/3;  1/3], [0, 1/2], [1/2,0], [1.0,-1.0]],
+        ["\$\\gamma\$", "\$\\kappa\$", "\$\\mu\$", "\$\\kappa'\$", "\$\\mu_2\$", "\$\\mu_3\$", "\$\\gamma\$"],
         ["γ", "κ", "μ", "κ'", "γ", "μ"]
     )
 
@@ -25,7 +25,7 @@ module Geometries2D
     # )
 
     #### Define simple honeycomb systems
-    A_tri = [[cos(pi/6);  -sin(pi/6)]  [cos(pi/6);  sin(pi/6)]]
+    A_tri = [[cos(pi/6);  -sin(pi/6); 0]  [cos(pi/6);  sin(pi/6); 0]]
     A_hex = sqrt(3) .* A_tri
     δ_hex = [1/3; 1/3]
 

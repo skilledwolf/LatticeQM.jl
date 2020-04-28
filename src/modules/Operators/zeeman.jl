@@ -18,7 +18,7 @@ end
 
 function addzeeman!(hops, lat::Lattice, Mv::Vector{Float64}; format=:dense)
     # Only go through the trouble of constructing this matrix for finite Mv
-    if norm(Mv) ≈ 0
+    if isapprox(norm(Mv), 0; atol=sqrt(eps()))
         return 0.0
     end
 

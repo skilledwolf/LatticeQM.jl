@@ -1,19 +1,15 @@
-@legacyalias names2coordinates names_to_coords
 function names2coordinates(names, dict)
     [dict[name] for name in names]
 end
 
-@legacyalias coordinates2points coords_to_points
 function coordinates2points(B, coords)
     [Vector(B * c) for c in coords]
 end
 
-@legacyalias names2path names_to_path
-function names_to_path(names, dict, N; B=I)
+function names2path(names, dict, N; B=I)
     path(coordinates2points(B, names2coordinates(names, dict)), N; B=B)
 end
 
-@legacyalias path construct_path
 function path(points::AbstractVector, N; B=I)
 
     num_points = length(points)
@@ -39,5 +35,5 @@ function path(points::AbstractVector, N; B=I)
 
     tick_coordinates = cumtotal
 
-    return tick_coordinates, parametric_path, inv(B) * hcat(path_array...)
+    return tick_coordinates, parametric_path,  transpose(B * inv(transpose(B) * B)) * hcat(path_array...)
 end

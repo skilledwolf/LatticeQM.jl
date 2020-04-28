@@ -1,4 +1,3 @@
-@legacyalias getneighbors get_neighbors
 function getneighbors(lat, d=1.0; cellrange::Int=1)
 
     # neighbors = [[i;j] for i=-1:1 for j=-1:1] #if i+j>=0 && i>=0]
@@ -24,7 +23,7 @@ function getneighbors(lat, d=1.0; cellrange::Int=1)
             for j=1:N
                 Rj = R[:,j]
 
-                if d-0.01 < norm(Ri-Rj) < d+0.01 && abs2(Z[i]-Z[j]) < 0.01
+                if d-1e-7 < norm(Ri-Rj) < d+1e-7 && abs2(Z[i]-Z[j]) < 0.01
                     # pairs[δR][i,j] = 1
                     append!(pairs[δR], [(i,j)])
                 end
@@ -81,7 +80,6 @@ function getneighborcells(lat, k::Int=1; halfspace=true, innerpoints=false, excl
     return result
 end
 
-@legacyalias commonneighbor find_common_neighbor
 function commonneighbor(i,j,NN)
 
     k = -1; R0 = zero(first(keys(NN)))
