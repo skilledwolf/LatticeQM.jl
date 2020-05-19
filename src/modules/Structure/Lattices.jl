@@ -14,7 +14,7 @@ module Lattices
     include("Lattices/properties.jl")
     export latticedim, extraspacedim, spacedim, countorbitals
     export hasdimension, assertdimension
-    export getA, getB, coordinates, positions, allpositions, extrapositions, setextrapositions!
+    export basis, getA, getB, coordinates, positions, allpositions, extracoordinates, setextracoordinates!
     export filterindices, filterpositions, filtercoordinates, fractionalize, fractionalize!, foldfractional
 
     include("Lattices/methods.jl")
@@ -22,7 +22,10 @@ module Lattices
     export newdimension!, mergelattices, mergelattices!
 
     include("Lattices/supercell.jl")
-    export superlattice, turn0D!, repeat!, repeat, crop2unitcell, crop2unitcell!, bistack
+    export superlattice, repeat!, repeat, crop2unitcell, crop2unitcell!, bistack
+
+    include("Lattices/reducedim.jl")
+    export reduceto0D, reduceto1D
 
     include("Lattices/neighbors.jl")
     export getneighbors, getneighborcells, commonneighbor

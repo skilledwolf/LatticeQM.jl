@@ -12,7 +12,7 @@ circleregion(lat::Lattice, r=30.0) = fillregion(lat, p-> norm(p) < r)
 
 function fillregion(lat::Lattice, f::Function)
 """
-Takes the d-dimensional lattice and tiles the d-dimensional region defined function f.
+Takes the d-dimensional lattice and tiles the d-dimensional region defined by function f.
 Returns a 0-dimensional lattice (single unit cell with no periodicities).
 
 f(p)=true if point p belongs to the region and f(p)=false otherwise
@@ -45,7 +45,6 @@ Note: f must define a finite region that includes the origin.
 
 					# Generate new candidates
 					for δx in eachcol(δA) # ... and it's (unknown) neighbors proposed for the next step
-
 						pnew = p + δx
 
 						if !in(pnew,confirmed) && !in(pnew,dismissed) && !in(pnew,candidates)
@@ -79,15 +78,15 @@ Note: f must define a finite region that includes the origin.
 	N = length(points)
 
 	points = hcat(points...)
-	# points = vcat(points, hcat(fill(extrapositions(lat), N)...))
-	extradimensions = [["x$i" for i=1:d]; collect(keys(lat.extradimensions))[sortperm(collect(values(lat.extradimensions)))]]
+	# points = vcat(points, hcat(fill(extracoordinates(lat), N)...))
+	extralabels = [["x$i" for i=1:d]; collect(keys(lat.extralabels))[sortperm(collect(values(lat.extralabels)))]]
 
 	# Return a zero-dimensional lattice object. The unitcell contains the positions of orbitals in the region
 	# Original orbital labels (such as sublattice or layer-index) are preserved.
 	return Lattice(zeros(0,0), 
 	    zeros(0,N), 
 	    points, 
-	    extradimensions=extradimensions, 
+	    extralabels=extralabels, 
 	    specialpoints=LabeledPoints(
 	        ["γ"],
 	        [zeros(0)],
@@ -172,15 +171,15 @@ end
 # 	end
 
 # 	points = hcat(points...)
-# 	# points = vcat(points, hcat(fill(extrapositions(lat), N)...))
-# 	extradimensions = [["x$i" for i=1:d]; collect(keys(lat.extradimensions))[sortperm(collect(values(lat.extradimensions)))]]
+# 	# points = vcat(points, hcat(fill(extracoordinates(lat), N)...))
+# 	extralabels = [["x$i" for i=1:d]; collect(keys(lat.extralabels))[sortperm(collect(values(lat.extralabels)))]]
 
 # 	# Return a zero-dimensional lattice object. The unitcell contains the positions of orbitals in the region
 # 	# Original orbital labels (such as sublattice or layer-index) are preserved.
 # 	return Lattice(zeros(0,0), 
 # 	    zeros(0,N), 
 # 	    points, 
-# 	    extradimensions=extradimensions, 
+# 	    extralabels=extralabels, 
 # 	    specialpoints=LabeledPoints(
 # 	        ["γ"],
 # 	        [zeros(0)],

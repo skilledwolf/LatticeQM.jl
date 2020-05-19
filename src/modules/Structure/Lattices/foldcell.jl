@@ -12,8 +12,8 @@ function foldcell!(M, points::AbstractMatrix)
     b = M[1,2]/G0sq
 
     for j_ = 1:size(points,2)
-        points[:,j_] .= mod.(points[:,j_], 1.0)
-        α = M * points[:,j_]
+        points[1:2,j_] .= mod.(points[1:2,j_], 1.0)
+        α = M * points[1:2,j_]
 
         α1 = α[1]/M[1,1]
         α2 = α[2]/M[2,2]
@@ -28,7 +28,7 @@ function foldcell!(M, points::AbstractMatrix)
         else
             δk = [0.0,0.0]
         end
-        points[:,j_] -= δk
+        points[1:2,j_] -= δk
     end
 
     points
@@ -39,33 +39,35 @@ end
 Fold coordinates of k-points into the first Brillouin zone.
 """
 function foldBZ!(lat::Lattice, points::AbstractMatrix)
-    D = latticedim(lat)
-    B = getB(lat)[1:D,1:D]
-    foldcell!(transpose(B)*B, points[1:D,:])
+    d = latticedim(lat)
+    B = getB(lat)[1:d,1:d]
+    foldcell!(transpose(B)*B, points[1:d,:])
 end
 
 
 """
-Fold all orbitalcoordinates into the first primitive unit cell.
+Fold all latticecoordinates into the first primitive unit cell.
 """
 function foldPC!(lat::Lattice; shift=0.0)
-    @assert latticedim(lat) == 2
+    d = latticedim(lat)
+    @assert d == 2 "At the moment folding is only implented for 2d lattices."
 
     A = getA(lat)
-    lat.orbitalcoordinates .-= shift
+    lat.spacecoordinates .-= shift
 
     # This piece of code handles the special case of a triangular lattice.
     # We ensure that the primitive lattice vectors have angle 2π/3, not 2π/6
     # (it's equivalent, but foldcell! assumes the former)
-    # Note: this part is not thorough tested.
+    # Note: this part is not thoroughly tested.
     α = acos(dot(A[:,1],A[:,2])/(norm(A[:,1])*norm(A[:,2])))/(2π)
     if norm(α)≈1/6
+        # print("Changing lattice basis...")
         specialpoints = deepcopy(lat.specialpoints)
 
         # println("Modifying lattice vectors...")
         T = [1 -1*sign(α); 0 1*sign(α)]
-        lat.latticevectors = A * T
-        lat.orbitalcoordinates = inv(T) * lat.orbitalcoordinates
+        lat.basis[1:2,1:2] = A[1:2,1:2] * T
+        lat.spacecoordinates[1:2,:] = inv(T) * lat.spacecoordinates[1:2,:]
 
         for (k,v) in lat.specialpoints.coord # update high-symmetry points
             specialpoints.coord[k] = transpose(T) * v
@@ -73,8 +75,8 @@ function foldPC!(lat::Lattice; shift=0.0)
         lat.specialpoints = specialpoints
     end
 
-    A = getA(lat)
-    foldcell!(transpose(A) * A, lat.orbitalcoordinates)
+    A = getA(lat)[1:d,1:d]
+    foldcell!(transpose(A) * A, lat.spacecoordinates)
 
     lat
 end

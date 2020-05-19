@@ -41,5 +41,7 @@ include("Operators/haldanelike.jl")
 include("Operators/sublattice.jl")
 include("Operators/layer.jl")
 
+include("Operators/position.jl")
+
 ####################################################################################
 end

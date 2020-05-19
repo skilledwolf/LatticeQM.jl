@@ -3,6 +3,8 @@ module LatticeQM
 
     using Base, ElasticArrays, SparseArrays, LinearAlgebra
 
+    using KPM # this is one of my packages
+
     include("modules/Utils.jl")
     using .Utils
     using .DummySave

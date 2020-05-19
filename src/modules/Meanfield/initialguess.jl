@@ -9,6 +9,12 @@ function randmat()
     p = 0.5 .* (σ0 .+ sum(d[i_]/norm(d) .* σs[i_] for i_=1:3))
 end
 
+function randmatXY()
+    # d = rand(Float64, 3)
+    d = -1.0 .+ 2 .* rand(Float64, 2) # should be drawn from sphere, not from box...
+    p = 0.5 .* (σ0 .+ sum(d[i_]/norm(d) .* σs[i_] for i_=1:2))
+end
+
 function initialguess(v::AnyHops, mode=:random; lat=:nothing)
     N = size(first(values(v)), 1)
 
@@ -27,6 +33,13 @@ function initialguess(v::AnyHops, mode=:random; lat=:nothing)
         n = div(N,2)
 
         ρs[zerokey(ρs)] = Matrix(sum(kron(sparse([i_],[i_], [1.0+0.0im], n,n), randmat()) for i_=1:n))
+
+    elseif mode==:randomXY
+        @assert mod(N,2)==0
+        n = div(N,2)
+
+        ρs[zerokey(ρs)] = Matrix(sum(kron(sparse([i_],[i_], [1.0+0.0im], n,n), randmatXY()) for i_=1:n))
+
 
     elseif mode==:randomferro
         @assert mod(N,2)==0
@@ -77,6 +90,12 @@ function initialguess(v::AnyHops, mode=:random; lat=:nothing)
         ρs[zero(first(keys(ρs)))] =  2. * kron(Diagonal(ones(n)),σUP)
 
     elseif mode==:ferroX #|| mode==:ferroz
+        @assert mod(N,2)==0
+        n = div(N,2)
+        σLEFT = 0.5 .* (σ0 .+ σX)
+        ρs[zero(first(keys(ρs)))] =  2. * kron(Diagonal(ones(n)), σLEFT)
+
+    elseif mode==:ferroY #|| mode==:ferroz
         @assert mod(N,2)==0
         n = div(N,2)
         σLEFT = 0.5 .* (σ0 .+ σX)

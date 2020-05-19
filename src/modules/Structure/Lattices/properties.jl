@@ -2,66 +2,53 @@
 # Properties
 ###################################################################################################
 
-latticedim(lat::Lattice) = size(getA(lat), 2)
-countorbitals(lat::Lattice) = size(lat.orbitalcoordinates, 2)
-extraspacedim(lat::Lattice) = size(lat.extrapositions, 1) - latticedim(lat) # used to be size(lat.extrapositions, 1)
+latticedim(lat::Lattice) = lat.latticedim
+countorbitals(lat::Lattice) = size(lat.spacecoordinates, 2)
+extraspacedim(lat::Lattice) = size(lat.extracoordinates, 1)
 spacedim(lat::Lattice) = size(getA(lat), 1) # used to be latticedim(lat) + extraspacedim(lat)
 
-hasdimension(lat::Lattice, name::String) = haskey(lat.extradimensions, name)
+hasdimension(lat::Lattice, name::String) = haskey(lat.extralabels, name)
 assertdimension(lat::Lattice, name::String) = !hasdimension(lat, name) ? error("No $name coordinates specified.") : Nothing
 
-getA(lat::Lattice) = lat.latticevectors
+basis(lat::Lattice, selector=(:)) = lat.basis[:,selector]
+getA(lat::Lattice, selector=(:)) = basis(lat)[:,1:latticedim(lat)][:,selector]
+
 
 """
 Calculate the dual lattice of lat.A.
 Here we use the general formula \$B = A * (A^T * A)^-1\$. That works also 
 when the d-dim lattice is embedded in D-dim space.
 """
-function getB(lat::Lattice)
-    A = getA(lat)
-    return A * inv(transpose(A)*A)
+function getB(lat::Lattice, selector=(:))
+    d = latticedim(lat)
+    A = getA(lat)[:,1:d]
+    return (A * inv(transpose(A)*A))[:,selector]
 end
 
-coordinates(lat::Lattice) = lat.orbitalcoordinates
+coordinates(lat::Lattice, selector=(:)) = lat.spacecoordinates[selector,:]
 # positions(lat::Lattice) = getA(lat) * coordinates(lat)
-function positions(lat::Lattice)
-    d = latticedim(lat)
-    D = spacedim(lat)
-    A = getA(lat)
+positions(lat::Lattice, selector=(:)) = (basis(lat) * coordinates(lat))[selector,:]
 
-    X = coordinates(lat)
-    R = extrapositions(lat)[1:D-d,:]
 
-    R0 = A * X
-    R0[d+1:D,:] .+= R
+allpositions(lat::Lattice, args...) = [ positions(lat); extracoordinates(lat, args...)]
 
-    R0
-end
-
-function allpositions(lat::Lattice, args...)
-    d = latticedim(lat)
-    D = spacedim(lat)
-
-    [ positions(lat); extrapositions(lat, args...)[1+D-d:end,:] ]
-end
-
-extrapositions(lat::Lattice) = lat.extrapositions#[spacedim(lat)+1:end,:]
-extrapositions(lat::Lattice, dim::String) = extrapositions(lat, [dim])
-function extrapositions(lat::Lattice, dims::Vector{String})
+extracoordinates(lat::Lattice) = lat.extracoordinates
+extracoordinates(lat::Lattice, dim::String) = extracoordinates(lat, [dim])
+function extracoordinates(lat::Lattice, dims::Vector{String})
     for dim in dims
         assertdimension(lat, dim)
     end
-    indices = [lat.extradimensions[dim] for dim=dims]
-    extrapositions(lat)[indices, :]
+    indices = [lat.extralabels[dim] for dim=dims]
+    extracoordinates(lat)[indices, :]
 end
 
-function setextrapositions!(lat::Lattice, dim::String, values)
+function setextracoordinates!(lat::Lattice, dim::String, values)
     assertdimension(lat, dim)
-    lat.extrapositions[lat.extradimensions[dim],:] = values
+    lat.extracoordinates[lat.extralabels[dim],:] = values
 end
 
 function filterindices(lat::Lattice, name::String, condition::Function)
-    return [index for (index, val) in enumerate(extrapositions(lat, name)) if condition(val)]
+    return [index for (index, val) in enumerate(extracoordinates(lat, name)) if condition(val)]
 end
 filterpositions(lat::Lattice, args...) = positions(lat)[:,filterindices(lat, args...)]
 filtercoordinates(lat::Lattice, args...) = coordinates(lat)[:,filterindices(lat, args...)]

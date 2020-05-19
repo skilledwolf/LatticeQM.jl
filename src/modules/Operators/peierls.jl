@@ -37,26 +37,178 @@ function peierls!(hops, lat::Lattice, phase::Function)
     hops
 end
 
+"""
+    peierls!(hops, lat, B)
 
+Add Peierls phases to operator `hops` on lattice geometry `lat` for the uniform
+magnetic field `B=(B1,B2,B3)`. Uses Coulomb gauge, see uniformfieldphase(...).
+
+"""
 function peierls!(hops, lat::Lattice, B::AbstractVector)
     phase(args...) = uniformfieldphase(args...; B=B)
     peierls!(hops, lat, phase)
 end
 
+"""
+    peierls!(hops, lat, B)
 
+Add Peierls phases to operator `hops` on lattice geometry `lat` for the uniform
+in-plane magnetic field `B=(B1,B2)`. Uses in-plane gauge, see uniformfieldphase_inplane(...).
+
+"""
 function peierlsinplane!(hops, lat::Lattice, B::AbstractVector)
     phase(args...) = uniformfieldphase_inplane(args...; B=B)
     peierls!(hops, lat, phase)
 end
 
+"""
+    peierlsoutplane(hops, lat, p, q)
+
+Add uniform out-of-plane magnetic field B=(0,0,B3) to operator `hops` on lattice geometry `lat`,
+such that the flux per unit cell is Φ=p/q.
+
+This method automatically constructs and returns the correct superoperartor and magnetic supercell.
+"""
+function peierlsoutplane!(hops, lat::Lattice, phase::Function)
+    N = countorbitals(lat)
+    D = hopdim(hops)
+    d = div(D,N) # if spinhalf then d=2, if spinless d=1
+    @assert d == 1 # only spinless (testing)
+    @assert D == N*d #consistency check
+
+    phasebar(r1,r2)= -(phase(r1,r2)-phase(r2,r1))/2
+
+    A = getA(lat)
+    X = positions(lat)
+
+    for (R, h) = hops
+        δa = A * R
+        for i=1:N,j=1:N
+            hops[R][i,j] = hops[R][i,j] * exp(1im*2π*phasebar(X[:,i]+δa, X[:,i]+X[:,j]))
+        end
+    end
+
+    hops
+end
+
+function peierlsoutplane(hops, lat::Lattice, p::Int, q::Int; verbose=true)
+    @assert gcd(p,q)<2 "Integers p,q for flux Φ=p/q should be coprime. (here p=$p, q=$q)"
+    verbose ? print("Building magnetic supercell for Φ=p/q=$p/$q.") : nothing
+
+    phase = uniformfieldphase_outplane(lat, p/q)
+
+    mhops = deepcopy(hops)
+    peierlsoutplane!(mhops, lat, phase) # add the cell-position independent phases first
+
+    mlat  = Structure.superlattice(lat, [1,q]) # make correct supercell
+    mhops = TightBinding.superlattice(mhops, [1,q], (r,R)->exp(-1im*2π*(r[2]*R[1])*(p/q)) ) # make correct supercell hamiltonian
+
+    mhops, mlat
+end
+
+using ..Spectrum: bandmatrix, getdos!
+using ProgressMeter
+
+"""
+    hofstadter(hops, lat, Q)
+
+Determines the energie spectrum as function of rational magnetic flux \$\\Phi=p/q\$,
+where p, q are coprime integers with 1<= q <= Q and 1<=p<q.
+Returns a list of fluxes and a list of energies at each flux.
+
+In this implementation we evaluate at the \$\\Gamma\$-point of the magnetic cell.
+"""
+function hofstadter(hops, lat::Lattice, Q::Int)
+
+    fluxes = [(p,q) for q=1:Q for p=1:q-1 if gcd(p,q)<2]
+    energies = Vector{Float64}[]
+
+    k0 = zeros(Float64, Structure.latticedim(lat), 1)
+
+    @showprogress 2 "Iterating through flux... " for (p,q)=fluxes
+        mhops, mlat = Operators.peierlsoutplane(hops, lat, p,q; verbose=false)
+        append!(energies, [vec(bandmatrix(mhops, k0))])
+    end
+
+    fluxes = map(x->x[1]//x[2], fluxes)
+    p = sortperm(fluxes)
+    fluxes = fluxes[p]
+    energies = energies[p]
+
+    fluxes, energies
+end
+
+"""
+    hofstadter_dos(hops, lat, q_max::Int, (f_min, f_max), N=300)
+
+See hofstadter_dos(hops, lat, q_max, frequencies).
+
+Returns a list of fluxes, frequencies and a the dos at each flux.
+"""
+function hofstadter_dos(hops, lat::Lattice, Q::Int, ω::Tuple, N::Int=300; kwargs...)
+    ωs = LinRange(ω...,N)
+    fluxes, DOS = hofstadter_dos(hops, lat, Q, ωs; kwargs...)
+    fluxes, ωs, DOS
+end
+
+"""
+    hofstadter_dos(hops, lat, q_max::Int, frequencies::AbstractVector; klin=100, Γ=0.05)
+
+Determines the energie spectrum as function of rational magnetic flux \$\\Phi=p/q\$,
+where p, q are coprime integers with 1<= q <= q_max and 1<=p<q.
+Note that q_max determines the size of the largest magnetic supercell.
+
+The density of states (DOS) at each flux is calculated on a discrete k-grid (resolution give by `klin`).
+The parameter Γ determines the energy broadening when calculating DOS.
+
+Returns a list of fluxes and a the dos at given frequencies at each flux.
+"""
+function hofstadter_dos(hops, lat::Lattice, Q::Int, frequencies::AbstractVector{<:Real}; klin::Int=100, Γ::Real=0.05)
+
+    fluxes = [(p,q) for q=1:Q for p=1:q-1 if gcd(p,q)<2]
+    DOS = zeros(length(frequencies), length(fluxes))
+
+    @showprogress 2 "Iterating through flux... " for (i,(p,q))=enumerate(fluxes)
+        mhops, mlat = Operators.peierlsoutplane(hops, lat, p,q; verbose=false)
+        
+        getdos!(view(DOS, :, i), mhops, frequencies; klin=round(Int,klin/√q), Γ=Γ)
+    end
+
+    fluxes = map(x->x[1]//x[2], fluxes)
+    p = sortperm(fluxes)
+
+    fluxes[p], DOS[:,p]
+end
+
+# function hofstadter_kpm(hops, lat::Lattice, area::Real, fluxes::AbstractVector{<:Real}, frequencies::AbstractVector{<:Real})
+
+#     @assert latticedim(lat) == 0 "This method only works for finite systems ('zero-dimensional lattice')."
+
+#     DOS = zeros(length(frequencies), length(fluxes))
+
+#     hops0 = deepcopy(hops)
+#     @showprogress 2 "Iterating through flux... " for (i,ϕ)=enumerate(fluxes)
+
+
+#         peierls!(hops0, lat, [0,0,area*ϕ])
+
+
+        
+#     end
+
+#     fluxes = map(x->x[1]//x[2], fluxes)
+#     p = sortperm(fluxes)
+
+#     fluxes[p], DOS[:,p]
+# end
 
 """
     uniformfieldphase(r1,r2; B)
 
-    The proper relative phase between lattice positions r1 and r2 in presence
-    of magnetic field B=(B_1,B_2,...). Calculated in Coulomb gauge!
+The proper relative phase between lattice positions r1 and r2 in presence
+of magnetic field B=(B_1,B_2,...). Calculated in Coulomb gauge!
 
-    The magnetic field should be in units of flux quanta \$\\phi_0=h/e\$.
+The magnetic field should be in units of flux quanta \$\\phi_0=h/e\$.
 """
 function uniformfieldphase(r1::T,r2::T; B::AbstractVector) where T<:AbstractVector
     @assert size(r1)==size(r2)==size(B) "Vectors must have same length"
@@ -66,19 +218,19 @@ function uniformfieldphase(r1::T,r2::T; B::AbstractVector) where T<:AbstractVect
     cross2D(x, y) = [0, 0, x[1] * y[2] - x[2] * y[1]]
     f = (D==2) ? cross2D : cross
 
-    dot(f((r1+r2)/2, (r2-r1)/2), B)
+    dot(f(r1, r2), B/2)
 end
 
 
 """
     uniformfieldphase_inplane(r1,r2; B)
 
-    The proper relative phase between lattice positions r1 and r2 in presence
-    of magnetic field B=(B_1,B_2,0). 
+The proper relative phase between lattice positions r1 and r2 in presence
+of magnetic field B=(B_1,B_2,0). 
 
-    Here we use the gauge A = (B2 z, - B1 z, 0)
+Here we use the gauge A = (B2 z, - B1 z, 0)
 
-    The magnetic field should be in units of flux quanta \$\\phi_0=h/e\$.
+The magnetic field should be in units of flux quanta \$\\phi_0=h/e\$.
 """
 function uniformfieldphase_inplane(r1::T,r2::T; B::AbstractVector) where T<:AbstractVector
     @assert size(r1)==size(r2) "Vectors must have same length"
@@ -97,3 +249,96 @@ function uniformfieldphase_inplane(r1::T,r2::T; B::AbstractVector) where T<:Abst
 
     return cross2D(r2-r1, B) * (z1+z2)/2
 end
+
+
+"""
+    uniformfieldphase_outplane(lat, Φ)
+
+Passes the lattice vectors a1 and a2 to uniformfieldphase_outplane(a1,a2,Φ).
+"""
+function uniformfieldphase_outplane(lat::Lattice, args...; kwargs...)
+    @assert Structure.latticedim(lat)==2 "Only implemented for 2D lattices."
+    @assert Structure.spacedim(lat)>2 "Only implemented for lattices in at least 3D space."
+    A=Structure.getA(lat)
+    a1=A[:,1]
+    a2=A[:,2]
+    uniformfieldphase_outplane(a1,a2, args...; kwargs...)
+end
+
+"""
+    uniformfieldphase_outplane(a1,a2)
+
+This returns the phase function that respects translational symmetry along \$a_1\$
+but not along \$a_2\$. For rational flux Φ=p/q, this gauge is periodic in a2'=q*a2.
+
+The magnetic field should be in units of flux quanta \$\\phi_0=h/e\$.
+"""
+function uniformfieldphase_outplane(a1::T,a2::T, Φ::Number) where T<:AbstractVector
+    @assert size(a1)==size(a2) "Vectors a1, a2 must have same length"
+    @assert size(a1,1) == 3 "So far only 3D vectors are supported"
+
+    cross2D(x, y) = x[1] * y[2] - x[2] * y[1]
+
+    na1=norm(a1); na2=norm(a2)
+    A = norm(cross(a1[1:3],a2[1:3]))
+    e1 = a1/na1; e2 = a2/na2 # normalize
+
+    zv = cross(e1[1:3], e2[1:3])
+    s = norm(zv)
+    zv = zv/s
+
+    e1p = deepcopy(a1); e1p[1:3] .= cross(zv,e1[1:3])
+    e2p = deepcopy(a2); e2p[1:3] .= cross(zv,e2[1:3])
+    
+    """
+        phase(rM, δr)
+
+        rM = (r1+r2)/2
+        δr = r1-r2
+    """
+    function phase(rM::T,δr::T)
+        Φ * dot(rM, e1p) * dot(δr,e2p) / (A*s)
+    end
+
+    return phase
+end
+
+
+
+
+# function peierlsoutplane2(hops, lat::Lattice, p::Int, q::Int; verbose=true)
+#     @assert gcd(p,q)<2 "Integers p,q for flux Φ=p/q should be coprime. (here p=$p, q=$q)"
+#     verbose ? print("Building magnetic supercell for Φ=p/q=$p/$q.") : nothing
+
+#     mlat  = Structure.superlattice(lat, [1,q])
+#     mhops = TightBinding.superlattice(hops, [1,q])
+
+#     phasefunc(r1,r2) = uniformfieldphase(r1, r2; B=[0,0,p/q])
+
+#     peierls!(mhops, mlat, phasefunc)
+
+#     mhops, mlat
+# end
+
+# function hofstadter2(hops, lat::Lattice, Q::Int)
+
+#     lat0  = Structure.superlattice(lat, [1,1])
+#     hops0 = TightBinding.superlattice(hops, [1,-1])
+
+#     fluxes = [(p,q) for q=1:Q for p=1:q-1 if gcd(p,q)<2]
+#     energies = Vector{Float64}[]
+
+#     k0 = zeros(Float64, Structure.latticedim(lat), 1)
+
+#     @showprogress 2 "Iterating through flux... " for (p,q)=fluxes
+#         mhops, mlat = Operators.peierlsoutplane2(hops0, lat0, p,q; verbose=false)
+#         append!(energies, [vec(bandmatrix(mhops, k0))])
+#     end
+
+#     fluxes = map(x->x[1]//x[2], fluxes)
+#     p = sortperm(fluxes)
+#     fluxes = fluxes[p]
+#     energies = energies[p]
+
+#     fluxes, energies
+# end

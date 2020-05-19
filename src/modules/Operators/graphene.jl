@@ -31,7 +31,7 @@ function addsublatticeimbalance!(hops, lat::Lattice, Δ::Real; kwargs...)
         return nothing
     end
 
-    μ = Δ .* (extrapositions(lat, "sublattice") .- 0.5)
+    μ = Δ .* (extracoordinates(lat, "sublattice") .- 0.5)
     addchemicalpotential!(hops, lat, vec(μ))
 
     nothing
@@ -53,9 +53,10 @@ function addhaldane!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=false, 
 
     N = countorbitals(lat)
     D = spacedim(lat)
+    ldim = latticedim(lat)
     R = allpositions(lat) # positions of atoms within unit cell
 
-    A = getA(lat)
+    A = getA(lat)[:,1:ldim]
 
     neighbors = Structure.getneighborcells(lat, 1; halfspace=false, innerpoints=true, excludeorigin=false) #[[i;j] for i=-1:1 for j=-1:1]
     δAs = [A * v for v in neighbors]
@@ -198,6 +199,7 @@ end
 
 using ..TightBinding: MAX_DENSE, MAX_DIAGS
 
+switchlin(x::AbstractFloat) =  ifelse(x < 0, zero(x), x)
 ## @polly 
 function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-5, tz::Float64=0.46, t0::Float64=1.0,
     ℓinter::Float64=0.125, ℓintra::Float64=0.08, ℓz::Float64=0.001,z::Float64=3.0, a::Float64=1.0,

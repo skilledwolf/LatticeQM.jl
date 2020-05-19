@@ -1,10 +1,12 @@
-import LatticeQM.Structure.Lattices: Lattice, allpositions, extrapositions, repeat!, sortextraposition!, filterindices, positions, countorbitals
+import LatticeQM.Structure.Lattices: Lattice, allpositions, extracoordinates, repeat!, sortextraposition!, filterindices, positions, countorbitals
 
-@recipe function f(lat0::Lattice, colors::Union{Nothing,Vector{Float64},String}=nothing; filter=(), sort=false, supercell=0:0, markercolor=:RdYlBu, clims=:auto)
+@recipe function f(lat0::Lattice, colors::Union{Nothing,Vector{Float64},String,Int}=nothing; filter=(), sort=false, supercell=0:0, markercolor=:RdYlBu, clims=:auto)
     # filter could be for example filter=("layer", z->z==0.0)
 
     if isa(colors, String) # If colors is a string it is to be understood as an extraposition
-        colors = vec(extrapositions(lat0, colors))
+        colors = vec(extracoordinates(lat0, colors))
+    elseif isa(colors, Int)
+        colors = vec(positions(lat0, colors))
     end
 
     lat = deepcopy(lat0)
@@ -13,19 +15,19 @@ import LatticeQM.Structure.Lattices: Lattice, allpositions, extrapositions, repe
         colors = vcat(fill(colors, countorbitals(lat))...)
     end
 
-    orbitalcoordinates = allpositions(lat)[1:2,:]
+    spacecoordinates = positions(lat)[1:2,:]
 
     perm = (:)
     if sort != false
         perm = sortextraposition!(lat, sort)
         colors = colors[perm]
-        orbitalcoordinates = orbitalcoordinates[:,perm]
+        spacecoordinates = spacecoordinates[:,perm]
     end
 
     # Plot the layers
     if filter != ()
         indices = filterindices(lat, filter...)
-        orbitalcoordinates = orbitalcoordinates[:,indices]
+        spacecoordinates = spacecoordinates[:,indices]
         colors = colors[indices]
     end
 
@@ -46,5 +48,5 @@ import LatticeQM.Structure.Lattices: Lattice, allpositions, extrapositions, repe
     xguide --> "x"
     yguide --> "y"
 
-    orbitalcoordinates[1,:], orbitalcoordinates[2,:]
+    spacecoordinates[1,:], spacecoordinates[2,:]
 end

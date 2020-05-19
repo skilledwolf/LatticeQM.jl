@@ -3,7 +3,7 @@ function layerprojection(lat::Lattice, d=1)
     Project onto a layer
     """
 
-    z = extrapositions(lat, "z")
+    z = positions(lat, 3)
 
     zmin = minimum(z)
     zmax = maximum(z)

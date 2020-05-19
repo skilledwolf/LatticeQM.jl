@@ -36,18 +36,18 @@ function addchemicalpotential!(hops, lat::Lattice, μ::Function; kwargs...)
 end
 addchemicalpotential!(hops, lat::Lattice, μ::Float64; kwargs...) = addchemicalpotential!(hops, lat, μ.*ones(countorbitals(lat)); kwargs...)
 
-@legacyalias addinterlayerbias! add_interlayerbias!
-@legacyalias addinterlayerbias! add_transversepotential!
-@legacyalias addinterlayerbias! addtransversepotential!
-function addinterlayerbias!(hops, lat::Lattice, V::Float64; d=3.0, kwargs...)
-
+function addinterlayerbias!(hops, lat, V::Real; kwargs...)
     # Only go through the trouble of constructing this matrix for finite V
     if isapprox(V,0; atol=sqrt(eps()))
         return nothing
     end
+    addinterlayerbias!(hops,lat,x->V; kwargs...)
+end
+function addinterlayerbias!(hops, lat::Lattice, V::Function; d=3.0, kwargs...)
 
     # Get z coordinates and scale them into the unit range
-    layer = extrapositions(lat, "z")
+    R = allpositions(lat)
+    layer = positions(lat, 3)
     min = minimum(layer); max = maximum(layer)
 
     if isapprox(abs(min-max), 0; atol=sqrt(eps()))
@@ -55,18 +55,9 @@ function addinterlayerbias!(hops, lat::Lattice, V::Float64; d=3.0, kwargs...)
     end
 
     layer .= (layer .- min)./(max-min)
-    μ = V .* (layer .- 0.5)
+    μ = V.(eachcol(R)) .* (layer .- 0.5)
 
     addchemicalpotential!(hops, lat, vec(μ))
 
     nothing
 end
-
-###################################################################################################
-# Backwards compatibility
-###################################################################################################
-export set_filling!
-@legacyalias setfilling! set_filling!
-
-export add_chemicalpotential!
-@legacyalias addchemicalpotential! add_chemicalpotential!

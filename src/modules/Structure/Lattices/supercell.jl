@@ -1,23 +1,23 @@
+using ..Utils: padvec
 
 # Interface to Supercell module
 @legacyalias superlattice build_superlattice
+superlattice(lat::Lattice, superperiods::Vector{Int}) = superlattice(lat, Matrix(Diagonal(superperiods)))
 function superlattice(lat::Lattice, superperiods::Matrix{Int}; kwargs...)
 
-    Λ = getA(lat) * superperiods
+    D = spacedim(lat)
+    d = latticedim(lat)
+    Λ = basis(lat)
+    Λ[:,1:d] = Λ[:,1:d] * superperiods
     supercellints = supercellpoints(superperiods; kwargs...)
 
     # Existing atoms will now have to be copied
     # (note that the following code should be optimized for large systems, to use less memory...)
-    orbitalcoordinates_super = inv(superperiods) * hcat([lat.orbitalcoordinates .+ vec for vec in eachcol(supercellints)]...)
-    extrapositions_super = hcat([lat.extrapositions for vec in eachcol(supercellints)]...) # this will copy info's such as z-coordinate or sublattice
+    spacecoordinates_super = hcat([coordinates(lat) .+ padvec(vec,D) for vec in eachcol(supercellints)]...)
+    spacecoordinates_super[1:d,:] = inv(superperiods) * spacecoordinates_super[1:d,:]
+    extracoordinates_super = hcat([lat.extracoordinates for vec in eachcol(supercellints)]...) # this will copy info's such as z-coordinate or sublattice
 
-    return Lattice(Λ, orbitalcoordinates_super, extrapositions_super, lat.extradimensions, lat.specialpoints)
-end
-
-function turn0D!(lat::Lattice)
-    lat.orbitalcoordinates = positions(lat) # Turn the lattice coordinates into spatial coordinates
-    lat.latticevectors = zeros(0,0) # delete the lattice vectors
-    nothing
+    return Lattice(Λ, d, spacecoordinates_super, extracoordinates_super, lat.extralabels, lat.specialpoints)
 end
 
 function repeat!(lat::Lattice, repeat::UnitRange=0:0)
@@ -37,22 +37,24 @@ function repeat!(lat::Lattice, repeat::AbstractVector{<:AbstractRange})
     repeat!(lat, Λsuper)
 end
 
+using ..Utils: padvec
+
 function repeat!(lat::Lattice, intvectors::Vector{Vector{Int64}})
-    lat.orbitalcoordinates = hcat([lat.orbitalcoordinates.+v for v in intvectors]...)
-    lat.extrapositions = hcat([lat.extrapositions for v in intvectors]...)
+    lat.spacecoordinates = hcat([lat.spacecoordinates.+padvec(v,spacedim(lat)) for v in intvectors]...)
+    lat.extracoordinates = hcat([lat.extracoordinates for v in intvectors]...)
     lat
 end
 
 @legacyalias repeat repeat_atoms
 repeat(lat::Lattice, repeat=[0:0,0:0]) = repeat!(deepcopy(lat), repeat)
 
-function repeat(orbitalcoordinates::AbstractMatrix, Λ=Matrix{Float64}(I, 2, 2), repeat=[0:0,0:0])
+function repeat(spacecoordinates::AbstractMatrix, Λ=Matrix{Float64}(I, 2, 2), repeat=[0:0,0:0])
 """
 Translates all points in "atom" by lattice vectors as defined by the "repeat" list of iterator.
 """
-    @assert size(orbitalcoordinates,2) == 2 # only implemented for 2d lattices at the moment
+    @assert size(spacecoordinates,2) == 2 # only implemented for 2d lattices at the moment
     Λsuper = [Λ * [i; j] for i=repeat[1] for j=repeat[2]]
-    orbitalcoordinates_super = hcat([orbitalcoordinates.+v for v in Λsuper]...)
+    spacecoordinates_super = hcat([spacecoordinates.+v for v in Λsuper]...)
 end
 
 function sortextraposition!(lat::Lattice, name::String)
@@ -61,10 +63,10 @@ Sorts all coordinates in the lattice according to extraposition "name" (e.g. z c
 This is useful for example when plotting, such layers get plotted one on top of each other (even in supercells).
 """
 
-    perm = sortperm(vec(extrapositions(lat,name)))
+    perm = sortperm(vec(extracoordinates(lat,name)))
 
-    lat.extrapositions[:,:] = lat.extrapositions[:,perm]
-    lat.orbitalcoordinates[:,:] = lat.orbitalcoordinates[:,perm]
+    lat.extracoordinates[:,:] = lat.extracoordinates[:,perm]
+    lat.spacecoordinates[:,:] = lat.spacecoordinates[:,perm]
 
     perm
 end
@@ -73,9 +75,9 @@ end
 @legacyalias crop2unitcell! crop_to_unitcell!
 @legacyalias crop2unitcell crop_to_unitcell
 function crop2unitcell!(lat::Lattice)#, lat1::Lattice)
-    indices = [i for (i,a) in enumerate(eachcol(lat.orbitalcoordinates)) if inunitrange(a;offset=1e-3)]
-    lat.orbitalcoordinates = lat.orbitalcoordinates[:,indices]
-    lat.extrapositions = lat.extrapositions[:,indices]
+    indices = [i for (i,a) in enumerate(eachcol(lat.spacecoordinates[1:latticedim(lat),:])) if inunitrange(a;offset=1e-3)]
+    lat.spacecoordinates = lat.spacecoordinates[:,indices]
+    lat.extracoordinates = lat.extracoordinates[:,indices]
     lat
 end
 crop2unitcell(positions::AbstractMatrix, Λ::AbstractMatrix) = crop2unitcell(inv(Λ)*positions)
@@ -96,15 +98,15 @@ function bistack(lat::Lattice, δz::Float64; fracshift=[0.0; 0.0])
     end
 
     A = getA(lat)
-    orbitalcoordinates1 = lat.orbitalcoordinates
-    orbitalcoordinates2 = deepcopy(orbitalcoordinates1) .+ (A*fracshift)
+    spacecoordinates1 = lat.spacecoordinates
+    spacecoordinates2 = deepcopy(spacecoordinates1) .+ (A*fracshift)
 
-    extrapositions1 = lat.extrapositions
-    extrapositions2 = deepcopy(extrapositions1)
-    # extrapositions1[lat.extradimensions["z"],:] .+= δz/2
-    extrapositions2[lat.extradimensions["z"],:] .+= δz
+    extracoordinates1 = lat.extracoordinates
+    extracoordinates2 = deepcopy(extracoordinates1)
+    # extracoordinates1[lat.extralabels["z"],:] .+= δz/2
+    extracoordinates2[lat.extralabels["z"],:] .+= δz
 
-    return Lattice(A, hcat(orbitalcoordinates,orbitalcoordinates), hcat(extrapositions1, extrapositions2), lat.extradimensions)
+    return Lattice(A, hcat(spacecoordinates,spacecoordinates), hcat(extracoordinates1, extracoordinates2), lat.extralabels)
 end
 
 
@@ -140,7 +142,7 @@ new superlattice.
     innerpoints = Φ * hcat([[x...] for x in BoundIterator(bounds)]...)
     innerpoints = M * hcat([p for p in eachcol(innerpoints) if all((p .< 1-offset) .& (p .> 0-offset))]...)
 
-    return innerpoints  # M' * points
+    return round.(Int, innerpoints)  # M' * points
 end
 
 

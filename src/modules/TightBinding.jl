@@ -12,7 +12,7 @@ using ..Utils
 import ..Algebra: σ0, σ1, σ2, σ3, σX, σY, σZ, σs
 
 import ..Utils: regulargrid
-import ..Structure.Lattices: Lattice, positions, allpositions, getA, countorbitals, hasdimension, latticedim, assertdimension, extrapositions
+import ..Structure.Lattices: Lattice, positions, allpositions, getA, countorbitals, hasdimension, latticedim, assertdimension, extracoordinates
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -28,6 +28,8 @@ include("TightBinding/hamiltonian.jl") # todo : move to structure
 export gethops, gethamiltonian
 
 include("TightBinding/operators.jl")
+
+include("TightBinding/superlattice.jl")
 
 
 # Legacy definitions:

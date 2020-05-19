@@ -5,8 +5,9 @@ function getneighbors(lat, d=1.0; cellrange::Int=1)
     neighbors = map(x->[x...], neighbors)
 
     N = countorbitals(lat)
+    ldim = latticedim(lat)
     R = positions(lat)
-    Z = extrapositions(lat,"z")
+    # Z = extracoordinates(lat,"z")
 
     A = getA(lat)
 
@@ -23,7 +24,7 @@ function getneighbors(lat, d=1.0; cellrange::Int=1)
             for j=1:N
                 Rj = R[:,j]
 
-                if d-1e-7 < norm(Ri-Rj) < d+1e-7 && abs2(Z[i]-Z[j]) < 0.01
+                if d-1e-7 < norm(Ri-Rj) < d+1e-7 #&& abs2(Z[i]-Z[j]) < 0.01
                     # pairs[δR][i,j] = 1
                     append!(pairs[δR], [(i,j)])
                 end

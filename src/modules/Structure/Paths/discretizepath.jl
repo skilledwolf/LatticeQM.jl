@@ -12,6 +12,10 @@ end
 
 function path(points::AbstractVector, N; B=I)
 
+    if length(points)==1 # if there's only one point there is no use in discretizing anything ;-)
+        return [0.0], [0.0], transpose(B * inv(transpose(B) * B)) * hcat(points...)
+    end
+
     num_points = length(points)
     differences = [points[i]-points[i-1] for i=2:num_points]
     differences_len = [norm(diff) for diff in differences]

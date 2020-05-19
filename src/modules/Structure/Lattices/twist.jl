@@ -20,15 +20,15 @@ function twist(lat1::Lattice, lat2::Lattice, n::Int; z::Float64=3, m::Int=1, ver
     superperiods = [[n; n+m] [-n-m; 2*n+m]]
 
     # Move the initial layer up along z away from z=0
-    translate!(lat1, "z", z/2)
+    translate!(lat1, 3, z/2) #translate!(lat1, "z", z/2)
 
     # Copy the layer and start from AB stacking at the twist interface
     # (the construction demands it for some reason)
     # Then mirror the layer at z=0 plane
-    translate!(lat2, "z", z/2)
-    lat2.orbitalcoordinates .= - lat2.orbitalcoordinates
+    translate!(lat2, 3, z/2) # translate!(lat2, "z", z/2)
+    lat2.spacecoordinates .*= -1.0
     foldcoordinates!(lat2)
-    mirrorZ!(lat2)
+    # mirrorZ!(lat2)
 
     # Build (non-orthogonal) supercells and move it up along z
     superlat1 = superlattice(lat1, superperiods)
@@ -47,6 +47,8 @@ function twist(lat1::Lattice, lat2::Lattice, n::Int; z::Float64=3, m::Int=1, ver
 
     mergelattices!(superlat1, superlat2)
     foldcoordinates!(superlat1)
+
+    rotatebasis!(superlat1, -angle/2)
 
     superlat1
 end
