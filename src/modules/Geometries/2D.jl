@@ -133,16 +133,16 @@ module Geometries2D
         L2 = getA(lat)[:,2]
 
         p0=(L1+L2)/3
+        fodd(x::AbstractVector) =  1/(3*√3) * (sin(2*π*dot(G1,x)) + sin(2*π*dot(G2,x)) - sin(2*π*dot(G1+G2,x)))
+        feven(x::AbstractVector) = 1/3 + 2/9 * (cos(2*π*dot(G1,x-p0)) + cos(2*π*dot(G2,x-p0)) + cos(2*π*dot(G1+G2,x-p0)))
+        foddsharp(x::AbstractVector) = tanh(2 * sharp * 1/(3*√3) * (sin(2*π*dot(G1,x)) + sin(2*π*dot(G2,x)) - sin(2*π*dot(G1+G2,x))))
+        fevensharp(x::AbstractVector) = tanh(sharp * (1/3 + 2/9 * (cos(2*π*dot(G1,x-p0)) + cos(2*π*dot(G2,x-p0)) + cos(2*π*dot(G1+G2,x-p0)))))/2
 
         if sharp > 1
-            fodd(x::AbstractVector) = tanh(2 * sharp * 1/(3*√3) * (sin(2*π*dot(G1,x)) + sin(2*π*dot(G2,x)) - sin(2*π*dot(G1+G2,x))))
-            feven(x::AbstractVector) = tanh(sharp * (1/3 + 2/9 * (cos(2*π*dot(G1,x-p0)) + cos(2*π*dot(G2,x-p0)) + cos(2*π*dot(G1+G2,x-p0)))))/2
+            displaceZ!(lat, p -> sign(p[3]) * (δz_even * (fevensharp(p)-0.5) + δz_odd * foddsharp(p)))
         else
-            fodd(x::AbstractVector) =  1/(3*√3) * (sin(2*π*dot(G1,x)) + sin(2*π*dot(G2,x)) - sin(2*π*dot(G1+G2,x)))
-            feven(x::AbstractVector) = 1/3 + 2/9 * (cos(2*π*dot(G1,x-p0)) + cos(2*π*dot(G2,x-p0)) + cos(2*π*dot(G1+G2,x-p0)))
+            displaceZ!(lat, p -> sign(p[3]) * (δz_even * (feven(p)-0.5) + δz_odd * fodd(p)))
         end
-
-        displaceZ!(lat, p -> sign(p[3]) * (δz_even * (feven(p)-0.5) + δz_odd * fodd(p)))
     end
 
 
