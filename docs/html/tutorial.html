@@ -21,11 +21,12 @@
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-        <script type="text/javascript" src="_static/jquery.js"></script>
-        <script type="text/javascript" src="_static/underscore.js"></script>
-        <script type="text/javascript" src="_static/doctools.js"></script>
-        <script type="text/javascript" src="_static/language_data.js"></script>
-        <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
         <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "document", "processClass": "math|output_area"}})</script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
@@ -179,13 +180,13 @@
 /* CSS overrides for sphinx_rtd_theme */
 
 /* 24px margin */
-.nbinput.nblast,
-.nboutput.nblast {
+.nbinput.nblast.container,
+.nboutput.nblast.container {
     margin-bottom: 19px;  /* padding has already 5px */
 }
 
 /* ... except between code cells! */
-.nblast + .nbinput {
+.nblast.container + .nbinput.container {
     margin-top: -19px;
 }
 
@@ -228,9 +229,9 @@ z-coordinates via</p>
 6</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="n">extra_dimensions</span> <span class="o">=</span> <span class="p">[</span><span class="s">&quot;z&quot;</span><span class="p">]</span> <span class="c"># allows to specify additional coordinates</span>
 
 <span class="n">A</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]</span> <span class="c"># each column is a lattice vector</span>
-<span class="n">atoms</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]]</span> <span class="c"># each column is an atom within the unit cell (in fractional coordinates)</span>
+<span class="n">spacecoordinates</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]]</span> <span class="c"># each column is an atom within the unit cell (in fractional coordinates)</span>
 
-<span class="n">lat</span> <span class="o">=</span> <span class="n">Lattice</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">atoms</span><span class="p">,</span> <span class="n">extra_dimensions</span><span class="p">)</span>
+<span class="n">lat</span> <span class="o">=</span> <span class="n">Lattice</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">spacecoordinates</span><span class="p">,</span> <span class="n">extra_dimensions</span><span class="p">)</span>
 </pre></div>
 </td></tr></table></div>
 <p>The case without extra coordinates is</p>
@@ -238,9 +239,9 @@ z-coordinates via</p>
 2
 3
 4</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="n">A</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span> <span class="c"># each column is a lattice vector</span>
-<span class="n">atoms</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]]</span> <span class="c"># each column is an atom within the unit cell (in fractional coordinates)</span>
+<span class="n">spacecoordinates</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]]</span> <span class="c"># each column is an atom within the unit cell (in fractional coordinates)</span>
 
-<span class="n">lat</span> <span class="o">=</span> <span class="n">Lattice</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">atoms</span><span class="p">)</span>
+<span class="n">lat</span> <span class="o">=</span> <span class="n">Lattice</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">spacecoordinates</span><span class="p">)</span>
 </pre></div>
 </td></tr></table></div>
 <p>The case with a single atom per unit cell is</p>
@@ -254,11 +255,11 @@ z-coordinates via</p>
 </pre></div>
 </td></tr></table></div>
 <p>Modifying the <code class="docutils literal notranslate"><span class="pre">Lattice</span></code> object after creation is discouraged.
-Use the methods <code class="docutils literal notranslate"><span class="pre">update_atoms!(lat,</span> <span class="pre">atoms)</span></code> and <code class="docutils literal notranslate"><span class="pre">update_A!(lat,A)</span></code> if you
+Use the methods <code class="docutils literal notranslate"><span class="pre">update_spacecoordinates!(lat,</span> <span class="pre">spacecoordinates)</span></code> and <code class="docutils literal notranslate"><span class="pre">update_A!(lat,A)</span></code> if you
 really have to.</p>
 <p>To access lattice properties use <code class="docutils literal notranslate"><span class="pre">getA(lat)</span></code>, <code class="docutils literal notranslate"><span class="pre">coordinates(lat)</span></code>,
-<code class="docutils literal notranslate"><span class="pre">get_positions(lat)</span></code>, <code class="docutils literal notranslate"><span class="pre">extrapositions(lat,</span> <span class="pre">extradim_name)</span></code>,
-<code class="docutils literal notranslate"><span class="pre">get_extrapositions(lat)</span></code>, <code class="docutils literal notranslate"><span class="pre">get_ldim(lat)</span></code> and <code class="docutils literal notranslate"><span class="pre">get_sdim(lat)</span></code>.
+<code class="docutils literal notranslate"><span class="pre">get_positions(lat)</span></code>, <code class="docutils literal notranslate"><span class="pre">extracoordinates(lat,</span> <span class="pre">extradim_name)</span></code>,
+<code class="docutils literal notranslate"><span class="pre">get_extracoordinates(lat)</span></code>, <code class="docutils literal notranslate"><span class="pre">get_ldim(lat)</span></code> and <code class="docutils literal notranslate"><span class="pre">get_sdim(lat)</span></code>.
 Reciprocal lattice vectors can be obtained as columns of <code class="docutils literal notranslate"><span class="pre">getB(lat)</span></code>.</p>
 <p>Several predefined lattices can be found in <code class="docutils literal notranslate"><span class="pre">LatticeQM.Geometries2D</span></code>, e.g.,</p>
 <div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="n">lat1</span> <span class="o">=</span> <span class="n">Geometries2D</span><span class="o">.</span><span class="n">honeycomb</span><span class="p">()</span>
@@ -292,7 +293,7 @@ spin <span class="math notranslate nohighlight">\(s\)</span> at orbital <span cl
 <h3>Via Lattice object and distance function<a class="headerlink" href="#via-lattice-object-and-distance-function" title="Permalink to this headline">¶</a></h3>
 <p>The most convenient way to define a tight-binding Hamiltonian is via the
 <code class="docutils literal notranslate"><span class="pre">Lattice</span></code> object and a distance function <span class="math notranslate nohighlight">\(f(\vec{r}_1,\vec{r}_2)\)</span> that
-returns the hopping amplitude between atoms/orbitals at positions
+returns the hopping amplitude between spacecoordinates/orbitals at positions
 <span class="math notranslate nohighlight">\(\vec{r}_1\)</span> and <span class="math notranslate nohighlight">\(\vec{r}_2\)</span>.</p>
 <p>In the following example, we set nearest-neighbor hopping amplitudes to 1, while
 all others are zero:</p>
@@ -302,7 +303,7 @@ all others are zero:</p>
 4</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="n">f</span><span class="p">(</span><span class="n">r1</span><span class="p">,</span><span class="n">r2</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">r1</span><span class="o">.-</span><span class="n">r2</span><span class="p">,</span><span class="n">r1</span><span class="o">.-</span><span class="n">r2</span><span class="p">)</span><span class="o">&lt;</span><span class="mf">1.1</span><span class="p">)</span> <span class="o">?</span> <span class="mf">1.0</span> <span class="o">:</span> <span class="mf">0.0</span> <span class="c"># hopping function</span>
 
 <span class="n">lat</span> <span class="o">=</span> <span class="n">Lattice</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="c"># single atom square lattice</span>
-<span class="n">hops</span> <span class="o">=</span> <span class="n">get_hops</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span> <span class="c"># get hopping matrix</span>
+<span class="n">hops</span> <span class="o">=</span> <span class="n">gethops</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span> <span class="c"># get hopping matrix</span>
 </pre></div>
 </td></tr></table></div>
 <p>or</p>
@@ -351,17 +352,17 @@ all others are zero:</p>
 <div class="section" id="predefined-tight-binding-terms">
 <h3>Predefined tight-binding terms<a class="headerlink" href="#predefined-tight-binding-terms" title="Permalink to this headline">¶</a></h3>
 <p>There are several predefined tight-binding terms, such as:</p>
-<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="n">hops</span> <span class="o">=</span> <span class="n">Materials</span><span class="o">.</span><span class="n">graphene</span><span class="p">(</span><span class="n">lat</span><span class="p">;</span> <span class="n">mode</span><span class="o">=:</span><span class="n">spinhalf</span><span class="p">)</span>
+<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="n">hops</span> <span class="o">=</span> <span class="n">Operatorsgraphene</span><span class="p">(</span><span class="n">lat</span><span class="p">;</span> <span class="n">mode</span><span class="o">=:</span><span class="n">spinhalf</span><span class="p">)</span>
 
 <span class="n">TightBinding</span><span class="o">.</span><span class="n">add_chemicalpotential!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)</span>
 <span class="n">TightBinding</span><span class="o">.</span><span class="n">set_filling!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">;</span> <span class="n">nk</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 
-<span class="n">Materials</span><span class="o">.</span><span class="n">addsublatticeimbalance!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)</span>
-<span class="n">Materials</span><span class="o">.</span><span class="n">addhaldane!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">;</span> <span class="n">spinhalf</span><span class="o">=</span><span class="kc">true</span><span class="p">)</span>
-<span class="n">Materials</span><span class="o">.</span><span class="n">add_spinorbit!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">)</span>
-<span class="n">Materials</span><span class="o">.</span><span class="n">addrashba!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">)</span>
-<span class="n">Materials</span><span class="o">.</span><span class="n">add_transversepotential!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)</span>
-<span class="n">Materials</span><span class="o">.</span><span class="n">add_zeeman!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">0.1</span><span class="p">])</span>
+<span class="n">Operatorsaddsublatticeimbalance!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)</span>
+<span class="n">Operatorsaddhaldane!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">;</span> <span class="n">spinhalf</span><span class="o">=</span><span class="kc">true</span><span class="p">)</span>
+<span class="n">Operatorsadd_spinorbit!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">)</span>
+<span class="n">Operatorsaddrashba!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">)</span>
+<span class="n">Operatorsadd_transversepotential!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)</span>
+<span class="n">Operatorsadd_zeeman!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">0.1</span><span class="p">])</span>
 </pre></div>
 </div>
 </div>
@@ -371,17 +372,17 @@ all others are zero:</p>
 <div class="section" id="bandstructure">
 <h3>Bandstructure<a class="headerlink" href="#bandstructure" title="Permalink to this headline">¶</a></h3>
 <div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="n">lat</span> <span class="o">=</span> <span class="n">Geometries2D</span><span class="o">.</span><span class="n">honeycomb</span><span class="p">()</span>
-<span class="n">hops</span> <span class="o">=</span> <span class="n">Materials</span><span class="o">.</span><span class="n">graphene</span><span class="p">(</span><span class="n">lat</span><span class="p">;</span> <span class="n">mode</span><span class="o">=:</span><span class="n">spinhalf</span><span class="p">)</span>
-<span class="n">h</span> <span class="o">=</span> <span class="n">get_bloch</span><span class="p">(</span><span class="n">hops</span><span class="p">)</span>
+<span class="n">hops</span> <span class="o">=</span> <span class="n">Operatorsgraphene</span><span class="p">(</span><span class="n">lat</span><span class="p">;</span> <span class="n">mode</span><span class="o">=:</span><span class="n">spinhalf</span><span class="p">)</span>
+<span class="n">h</span> <span class="o">=</span> <span class="n">getbloch</span><span class="p">(</span><span class="n">hops</span><span class="p">)</span>
 
 <span class="c"># Build up a valley-observable</span>
-<span class="n">valleyhops</span> <span class="o">=</span> <span class="n">Materials</span><span class="o">.</span><span class="n">get_haldane_hops</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="o">√</span><span class="mi">3</span><span class="o">/</span><span class="mi">9</span><span class="p">;</span> <span class="n">spinhalf</span><span class="o">=</span><span class="kc">true</span><span class="p">,</span> <span class="n">mode</span><span class="o">=:</span><span class="n">sublatticeA</span><span class="p">)</span>
-<span class="n">Materials</span><span class="o">.</span><span class="n">addhaldane!</span><span class="p">(</span><span class="n">valleyhops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="o">-√</span><span class="mi">3</span><span class="o">/</span><span class="mi">9</span><span class="p">;</span> <span class="n">spinhalf</span><span class="o">=</span><span class="kc">true</span><span class="p">,</span> <span class="n">mode</span><span class="o">=:</span><span class="n">sublatticeB</span><span class="p">)</span>
-<span class="n">valley_proj</span> <span class="o">=</span> <span class="n">expvalf</span><span class="p">(</span><span class="n">get_bloch</span><span class="p">(</span><span class="n">valleyhops</span><span class="p">))</span>
+<span class="n">valleyhops</span> <span class="o">=</span> <span class="n">Operatorsget_haldane_hops</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="o">√</span><span class="mi">3</span><span class="o">/</span><span class="mi">9</span><span class="p">;</span> <span class="n">spinhalf</span><span class="o">=</span><span class="kc">true</span><span class="p">,</span> <span class="n">mode</span><span class="o">=:</span><span class="n">sublatticeA</span><span class="p">)</span>
+<span class="n">Operatorsaddhaldane!</span><span class="p">(</span><span class="n">valleyhops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="o">-√</span><span class="mi">3</span><span class="o">/</span><span class="mi">9</span><span class="p">;</span> <span class="n">spinhalf</span><span class="o">=</span><span class="kc">true</span><span class="p">,</span> <span class="n">mode</span><span class="o">=:</span><span class="n">sublatticeB</span><span class="p">)</span>
+<span class="n">valley_proj</span> <span class="o">=</span> <span class="n">TightBinding</span><span class="o">.</span><span class="n">expvalf</span><span class="p">(</span><span class="n">getbloch</span><span class="p">(</span><span class="n">valleyhops</span><span class="p">))</span>
 
 <span class="c"># ks = Structure.kpath(lat; num_points=200)</span>
 <span class="n">ks</span> <span class="o">=</span> <span class="n">kpath</span><span class="p">(</span><span class="n">Geometries2D</span><span class="o">.</span><span class="n">k_hexagonal</span><span class="p">;</span> <span class="n">num_points</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
-<span class="n">bands</span> <span class="o">=</span> <span class="n">get_bands</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">ks</span><span class="p">;</span> <span class="n">projector</span><span class="o">=</span><span class="n">valley_proj</span><span class="p">)</span> <span class="c">#getprojector(lat, &quot;spin&quot;)</span>
+<span class="n">bands</span> <span class="o">=</span> <span class="n">getbands</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">ks</span><span class="p">;</span> <span class="n">projector</span><span class="o">=</span><span class="n">valley_proj</span><span class="p">)</span> <span class="c">#getprojector(lat, &quot;spin&quot;)</span>
 
 <span class="c"># Show bands</span>
 <span class="n">save</span><span class="p">(</span><span class="n">bands</span><span class="p">,</span> <span class="s">&quot;graphene_bands.h5&quot;</span><span class="p">)</span>
@@ -395,7 +396,7 @@ all others are zero:</p>
 <span class="n">N</span> <span class="o">=</span> <span class="mi">500</span>
 <span class="n">Λ</span> <span class="o">=</span> <span class="mf">3.1</span>
 
-<span class="n">ks</span> <span class="o">=</span> <span class="n">Structure</span><span class="o">.</span><span class="n">regulargrid</span><span class="p">(</span><span class="n">nk</span><span class="o">=</span><span class="n">nk</span><span class="p">)</span>
+<span class="n">ks</span> <span class="o">=</span> <span class="n">Utils</span><span class="o">.</span><span class="n">regulargrid</span><span class="p">(</span><span class="n">nk</span><span class="o">=</span><span class="n">nk</span><span class="p">)</span>
 <span class="n">energies</span> <span class="o">=</span> <span class="n">collect</span><span class="p">(</span><span class="n">range</span><span class="p">(</span><span class="o">-</span><span class="n">Λ</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="n">stop</span><span class="o">=</span><span class="n">Λ</span><span class="p">))</span>
 <span class="n">Γ</span> <span class="o">=</span> <span class="mf">0.01</span>
 <span class="n">DOS</span> <span class="o">=</span> <span class="n">BlochTools</span><span class="o">.</span><span class="n">dos_dense</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">ks</span><span class="p">,</span> <span class="n">energies</span><span class="p">;</span> <span class="n">Γ</span><span class="o">=</span><span class="n">Γ</span><span class="p">)</span>

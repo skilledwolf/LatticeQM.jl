@@ -37,8 +37,11 @@ end
 
 
 """
-    A naive implementation to find a list of n-th-nearest neighboring unit cells.
-    If halfspace=true, the list only contain [I,J] without its partner [-I,-J].
+    getneighborcells(lat, k=1; halfspace=true, innerpoints=false, excludeorigin=true)
+
+A naive implementation to find a list of `k`-th-nearest neighboring unit cells.
+If `halfspace=true`, the list only contain `[I,J]` without its partner `[-I,-J]`.
+If `innerpoints=true`, returns all neighboring cells up to and including the `k`-th ones.
 """
 function getneighborcells(lat, k::Int=1; halfspace=true, innerpoints=false, excludeorigin=true)
 

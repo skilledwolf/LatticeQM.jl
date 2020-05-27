@@ -3,19 +3,56 @@ using ..Paths
 """
     Lattice
 
-Type that contains all information about a lattice, such as lattice vectors
-in ``Lattice.a``, fractional coordinates in ``Lattice.coordinates`` and
-extra dimensions in ``Lattice.extralabels``.
+Type that contains all information about a lattice.
 
-# Fields
-- `a::Matrix{Float64}` :
-  :math:`d \times d` matrix of lattice vectors a[:,i]
-- `coordinates::Matrix{Float64}` :
-  :math:`D \times d` matrix of fractional coordinates x[1:d,i]
-  The coordinates x[d+1:D, i] are additional coordinates
-- `extralabels::Dict{String,Int}` :
-  Keys are the names of the additional coordinates, e.g. "sublattice" or "z".
-  The values are indices for the corresponding row in ``Lattice.coordinates``.
+### Fields
+* `basis::Matrix`: columns are basis vectors
+* `latticedim::Int`: how many of the basis vectors are lattice vectors
+* `spacecoordinates::Matrix`: columns are coordinates of orbitals in the unit cell (w.r.t. basis vectors)
+* `extracoordinates::Matrix`: additional non-spatial coordinates (e.g., could be sublattice index)
+* `extralabels::Dict`: labels for the non-spatial coordinates
+* `specialpoints::LabeledPoints`: High-symmetry points of the lattice (see `?Structure.Paths.LabeledPoints`)
+
+### Constructors
+    Lattice(basis::Matrix)
+    Lattice(basis::Matrix [, latticedim::Int], spacecoordinates::Matrix [, extracoordinates::Matrix]; extralabels=Vector{String}(), specialpoints=LabeledPoints())
+
+### Property functions
+    latticedim(lat::Lattice)
+    countorbitals(lat:Lattice)
+    spacedim(lat::Lattice)
+    extraspacedim(lat::Lattice)
+
+    hasdimension(lat::Lattice, name::String)
+    assertdimension(lat::Lattice, name::String)
+
+    basis(lat::Lattice, ...)
+    getA(lat::Lattice, ...)
+    getB(lat::Lattice, ...)
+
+    coordinates(lat::Lattice, ...)
+    positions(lat::Lattice, ...)
+    allpositions(lat::Lattice, ...)
+    extracoordinates(lat::Lattice, ...)
+
+    filterindices(lat::Lattice, name::String, condition::Function)
+
+### Method functions
+    setextracoordinates!
+    fractionalize!
+    foldfractional
+    foldcoordinates!
+    rotatebasis!
+    rotatecoordinates!
+    translate!
+    displace!
+    displaceZ!
+    mirrorZ!
+    mirrorZ
+    newdimension!
+    mergelattices!
+    mergelattices
+
 """
 mutable struct Lattice
     basis::Matrix{Float64} # D × D

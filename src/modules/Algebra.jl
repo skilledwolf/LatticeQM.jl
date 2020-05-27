@@ -1,6 +1,8 @@
 """
-This is intended to be a collection of matrix methods (and wrappers).
-It is meant to fully independent of the other modules of this package.
+    Algebra
+
+This module intended to be a collection of matrix methods (and consistent wrappers).
+It is meant to be fully independent of the other modules of this package.
 """
 module Algebra
 

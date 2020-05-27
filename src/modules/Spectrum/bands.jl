@@ -20,6 +20,32 @@ function handleprojector(projector::AbstractVector)
     return [handle(p) for p in projector]
 end
 
+"""
+    bandmatrix(H, ks::Matrix{Float} [, As]; kwargs...)
+
+Calculates the energies for operator `H(k)` for each column vector `k` of matrix `ks`.
+If operators `As=[A1, A2, ...]` are given, their expectaction values are
+calculated and stored for each eigenvector.
+
+Accepts the same keywords as `Algebra.geteigvals`, `Algebra.geteigvecs`, `Algebra.geteigen`.
+In particular: `format` (`:sparse` or `:dense`) and `num_bands::Int`.
+
+Returns a matrix where each column contains the energies for each column `k` in `ks`.
+If `As` were given, a second matrix of the same format is returned containing expectation values.
+
+### Example
+```julia
+using LatticeQM
+
+lat = Geometries2D.honeycomb()
+h = Operators.graphene(lat)
+ks = kpath(lat; num_points=200)
+valley = Operators.valleyoperator()
+
+bands, obs = bandmatrix(h, ks.points, valley)
+
+```
+"""
 function bandmatrix(H, ks; num_bands::Int=0, kwargs...)
     ks = points(ks)
     if !(num_bands>0)
@@ -30,7 +56,8 @@ function bandmatrix(H, ks; num_bands::Int=0, kwargs...)
 
     energiesf = energies(H; num_bands=num_bands, kwargs...)
 
-    @sync @showprogress 1 "Computing bands... "  @distributed for j_=1:N
+    #@sync @showprogress 1 "Computing bands... "  @distributed
+    @showprogress 1 "Computing bands... " for j_=1:N
 #     @showprogress 1 "Computing bands..."  for j_=1:N
         bands[:,j_] .= real.(energiesf(ks[:,j_]))
     end
@@ -65,6 +92,35 @@ function bandmatrix(H, ks, projector; num_bands::Int=0, kwargs...)
     Array(bands), Array(obs)
 end
 
+"""
+    getbands(H, ks::DiscretePath [, As]; kwargs...)
+
+Calculates the bands for operator `H` along discrete path `ks` and
+if operators `As=[A1, A2, ...]` are given, their expectaction values are
+calculated and stored for each eigenvector.
+
+Note that ks is a discrete path object as returned by `kpath(lat::Lattice,...)`.
+
+Accepts the same keywords as `Algebra.geteigvals`, `Algebra.geteigvecs`, `Algebra.geteigen`.
+In particular: `format` (`:sparse` or `:dense`) and `num_bands::Int`.
+
+Returns a `BandData` object (with fields `bands`, `obs`, `path`).
+
+### Example
+```julia
+using LatticeQM
+
+lat = Geometries2D.honeycomb()
+h = Operators.graphene(lat)
+ks = kpath(lat; num_points=200)
+valley = Operators.valleyoperator()
+
+bands = getbands(h, ks, valley)
+
+using Plots
+plot(bands)
+```
+"""
 function getbands(H, ks::DiscretePath; kwargs...)
     bands = bandmatrix(H, points(ks); kwargs...)
     obs = nothing

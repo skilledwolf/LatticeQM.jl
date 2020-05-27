@@ -1,4 +1,29 @@
 __precompile__(true)
+
+"""
+    LatticeQM 
+
+Library for tight-binding models defined on (periodic) lattices, providing 
+convenient functions to build the operators and to obtain bands, expectation values,
+topological indices, linear response coefficients and mean-field solutions.
+
+## Submodules
+- Algebra
+- Structure
+- TightBinding 
+- Spectrum
+- Green
+- Operators
+- LinearResponse
+- Meanfield
+- Geometries2D
+
+Any of these modules can be further explored, e.g., with `?TightBinding`
+
+## Usage examples
+See folder `examples` of the package.
+
+"""
 module LatticeQM
 
     using Base, ElasticArrays, SparseArrays, LinearAlgebra

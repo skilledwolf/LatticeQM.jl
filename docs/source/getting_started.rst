@@ -25,6 +25,17 @@ Installation
       using Pkg
       Pkg.add("https://gitlab.ethz.ch/wolft/LatticeQM.jl.git")
 
+   **Option 3:** If you want to develop the package, you could do 
+
+   .. code-block:: bash
+
+      $ cd /where/I/want/my/files/
+      $ git clone https://gitlab.ethz.ch/wolft/LatticeQM.jl.git LatticeQM
+      $ julia
+      julia> ]
+      pkg> develop /where/I/want/my/files/LatticeQM
+
+
 Usage
 -----
 
@@ -36,10 +47,26 @@ Note that the first import may take quite long (due to compilation). If you get
 error messages about third-party packages try to install them manually through
 the Pkg package manager. If it ran successfully, then you are good to go.
 
+Some functions, modules and types are documented with docstrings, in which case you can
+run
+
+.. code-block:: bash
+
+   julia> ?getbands
+
+which will display a description of the function and its arguments together with a short
+usage example.
+
 First-time users  may want to check out the tutorials and examples.
 
 Example code
 ------------
 
-.. literalinclude:: example_code.jl
+.. literalinclude:: codes/example.jl
    :language: julia
+
+The output is
+
+.. image:: codes/example.png
+  :width: 400
+  :alt: Band structure for graphene

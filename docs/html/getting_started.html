@@ -21,11 +21,12 @@
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-        <script type="text/javascript" src="_static/jquery.js"></script>
-        <script type="text/javascript" src="_static/underscore.js"></script>
-        <script type="text/javascript" src="_static/doctools.js"></script>
-        <script type="text/javascript" src="_static/language_data.js"></script>
-        <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
         <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "document", "processClass": "math|output_area"}})</script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
@@ -96,7 +97,7 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial</a></li>
 <li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
-<li class="toctree-l1"><a class="reference internal" href="packages.html">Packages</a></li>
+<li class="toctree-l1"><a class="reference internal" href="package.html">Package</a></li>
 </ul>
 
             
@@ -166,13 +167,13 @@
 /* CSS overrides for sphinx_rtd_theme */
 
 /* 24px margin */
-.nbinput.nblast,
-.nboutput.nblast {
+.nbinput.nblast.container,
+.nboutput.nblast.container {
     margin-bottom: 19px;  /* padding has already 5px */
 }
 
 /* ... except between code cells! */
-.nblast + .nbinput {
+.nblast.container + .nbinput.container {
     margin-top: -19px;
 }
 
@@ -207,6 +208,14 @@ and run:</p>
 <span class="n">Pkg</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s">&quot;https://gitlab.ethz.ch/wolft/LatticeQM.jl.git&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
+<p><strong>Option 3:</strong> If you want to develop the package, you could do</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> /where/I/want/my/files/
+$ git clone https://gitlab.ethz.ch/wolft/LatticeQM.jl.git LatticeQM
+$ julia
+julia&gt; <span class="o">]</span>
+pkg&gt; develop /where/I/want/my/files/LatticeQM
+</pre></div>
+</div>
 </li>
 </ul>
 </div></blockquote>
@@ -219,37 +228,47 @@ and run:</p>
 <p>Note that the first import may take quite long (due to compilation). If you get
 error messages about third-party packages try to install them manually through
 the Pkg package manager. If it ran successfully, then you are good to go.</p>
+<p>Some functions, modules and types are documented with docstrings, in which case you can
+run</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>julia&gt; ?getbands
+</pre></div>
+</div>
+<p>which will display a description of the function and its arguments together with a short
+usage example.</p>
 <p>First-time users  may want to check out the tutorials and examples.</p>
 </div>
 <div class="section" id="example-code">
 <h2>Example code<a class="headerlink" href="#example-code" title="Permalink to this headline">¶</a></h2>
-<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="c"># Imports</span>
-<span class="k">using</span> <span class="n">LinearAlgebra</span><span class="p">,</span> <span class="n">Plots</span>
-<span class="n">pyplot</span><span class="p">()</span> <span class="c"># use the matplotlib backend for plots</span>
+<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="n">Plots</span>
 <span class="k">using</span> <span class="n">LatticeQM</span>
 
-<span class="c"># Set up lattice</span>
+<span class="c"># Load a lattice geometry</span>
 <span class="n">lat</span> <span class="o">=</span> <span class="n">Geometries2D</span><span class="o">.</span><span class="n">honeycomb</span><span class="p">()</span>
 
-<span class="c"># Get nearest-neighbor hops in the honeycomb lattice</span>
-<span class="n">hops</span> <span class="o">=</span> <span class="n">Materials</span><span class="o">.</span><span class="n">graphene</span><span class="p">(</span><span class="n">lat</span><span class="p">;</span> <span class="n">mode</span><span class="o">=:</span><span class="n">nospin</span><span class="p">)</span> <span class="c"># or mode=:spinhalf for spin-1/2</span>
+<span class="c"># Construct graphene tight-binding Hamiltonian</span>
+<span class="n">hops</span> <span class="o">=</span> <span class="n">Operators</span><span class="o">.</span><span class="n">graphene</span><span class="p">(</span><span class="n">lat</span><span class="p">;</span> <span class="n">mode</span><span class="o">=:</span><span class="n">spinhalf</span><span class="p">)</span>
 
-<span class="c"># Compile Bloch Hamiltonian</span>
-<span class="n">h</span> <span class="o">=</span> <span class="n">get_bloch</span><span class="p">(</span><span class="n">hops</span><span class="p">)</span>
+<span class="c"># Modify graphene Hamiltonian</span>
+<span class="c">#Operators.addhaldane!(hops, lat, 0.1; spinhalf=true)</span>
+<span class="n">Operators</span><span class="o">.</span><span class="n">addzeeman!</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">)</span>
 
-<span class="c"># Path in k-space</span>
-<span class="n">ks</span> <span class="o">=</span> <span class="n">Structure</span><span class="o">.</span><span class="n">kpath</span><span class="p">(</span><span class="n">lat</span><span class="p">;</span> <span class="n">num_points</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+<span class="c"># Construct valley operator</span>
+<span class="n">valley</span> <span class="o">=</span> <span class="n">Operators</span><span class="o">.</span><span class="n">valleyoperator</span><span class="p">(</span><span class="n">lat</span><span class="p">;</span> <span class="n">spinhalf</span><span class="o">=</span><span class="kc">true</span><span class="p">)</span>
 
-<span class="c"># Get bandstructure</span>
-<span class="n">bands</span> <span class="o">=</span> <span class="n">get_bands</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">ks</span><span class="p">)</span>
+<span class="c"># Get bands along (default) high-symmetry path</span>
+<span class="c"># and compute the expectation value of the valley operator for each eigenstate.</span>
+<span class="n">ks</span> <span class="o">=</span> <span class="n">kpath</span><span class="p">(</span><span class="n">lat</span><span class="p">;</span> <span class="n">num_points</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+<span class="n">bands</span> <span class="o">=</span> <span class="n">getbands</span><span class="p">(</span><span class="n">hops</span><span class="p">,</span> <span class="n">ks</span><span class="p">,</span> <span class="n">valley</span><span class="p">)</span>
 
-<span class="n">save</span><span class="p">(</span><span class="n">bands</span><span class="p">,</span> <span class="s">&quot;bands_example.h5&quot;</span><span class="p">)</span> <span class="c"># save raw data</span>
-<span class="n">p</span> <span class="o">=</span> <span class="n">plot</span><span class="p">(</span><span class="n">bands</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">330</span><span class="p">,</span><span class="mi">240</span><span class="p">))</span> <span class="c"># plot data</span>
-<span class="c"># display(p) # might need to be uncommented in non-interactive mode</span>
+<span class="c"># Show bands</span>
+<span class="c"># save(bands, &quot;bands.h5&quot;)</span>
+<span class="n">plot</span><span class="p">(</span><span class="n">bands</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s">&quot;</span><span class="se">\$\\</span><span class="s">varepsilon/t</span><span class="se">\$</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">colorbar_title</span><span class="o">=</span><span class="s">&quot;valley&quot;</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">330</span><span class="p">,</span><span class="mi">200</span><span class="p">),</span> <span class="n">colorbar</span><span class="o">=</span><span class="kc">true</span><span class="p">,</span> <span class="n">markercolor</span><span class="o">=:</span><span class="n">PiYG</span><span class="p">)</span>
 
-<span class="n">savefig</span><span class="p">(</span><span class="s">&quot;bands_example.pdf&quot;</span><span class="p">)</span> <span class="c"># save the figure</span>
+<span class="n">savefig</span><span class="p">(</span><span class="s">&quot;example.png&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
+<p>The output is</p>
+<a class="reference internal image-reference" href="_images/example.png"><img alt="Band structure for graphene" src="_images/example.png" style="width: 400px;" /></a>
 </div>
 </div>
 
