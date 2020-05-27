@@ -83,3 +83,27 @@ function superlattice(hops::AnyHops, M::Matrix{Int}, phasefunc::Function) where 
 
     shops
 end
+
+"""
+    reducelatdim(hops, index::Int)
+
+Drop a lattice dimension. For example, a two-dimensional lattice with lattice vectors a1, a2
+can be turned into a 1D ribbon with lattice vector a1 by dropping all hoppings along a2 (index=2)
+or inteo a 1D with lattice vector a2 by dropping all hoppings along a1 (index=1).
+
+Tip: Together with superlattice(hops, periods) one can control the width of the finite ribbon 
+before applying reducelatdim.
+"""
+function droplatdim(hops::AnyHops, index::Int)
+    newhops = Hops()
+
+    N = length(zerokey(hops))
+
+    for (δR, H) = hops
+        if δR[index] == 0 # keep the hopping element only if it does not leave the cell along direction "index"
+            newhops[δR[1:N.!=index]] = H
+        end
+    end
+
+    newhops
+end

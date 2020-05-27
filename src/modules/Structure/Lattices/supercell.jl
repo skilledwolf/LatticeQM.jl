@@ -20,10 +20,12 @@ function superlattice(lat::Lattice, superperiods::Matrix{Int}; kwargs...)
     return Lattice(Λ, d, spacecoordinates_super, extracoordinates_super, lat.extralabels, lat.specialpoints)
 end
 
+repeat!(lat::Lattice, n::Int) = repeat!(lat, 0:n)
+repeat!(lat::Lattice, ns::Vector{Int}) = repeat!(lat, [0:n for n=ns])
 function repeat!(lat::Lattice, repeat::UnitRange=0:0)
     d = latticedim(lat)
     if d > 0
-        repeat!(lat, Iterators.repeated(repeat,d))
+        repeat!(lat, collect(Iterators.repeated(repeat,d)))
     end
 end
 

@@ -5,6 +5,12 @@ struct DiscretePath
     points::Matrix{Float64}
 end
 
+using LaTeXStrings: latexstring
+
+function Base.show(io::IO, ks::DiscretePath)
+    println(io, "Discrete Path: ", join(latexstring.(ks.ticklabels), "→"), "  (",size(ks.points,2)," points)")
+end
+
 using HDF5
 using ...DummySave
 function DummySave.save!(file, ks::DiscretePath) # file should be hdf5 output stream

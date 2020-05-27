@@ -1,3 +1,12 @@
+
+"""
+    Lattices
+
+Provides the type `Lattice` and methods that act on this struct, see `?Structure.Lattices.Lattice`.
+
+
+
+"""
 module Lattices
 
     using LinearAlgebra

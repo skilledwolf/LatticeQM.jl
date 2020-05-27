@@ -8,7 +8,22 @@ using ..Structure: getneighborcells
 
 addhops!(hops::AnyHops, lat::Lattice, t::Function; kwargs...) = addhops!(hops, gethops(lat, t; kwargs...))
 
-function gethops(lat::Lattice, t::Function; cellrange=1, format=:auto, precision::Float64=1e-6, kwargs...)# where {T<:AbstractMatrix{Float64}}
+"""
+    gethops(lat::Lattice, t::Function; cellrange=1, format=:auto, vectorized=false)
+
+Iterates over pairs of orbitals/atom positions (r1,r2) in lattice `lat` and evaluates
+the hopping elements t(r1+R,r2) for each lattice vector R.
+
+By default, `vectorized=false`. For huge systems use `vectorized=true` and make 
+sure the hopping function t accepts matrices as arguments.
+The keyword argument `format` can be `:dense` or `:sparse`. For `:auto`, small systems 
+will be dense and huge problems are assumed to be sparse.
+
+Returns the hopping elements in the format
+`Dict(R => t_R)`
+
+"""
+function gethops(lat::Lattice, t::Function; cellrange=1, format=:auto, precision::Float64=sqrt(eps()), kwargs...)# where {T<:AbstractMatrix{Float64}}
 
     # Get lattice neighbors
 #     neighbors = [[i;j] for i=-1:1 for j=-1:1 if i+j>=0 && i>=0]

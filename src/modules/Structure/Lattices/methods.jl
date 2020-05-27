@@ -36,7 +36,7 @@ end
 """
     displace!(lat, f::Function)
 
-    Function f takes orbital i at position p_i and displaces it by vector v_i = f(p_i).
+Function f takes orbital i at position p_i and displaces it by vector v_i = f(p_i).
 """
 function displace!(lat, f::Function)
 
@@ -53,7 +53,7 @@ end
 """
     displaceZ!(lat, f::Function)
 
-    Function f takes orbital i at position p_i and displaces it in the third coodinate by z_i = f(p_i).
+Function f takes orbital i at position p_i and displaces it in the third coodinate by z_i = f(p_i).
 """
 function displaceZ!(lat, f::Function)
 

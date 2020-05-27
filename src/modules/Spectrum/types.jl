@@ -12,10 +12,33 @@ using ..DummySave
 ################################################################################
 ################################################################################
 
+"""
+    BandData
+
+Struct to store BandData obtained from method `getbands(...)`.
+The fields `BandData.bands` is a matrix of eigenvalues at each point along a path,
+the field `BandData.obs` is a matrix of expectation values and `BandData.path` is
+a DiscretePath object (contains discrete points and point labels).
+
+Can be saved conveniently with `savedlm(bands; path="data")` and plotted with `plot(bands)`.``
+
+"""
 mutable struct BandData
     bands::Matrix{Float64}
     obs::Union{Nothing, Array{Float64,3}}
     path::DiscretePath
+end
+
+function Base.show(io::IO, bands::BandData)
+    println(io, "Number of bands:      ", size(bands.bands,1))
+    println(io, "Number of k-points:   ", size(bands.bands,2))
+    
+    if isa(bands.obs,Nothing)
+        println(io, "No observables.")
+    else
+        println(io, "Number of obersables: ", size(bands.obs,3))
+    end
+    show(io, bands.path)
 end
 
 function DummySave.savedlm(bands::BandData; path="data", suffix="")

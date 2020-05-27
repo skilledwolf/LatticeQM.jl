@@ -13,7 +13,7 @@ Welcome to the documentation of LatticeQM.jl
    getting_started
    tutorial
    examples
-   packages
+   package
 
 
 

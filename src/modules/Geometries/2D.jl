@@ -1,5 +1,15 @@
 # __precompile__()
+"""
+    Geometries2D
 
+Provides predefined lattice objects (such as two-dimensional honeycomb lattice).
+
+### Example
+```julia
+lat = Geometries2D.honeycomb_twisted(11)
+plot(lat, 3; supercell=[0:1,0:1])
+```
+"""
 module Geometries2D
 
     using Base, LinearAlgebra

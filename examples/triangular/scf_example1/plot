@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 
 import matplotlib.pyplot as plt
@@ -43,6 +44,9 @@ def set_axes_equal(ax):
 fig = plt.figure()#constrained_layout=True)
 ax = fig.gca(projection='3d')
 # ax.set_aspect('equal')
+
+# Change working directory to file path
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # Make the grid
 R = np.loadtxt("positions.out").T

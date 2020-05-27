@@ -34,9 +34,9 @@ z-coordinates via
   extra_dimensions = ["z"] # allows to specify additional coordinates
 
   A = [[1, 0, 0] [0, 1, 0]] # each column is a lattice vector
-  orbitalcoordinates = [[0, 0, 0] [0.5, 0.5, 1.0]] # each column is an atom within the unit cell (in fractional coordinates)
+  spacecoordinates = [[0, 0, 0] [0.5, 0.5, 1.0]] # each column is an atom within the unit cell (in fractional coordinates)
 
-  lat = Lattice(A, orbitalcoordinates, extra_dimensions)
+  lat = Lattice(A, spacecoordinates, extra_dimensions)
 
 The case without extra coordinates is
 
@@ -44,9 +44,9 @@ The case without extra coordinates is
   :linenos:
 
   A = [[1, 0] [0, 1]] # each column is a lattice vector
-  orbitalcoordinates = [[0, 0] [0.5, 0.5]] # each column is an atom within the unit cell (in fractional coordinates)
+  spacecoordinates = [[0, 0] [0.5, 0.5]] # each column is an atom within the unit cell (in fractional coordinates)
 
-  lat = Lattice(A, orbitalcoordinates)
+  lat = Lattice(A, spacecoordinates)
 
 The case with a single atom per unit cell is
 
@@ -64,12 +64,12 @@ or even shorter
   lat = Lattice(2)
 
 Modifying the ``Lattice`` object after creation is discouraged.
-Use the methods ``update_orbitalcoordinates!(lat, orbitalcoordinates)`` and ``update_A!(lat,A)`` if you
+Use the methods ``update_spacecoordinates!(lat, spacecoordinates)`` and ``update_A!(lat,A)`` if you
 really have to.
 
 To access lattice properties use ``getA(lat)``, ``coordinates(lat)``,
-``get_positions(lat)``, ``extrapositions(lat, extradim_name)``,
-``get_extrapositions(lat)``, ``get_ldim(lat)`` and ``get_sdim(lat)``.
+``get_positions(lat)``, ``extracoordinates(lat, extradim_name)``,
+``get_extracoordinates(lat)``, ``get_ldim(lat)`` and ``get_sdim(lat)``.
 Reciprocal lattice vectors can be obtained as columns of ``getB(lat)``.
 
 Several predefined lattices can be found in ``LatticeQM.Geometries2D``, e.g.,
@@ -113,7 +113,7 @@ Via Lattice object and distance function
 
 The most convenient way to define a tight-binding Hamiltonian is via the
 ``Lattice`` object and a distance function :math:`f(\vec{r}_1,\vec{r}_2)` that
-returns the hopping amplitude between orbitalcoordinates/orbitals at positions
+returns the hopping amplitude between spacecoordinates/orbitals at positions
 :math:`\vec{r}_1` and :math:`\vec{r}_2`.
 
 In the following example, we set nearest-neighbor hopping amplitudes to 1, while

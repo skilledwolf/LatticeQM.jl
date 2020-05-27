@@ -32,6 +32,9 @@ release = 'alpha'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
+    # 'sphinxjulia.juliadomain', # not working for some reason
+    # 'sphinxjulia.juliaautodoc', # not working for some reason
+    # 'sphinx.ext.napoleon', # not working for some reason
     #'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'nbsphinx'

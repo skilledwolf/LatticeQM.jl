@@ -25,7 +25,7 @@ function berry(statesgrid::AbstractArray{<:Complex, 4})
 end
 
 @legacyalias berry BerryF
-function berry(wavefunctions::Function, NX::Int, NY::Int=0, bandindex=1)
+function berry(wavefunctions::Function, NX::Int, NY::Int=0, bandindex=[1])
     # wavefunctions(k::Vector) -> Matrix{Complex}
 
     if NY < 1
@@ -33,7 +33,7 @@ function berry(wavefunctions::Function, NX::Int, NY::Int=0, bandindex=1)
     end
 
     M1 = size(wavefunctions(zeros(2)), 2)
-    M2 = 1
+    M2 = size(bandindex,1)
 
     kgrid = [[x;y] for x=range(0; stop=1, length=NX), y=range(0; stop=1, length=NY)]
 

@@ -65,3 +65,27 @@ function fractionalize!(lat::Lattice, positions::AbstractMatrix{Float64})
 end
 foldfractional(fracpositions::AbstractMatrix{Float64}) = mod.(fracpositions,1) 
 
+
+function Base.show(io::IO, lat::Lattice)
+    println(io, "Lattice dimension:     ", latticedim(lat))
+    println(io, "Space dimension:       ", spacedim(lat))
+    println(io, "Number of atoms:       ", countorbitals(lat))
+    println(io, "Non-spatial dimension: ", extraspacedim(lat))
+    println(io, "Basis:")
+    show(io, basis(lat))
+    println(io, "")
+    println(io, "Orbital/atom coordinates: ")
+    show(io, allpositions(lat))
+end
+
+function Base.show(io::IO, m::MIME"text/plain", lat::Lattice)
+    println(io, "Lattice dimension:     ", latticedim(lat))
+    println(io, "Space dimension:       ", spacedim(lat))
+    println(io, "Number of atoms:       ", countorbitals(lat))
+    println(io, "Non-spatial dimension: ", extraspacedim(lat))
+    println(io, "Basis:")
+    show(io, m, basis(lat))
+    println(io, "")
+    println(io, "Orbital/atom coordinates: ")
+    show(io, m, allpositions(lat))
+end

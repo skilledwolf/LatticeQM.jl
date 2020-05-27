@@ -6,7 +6,7 @@ using LatticeQM.Operators: graphene, valleyoperator
 using LatticeQM.Operators: addinterlayerbias!, setfilling!, gethaldane, addrashba!, addzeeman!, valleyoperator
 
 println("Generating lattice geometry...")
-lat = Geometries2D.honeycomb_twisted(11)
+lat = Geometries2D.honeycomb_twisted(5)
 
 println("Generating valley operator...")
 valley = valleyoperator(lat; spinhalf=false)
