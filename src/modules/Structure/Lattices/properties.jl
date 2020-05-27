@@ -4,7 +4,7 @@
 
 latticedim(lat::Lattice) = lat.latticedim
 countorbitals(lat::Lattice) = size(lat.spacecoordinates, 2)
-extraspacedim(lat::Lattice) = size(lat.extracoordinates, 1)
+extraspacedim(lat::Lattice) = length(lat.extralabels) #size(lat.extracoordinates, 1)
 spacedim(lat::Lattice) = size(getA(lat), 1) # used to be latticedim(lat) + extraspacedim(lat)
 
 hasdimension(lat::Lattice, name::String) = haskey(lat.extralabels, name)
@@ -26,6 +26,8 @@ function getB(lat::Lattice, selector=(:))
 end
 
 coordinates(lat::Lattice, selector=(:)) = lat.spacecoordinates[selector,:]
+allcoordinates(lat::Lattice) = [ coordinates(lat); extracoordinates(lat)]
+
 # positions(lat::Lattice) = getA(lat) * coordinates(lat)
 positions(lat::Lattice, selector=(:)) = (basis(lat) * coordinates(lat))[selector,:]
 
@@ -75,7 +77,7 @@ function Base.show(io::IO, lat::Lattice)
     show(io, basis(lat))
     println(io, "")
     println(io, "Orbital/atom coordinates: ")
-    show(io, allpositions(lat))
+    show(io, allcoordinates(lat))
 end
 
 function Base.show(io::IO, m::MIME"text/plain", lat::Lattice)
@@ -87,5 +89,5 @@ function Base.show(io::IO, m::MIME"text/plain", lat::Lattice)
     show(io, m, basis(lat))
     println(io, "")
     println(io, "Orbital/atom coordinates: ")
-    show(io, m, allpositions(lat))
+    show(io, m, allcoordinates(lat))
 end

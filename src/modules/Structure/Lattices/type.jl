@@ -65,7 +65,7 @@ end
 
 kdict = LabeledPoints(Dict{String,AbstractVector{Float64}}(), Dict{String,String}(), Vector{String}([]))
 
-Lattice(basis::Matrix{Float64}) = Lattice(basis, zeros(Float64, size(basis,1), 1))
+# Lattice(basis::Matrix{Float64}) = Lattice(basis, zeros(Float64, size(basis,1), 1))
 
 function Lattice(basis::Matrix{Float64}, spacecoordinates::Matrix{Float64}; extralabels::Vector{String}=Vector{String}(), specialpoints=kdict)
     # @assert size(spacecoordinates,1) == size(basis,2)
@@ -100,4 +100,68 @@ function Lattice(basis::Matrix{Float64}, latticedim::Int, spacecoordinates::Matr
 
     extralabels_dict = Dict{String,UInt}(key=>index for (index,key) in enumerate(extralabels))
     Lattice(basis, latticedim, spacecoordinates, extracoordinates, extralabels_dict, specialpoints)
+end
+
+
+function Lattice(basis::Matrix; periodic::Int=0, extra::Vector{String}=String[])
+
+    Lattice(float(basis), periodic, zeros(Float64, size(basis,1), 0), zeros(Float64, size(extra,1), 0); extralabels=extra, specialpoints=kdict)
+    
+end
+
+function Lattice()
+    Lattice(zeros(0,0))
+end
+
+function Lattice(d::Int, D::Int; kwargs...)
+    Lattice(Matrix(I, D,D); periodic=D, kwargs...)
+end
+
+function addbasis!(lat::Lattice, vec::Vector, kind::Symbol=:periodic)
+    @assert countorbitals(lat) == 0 "Error: at the moment basis vectors can only be added before atoms/orbitals."
+
+    if spacedim(lat) == 0
+        lat.basis = float(hcat(vec))
+    else
+        @assert spacedim(lat) == size(vec,1) "Basis vector does not have the correct space dimension"
+        lat.basis = hcat(lat.basis, float(vec))
+    end
+
+    if kind == :periodic
+        lat.latticedim = lat.latticedim + 1
+    end
+
+    lat
+end
+
+function addextra!(lat::Lattice, label::String)
+    @assert countorbitals(lat) == 0 "Error: at the moment basis can only be changed before atoms/orbitals are added."
+    @assert !haskey(lat.extralabels, label) "Error: Label already exists."
+
+    lat.extralabels[label] = extraspacedim(lat)+1
+
+    lat
+end
+
+function addorbital!(lat::Lattice, vec::Vector)
+    D = spacedim(lat)+extraspacedim(lat)
+    @assert size(vec,1) == D "Error: Coordinates must have length $D."
+
+    if countorbitals(lat) == 0
+        lat.spacecoordinates = float(hcat(vec[1:spacedim(lat)]))
+        lat.extracoordinates = float(hcat(vec[spacedim(lat)+1:D]))
+    else
+        lat.spacecoordinates = hcat(lat.spacecoordinates, float(vec[1:spacedim(lat)]))
+        lat.extracoordinates = hcat(lat.extracoordinates, float(vec[spacedim(lat)+1:D]))
+    end
+
+    lat
+end
+
+function addorbitals!(lat::Lattice, orbitals::Matrix)
+    for x in eachcol(orbitals)
+        addorbital!(lat, Vector(x))
+    end
+
+    lat
 end
