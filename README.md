@@ -69,6 +69,7 @@ Some more info can be found [here](https://docs.julialang.org/en/v1/stdlib/Pkg/i
 
 ```julia
 using Plots
+using LatticeQM
 
 # Load a lattice geometry
 lat = Geometries2D.honeycomb()
