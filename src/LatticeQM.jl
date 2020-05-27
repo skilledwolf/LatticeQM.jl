@@ -74,6 +74,7 @@ module LatticeQM
 
     include("modules/Meanfield.jl")
     using .Meanfield
+    export Meanfield
     export selfconsistent, hartreefock
     export initialguess
     export gethubbard
