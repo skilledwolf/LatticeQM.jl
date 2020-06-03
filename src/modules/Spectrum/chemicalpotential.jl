@@ -58,10 +58,16 @@ function chemicalpotential_T!(energies::AbstractVector{T1}, nk::Int, filling::T1
         nothing
     end
 
-    sol = nlsolve(δn!, [μ0])
-    @assert converged(sol) "Could not calculate the chemical potential for finite T."
-    μ = sol.zero[1]
-
+    sol = nlsolve(δn!, [μ0])#; ftol=1e-6, iterations=1500)
+    # @assert converged(sol) "Could not calculate the chemical potential for finite T."
+    if !converged(sol)
+        println("WARNING: Calculation of chemical potential for finite T did not converge.")
+        println("         Using chemical potential for T=0 instead (=Fermi energy).")
+        μ = μ0
+    else
+        μ = sol.zero[1]
+    end
+    
     μ
 end
 

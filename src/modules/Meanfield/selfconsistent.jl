@@ -28,17 +28,18 @@ mutable struct Hamiltonian
     μ::Float64
 end
 
+"""
+    Searches a self-consistent meanfield solution for the functional ℋ: ρ → h
+    at given filling (between 0 and 1). k space is discretized with the given points ks.
+    returns (1) the density matrix of the meanfield (2) ground state energy of the meanfield operator (3) the chemical potential (4) convergence flag (bool) (5) error estimate
+
+    parallel=true might help if diagonalization per k point is very time consuming
+    (e.g. for twisted bilayer graphene)
+    note that for small problems `parallel=true` may decrease performance (communication overhead)
+"""
 function solveselfconsistent!(ρ0::AnyHops, ρ1::AnyHops, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, ks::AbstractMatrix{Float64};
     convergenceerror=false, parallel=false, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
-    """
-        Searches a self-consistent meanfield solution for the functional ℋ: ρ → h
-        at given filling (between 0 and 1). k space is discretized with the given points ks.
-        returns (1) the density matrix of the meanfield (2) ground state energy of the meanfield operator (3) the chemical potential (4) convergence flag (bool) (5) error estimate
 
-        parallel=true might help if diagonalization per k point is very time consuming
-        (e.g. for twisted bilayer graphene)
-        note that for small problems `parallel=true` may decrease performance (communication overhead)
-    """
     ρ0 = Hops(δL=>Matrix(complex(m)) for (δL, m)=ρ0) # convert to dense
     ρ1 = Hops(δL=>Matrix(complex(m)) for (δL, m)=ρ1) # convert to dense
     H = Hamiltonian(Hops(), 0.0)
