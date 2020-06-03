@@ -27,6 +27,13 @@ module Geometries2D
     )
 
     kdict_tri = LabeledPoints(
+        ["Γ", "K", "M", "K'", "M2", "M3", "Γ1"],
+        [[0.0;  0.0], [1/3;  2/3], [1/2;  1/2], [2/3;  1/3], [0, 1/2], [1/2,0], [1.0,-1.0]],
+        ["\$\\Gamma\$", "K", "M", "K'", "M\$_2\$", "M\$_3\$", "\$\\Gamma\$"],
+        ["Γ", "K", "M", "K'", "Γ", "M"]
+    )
+
+    kdict_tri_mini = LabeledPoints(
         ["γ", "κ", "μ", "κ'", "μ2", "μ3", "γ1"],
         [[0.0;  0.0], [1/3;  2/3], [1/2;  1/2], [2/3;  1/3], [0, 1/2], [1/2,0], [1.0,-1.0]],
         ["\$\\gamma\$", "\$\\kappa\$", "\$\\mu\$", "\$\\kappa'\$", "\$\\mu_2\$", "\$\\mu_3\$", "\$\\gamma\$"],
@@ -112,21 +119,25 @@ module Geometries2D
 
     function honeycomb_twisted(N::Int, a::Float64=1.0, z::Float64=3.0)
         lat = honeycomb(a)
-        return twist(lat, lat, N; z=z, m=1)
+        slat = twist(lat, lat, N; z=z, m=1)
+        slat.specialpoints = kdict_tri_mini
+        return slat
     end
 
     function honeycomb_twisted_ABBA(N::Int, a::Float64=1.0, z::Float64=3.0)
         lat1 = honeycomb_AB(a, z)
         lat2 = honeycomb_AB(a, z)
-
-        return twist(lat1, lat2, N; z=z, m=1)
+        slat = twist(lat1, lat2, N; z=z, m=1)
+        slat.specialpoints = kdict_tri_mini
+        return slat
     end
 
     function honeycomb_twisted_ABAB(N::Int, a::Float64=1.0, z::Float64=3.0)
         lat1 = honeycomb_AB(a, z)
         lat2 = honeycomb_BA(a, z)
-
-        return twist(lat1, lat2, N; z=z, m=1)
+        slat = twist(lat1, lat2, N; z=z, m=1)
+        slat.specialpoints = kdict_tri_mini
+        return slat
     end
 
 

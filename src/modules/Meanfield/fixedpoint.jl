@@ -1,5 +1,17 @@
 using Printf
 
+using ProgressMeter
+
+"""
+    fixedpoint!(f!, x1, x0; iterations=500, tol=1e-7, β=1.0, p_norm::Real=2, show_trace=false, clear_trace=false)
+
+Performs a simple fixed point iteration. The function f!(x1,x0) should override with x1 with x2 and x0 with x1 and
+can optionally return a scalar value (for example ground state energy at iteration step). 
+
+Fixedpoint iteration, tested on the square-root example
+f_a(x) = 1/2 * (a/x+x)
+which has the fixed point x0 = sqrt(a).
+"""
 function fixedpoint!(f!, x1, x0;
     iterations=500,
     tol=1e-7, β=1.0,
@@ -7,20 +19,13 @@ function fixedpoint!(f!, x1, x0;
     show_trace=false,
     clear_trace=false
     )
-    """
-        Fixedpoint iteration, tested on the square-root example
-        f_a(x) = 1/2 * (a/x+x)
-        which has the fixed point x0 = sqrt(a).
-    """
+
 
     converged = false
     ϵ0 = 0.0
 
-    if show_trace #|| show_report
-        println("================================")
-        println("  FIXPOINT SEARCH ")
-        println(" #  \t error \t time/step [s]")
-        println("================================")
+    if show_trace
+        prog = ProgressThresh(tol, "FIXPOINT SEARCH ")
     end
 
     error = 1.0
@@ -38,9 +43,7 @@ function fixedpoint!(f!, x1, x0;
         error = norm(values(x1).-values(x0), p_norm)
 
         if show_trace
-            if clear_trace print("\r") end
-            print(@sprintf(" %d  \t %.2E \t %.2E", iter, error, t1))
-            if clear_trace print("\u1b[0K") else println("") end
+            ProgressMeter.update!(prog, error)
         end
 
         if error < tol
@@ -56,14 +59,6 @@ function fixedpoint!(f!, x1, x0;
         # The new x0 for the next step is:
         for δL=keys(x0)
             @. x0[δL] .= β * x1[δL] + (1-β) * x0[δL]
-        end
-    end
-
-    if show_trace #|| show_report
-        if converged
-            println("\nConverged!\n")
-        else
-            println("\nNOT converged.\n")
         end
     end
 
