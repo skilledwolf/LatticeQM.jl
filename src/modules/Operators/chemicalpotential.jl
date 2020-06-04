@@ -47,15 +47,15 @@ function addinterlayerbias!(hops, lat::Lattice, V::Function; d=3.0, kwargs...)
 
     # Get z coordinates and scale them into the unit range
     R = allpositions(lat)
-    layer = positions(lat, 3)
-    min = minimum(layer); max = maximum(layer)
+    Z = positions(lat, 3)
+    min = minimum(Z); max = maximum(Z)
 
     if isapprox(abs(min-max), 0; atol=sqrt(eps()))
         error("Requires at least two layers.")
     end
 
-    layer .= (layer .- min)./(max-min)
-    μ = V.(eachcol(R)) .* (layer .- 0.5)
+    Z .= (Z .- min)./(max-min)
+    μ = V.(eachcol(R)) .* (Z .- 0.5)
 
     addchemicalpotential!(hops, lat, vec(μ))
 

@@ -32,3 +32,19 @@ magnetization(ρ, lat::Lattice) = expval(ρ, ["sx", "sy", "sz"], lat)
 magnetization(ρ, A::AbstractMatrix, lat::Lattice) = expval(ρ, [A*s for s=getoperator(lat, ["sx", "sy", "sz"])])
 magnetization(ρ, A::AbstractVector{<:AbstractMatrix}, lat::Lattice) = [magnetization(ρ, a, lat) for a=A]
 magnetization(ρ, A::AbstractVector{String}, lat::Lattice) = [magnetization(ρ, getoperator(lat,a), lat) for a=A]
+
+using ..Structure: countorbitals
+
+function localmagnetization(ρ, lat::Lattice)
+
+    N = countorbitals(lat)
+    M = zeros(3,N)
+
+    P(i) = kron(Diagonal([float(i==j) for j=1:N]), Diagonal(ones(2)))
+
+    for i=1:N
+        M[:,i] = real.(magnetization(ρ, P(i), lat))
+    end
+
+    M
+end

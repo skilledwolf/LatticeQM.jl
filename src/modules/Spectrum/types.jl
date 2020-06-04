@@ -36,7 +36,7 @@ function Base.show(io::IO, bands::BandData)
     if isa(bands.obs,Nothing)
         println(io, "No observables.")
     else
-        println(io, "Number of obersables: ", size(bands.obs,3))
+        println(io, "Number of observables: ", size(bands.obs,3))
     end
     show(io, bands.path)
 end
