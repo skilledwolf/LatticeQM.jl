@@ -110,19 +110,19 @@ function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, �
 
     ρsMat, δLs = efficientzero(ρs)
     ρsMat = SharedArray(ρsMat)
-    zeromat = zeros(eltype(ρsMat), size(ρsMat)[1:2])
+    # zeromat = zeros(eltype(ρsMat), size(ρsMat)[1:2])
 
     @sync @showprogress 1 "Eigensolver... " @distributed for i_=1:L
     # @showprogress 10 "Eigensolver... " for i_=1:L
         k = ks[:,i_]
         ϵs, U = spectrumf(k) #@time
 
+        ρ0 = zero(ρsMat)
         for (j_,δL)=enumerate(δLs)
-            # densitymatrix!(view(ρsMat, :, :, j_), δL, ks[:,i_], ϵs.-μ, U; T=T)
-            ρ0 = deepcopy(zeromat)
-            densitymatrix!(ρ0, δL, ks[:,i_], ϵs.-μ, U; T=T)
-            ρsMat[:,:,j_] .+= ρ0[:,:] 
+            densitymatrix!(view(ρ0, :, :, j_), δL, ks[:,i_], ϵs.-μ, U; T=T)
         end
+
+        ρsMat[:,:,:] .+= ρ0[:,:,:]
 
         energies0_k[i_] = groundstate_sumk(real(ϵs), μ)
     end
