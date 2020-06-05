@@ -104,7 +104,7 @@ function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, �
     spectrumf = spectrum(H; kwargs...)
 
     for (δL,ρ0)=ρs
-        ρs[δL] = SharedArray(zero(ρ0))
+        ρs[δL][:] .= 0.0
     end
 
     @sync @showprogress 1 "Eigensolver... " @distributed for i_=1:L
