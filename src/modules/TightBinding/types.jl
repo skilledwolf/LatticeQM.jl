@@ -21,12 +21,16 @@ Base.:+(h1::AnyHops, h2::AnyHops) = addhops(h1,h2)
 addhops!(hops::AnyHops, newhops::AnyHops...) = merge!(+, hops, newhops...)
 addhops(hops::AnyHops, newhops::AnyHops...) = merge(+, hops, newhops...)
 
+Base.:*(h::AnyHops, s::Number) = multiplyhops(h,s)
+Base.:*(s::Number, h::AnyHops) = multiplyhops(h,s)
 Base.:*(h1::AnyHops, h2::AnyHops) = multiplyhops(h1,h2)
 Base.:*(h1::AnyHops, h2::AbstractMatrix) = multiplyhops(h1,h2)
 Base.:*(h1::AbstractMatrix, h2::AnyHops) = multiplyhops(h1,h2)
 multiplyhops(h1::AbstractMatrix, h2::AnyHops) = multiplyhops(Hops(h1),h2)
 multiplyhops(h1::AnyHops, h2::AbstractMatrix) = multiplyhops(h1,Hops(h2))
 multiplyhops(h1::AnyHops, h2::AnyHops) = Hops(k=>h1[k]*h2[k] for k=intersect(keys(h1),keys(h2)))
+multiplyhops(h::AnyHops, s::Number) = Hops(k=>h[k]*s for k=keys(h))
+multiplyhops(s::Number, h::AnyHops) = Hops(k=>h[k]*s for k=keys(h))
 
 """
 Naive implementation of combining the linear spaces of two hopping models.
