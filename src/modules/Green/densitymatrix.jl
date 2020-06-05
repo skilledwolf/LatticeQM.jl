@@ -56,61 +56,36 @@ end
 ###################################################################################################
 ###################################################################################################
 
-function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
-    L = size(ks,2)
-
-    energies0_k = zeros(Float64, L) #convert(SharedArray, zeros(Float64, L))
-    spectrumf = spectrum(H; kwargs...)
-
-    for (δL,ρ0)=ρs
-        ρs[δL][:] .= 0.0 #convert(SharedArray, zero(ρ0))[:]
-    end
-
-    channel = RemoteChannel(()->Channel{Tuple{Int, Vector{Float64}, Matrix{Complex}}}(L), 1)
-    @sync begin
-        @async begin # update ρs
-            done = 0
-            while done < L
-                (i_, ϵs, U) = take!(channel) # read the result from channel (wait if necessary)
-                densitymatrix!(ρs, ks[:,i_], ϵs.-μ, U; T=T)
-                energies0_k[i_] = groundstate_sumk(real(ϵs), μ)
-                done = done+1
-            end
-        end
-
-        @async begin # compute spectrum at different k points asynchronosly (good for large/huge systems)
-            # @sync @showprogress 1 "Eigensolver... " @distributed for i_=1:L
-            @showprogress 1 "Eigensolver... " @distributed for i_=1:L
-                k = ks[:,i_]
-                energies_k, U_k = spectrumf(k) # calculation
-                put!(channel, (i_, real.(energies_k), U_k)) # passing the result to the channel
-            end
-        end
-    end
-
-    for δL = keys(ρs)
-        ρs[δL][:] ./= L
-    end
-
-    sum(energies0_k)/L # return the groundstate energy
-end
-
 # function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
 #     L = size(ks,2)
 
-#     energies0_k = SharedArray(zeros(Float64, L))
+#     energies0_k = zeros(Float64, L) #convert(SharedArray, zeros(Float64, L))
 #     spectrumf = spectrum(H; kwargs...)
 
 #     for (δL,ρ0)=ρs
-#         ρs[δL] = SharedArray(zero(ρ0))
+#         ρs[δL][:] .= 0.0 #convert(SharedArray, zero(ρ0))[:]
 #     end
 
-#     @sync @showprogress 1 "Eigensolver... " @distributed for i_=1:L
-#         k = ks[:,i_]
-#         energies_k, U_k = spectrumf(k) #@time
+#     channel = RemoteChannel(()->Channel{Tuple{Int, Vector{Float64}, Matrix{Complex}}}(L), 1)
+#     @sync begin
+#         @async begin # update ρs
+#             done = 0
+#             while done < L
+#                 (i_, ϵs, U) = take!(channel) # read the result from channel (wait if necessary)
+#                 densitymatrix!(ρs, ks[:,i_], ϵs.-μ, U; T=T)
+#                 energies0_k[i_] = groundstate_sumk(real(ϵs), μ)
+#                 done = done+1
+#             end
+#         end
 
-#         densitymatrix!(ρs, k, energies_k.-μ, U_k; T=T)
-#         energies0_k[i_] = groundstate_sumk(real(energies_k), μ)
+#         @async begin # compute spectrum at different k points asynchronosly (good for large/huge systems)
+#             # @sync @showprogress 1 "Eigensolver... " @distributed for i_=1:L
+#             @showprogress 1 "Eigensolver... " @distributed for i_=1:L
+#                 k = ks[:,i_]
+#                 energies_k, U_k = spectrumf(k) # calculation
+#                 put!(channel, (i_, real.(energies_k), U_k)) # passing the result to the channel
+#             end
+#         end
 #     end
 
 #     for δL = keys(ρs)
@@ -119,6 +94,33 @@ end
 
 #     sum(energies0_k)/L # return the groundstate energy
 # end
+
+function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
+    @assert valtype(ρs) <: SharedArray "This routine expects value type SharedMatrix."
+    
+    L = size(ks,2)
+
+    energies0_k = SharedArray(zeros(Float64, L))
+    spectrumf = spectrum(H; kwargs...)
+
+    for (δL,ρ0)=ρs
+        ρs[δL] = SharedArray(zero(ρ0))
+    end
+
+    @sync @showprogress 1 "Eigensolver... " @distributed for i_=1:L
+        k = ks[:,i_]
+        energies_k, U_k = spectrumf(k) #@time
+
+        densitymatrix!(ρs, k, energies_k.-μ, U_k; T=T)
+        energies0_k[i_] = groundstate_sumk(real(energies_k), μ)
+    end
+
+    for δL = keys(ρs)
+        ρs[δL][:] ./= L
+    end
+
+    sum(energies0_k)/L # return the groundstate energy
+end
 
 function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
     L = size(ks,2)
