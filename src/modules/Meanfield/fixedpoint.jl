@@ -20,11 +20,11 @@ function fixedpoint!(f!, x1, x0;
     clear_trace=false
     )
 
-
     converged = false
     ϵ0 = 0.0
 
     if show_trace
+        # println("New step.")
         prog = ProgressThresh(tol, "FIXPOINT SEARCH ")
     end
 
@@ -43,7 +43,7 @@ function fixedpoint!(f!, x1, x0;
         error = norm(values(x1).-values(x0), p_norm)
 
         if show_trace
-            ProgressMeter.update!(prog, error)
+            ProgressMeter.update!(prog, error, showvalues = [(:iter,iter)])
         end
 
         if error < tol
