@@ -12,11 +12,11 @@ function solveselfconsistent(hf, ρ_init::AnyHops, filling::Number, args...; kwa
 end
 
 function solveselfconsistent(ρ_init::AnyHops, args...; kwargs...)
-    return solveselfconsistent!(copy(ρ_init), args...; kwargs...)
+    return solveselfconsistent!(deepcopy(ρ_init), args...; kwargs...)
 end
 
 function solveselfconsistent!(ρ0::AnyHops, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, args...; kwargs...)
-    return solveselfconsistent!(ρ0, copy(ρ0), ℋ_op, ℋ_scalar, filling, args...; kwargs...)
+    return solveselfconsistent!(ρ0, deepcopy(ρ0), ℋ_op, ℋ_scalar, filling, args...; kwargs...)
 end
 
 function solveselfconsistent!(ρ0::AnyHops, ρ1::AnyHops, ℋ_op::Function, ℋ_scalar::Function, filling::Float64; klin::Int, kwargs...)
@@ -40,8 +40,8 @@ end
 function solveselfconsistent!(ρ0::AnyHops, ρ1::AnyHops, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, ks::AbstractMatrix{Float64};
     convergenceerror=false, parallel=false, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
 
-    ρ0 = Dict(δL=>ifelse(parallel, SharedMatrix(complex(m)), Matrix(complex(m))) for (δL, m)=ρ0) # convert to dense
-    ρ1 = Dict(δL=>ifelse(parallel, SharedMatrix(complex(m)), Matrix(complex(m))) for (δL, m)=ρ1) # convert to dense
+    ρ0 = Dict(δL=>Matrix(complex(m)) for (δL, m)=ρ0) # convert to dense
+    ρ1 = Dict(δL=>Matrix(complex(m)) for (δL, m)=ρ1) # convert to dense
     H = Hamiltonian(Hops(), 0.0)
 
     function updateH!(H::Hamiltonian, ρ::AnyHops)

@@ -3,6 +3,40 @@ const Hop  = Pair{Vector{Int}, <:AbstractMatrix}
 const Hops = Dict{Vector{Int}, AbstractMatrix}
 const AnyHops = Dict{Vector{Int}, <:AbstractMatrix}
 
+function efficientformat(ρ::AnyHops)
+    L = length(values(ρ))
+    dims = size(first(values(ρ)))
+    
+    A = Array{eltype(first(values(ρ)))}(undef, dims..., L)
+    
+    keylist = []
+    for (i,δl) in enumerate(keys(ρ))
+        A[:,:,i] .= ρ[δl][:,:]
+        append!(keylist, [δl])
+    end
+    
+    A, keylist
+end
+
+function efficientzero(ρ::AnyHops)
+    L = length(values(ρ))
+    dims = size(first(values(ρ)))
+    
+    A = zeros(eltype(first(values(ρ))), dims..., L)
+    
+    A, collect(keys(ρ))
+end
+
+function flexibleformat(A::AbstractArray, keylist::AbstractVector)
+    Dict(L=>m for (L,m)=zip(keylist,eachslice(A; dims=3)))
+end
+
+function flexibleformat!(ρ::AnyHops, A::AbstractArray, keylist::AbstractVector)
+    for (L,m)=zip(keylist,eachslice(A; dims=3))
+        ρ[L][:] .= m[:]
+    end
+    ρ
+end
 
 DenseHops(kv::Hop...) = Hops(k=>Matrix(v) for (k,v) in kv)
 DenseHops(d::AnyHops) = DenseHops(d...)
