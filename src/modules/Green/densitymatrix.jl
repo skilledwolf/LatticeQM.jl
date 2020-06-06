@@ -37,15 +37,16 @@ densitymatrix(ϵ::Number, ψ::AbstractVector; T::Float64=0.01) = fermidirac(real
 
 function densitymatrix!(ρ0::AbstractMatrix, ϵs::AbstractVector, U::AbstractMatrix; φk::ComplexF64=1.0+0.0im, kwargs...)
     for (ϵ, ψ) in zip(ϵs, eachcol(U))
-        ρ0[:] .+= (densitymatrix(ϵ, ψ; kwargs...) .* φk)[:]
+        # ρ0[:,:] .+= (densitymatrix(ϵ, ψ; kwargs...) .* φk)
+        broadcast!(+, ρ0, ρ0, densitymatrix(ϵ, ψ; kwargs...) .* φk)
     end
-
     ρ0
 end
 
 function densitymatrix!(ρ0::AbstractMatrix, δL::AbstractVector, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; kwargs...)
     for (ϵ, ψ) in zip(ϵs, eachcol(U))
-        ρ0[:] .+= (densitymatrix(ϵ, ψ; kwargs...) .* fourierphase(-k, δL))[:] # ϵ-μ # -k
+        # ρ0[:,:] .+= (densitymatrix(ϵ, ψ; kwargs...) .* fourierphase(-k, δL)) # ϵ-μ # -k
+        broadcast!(+, ρ0, ρ0, (densitymatrix(ϵ, ψ; kwargs...) .* fourierphase(-k, δL)))
     end
     ρ0
 end
@@ -113,25 +114,22 @@ function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, �
     zeromat = zeros(eltype(ρsMat), size(ρsMat)[1:2])
 
     @sync @showprogress 10 "Eigensolver... " @distributed for i_=1:L
-    # @showprogress 10 "Eigensolver... " for i_=1:L
         k = ks[:,i_]
         ϵs, U = spectrumf(k) #@time
 
         # ρ0 = zero(ρsMat)
         for (j_,δL)=enumerate(δLs)
-            # densitymatrix!(view(ρ0, :, :, j_), δL, ks[:,i_], ϵs.-μ, U; T=T)
-            ρ0 = deepcopy(zeromat)
-            densitymatrix!(ρ0, δL, ks[:,i_], ϵs.-μ, U; T=T)
-            ρsMat[:,:,j_] .+= ρ0[:,:]
+            densitymatrix!(view(ρsMat, :,:,j_), δL, ks[:,i_], ϵs.-μ, U; T=T)
+            # ρ0 = deepcopy(zeromat)
+            # densitymatrix!(ρ0, δL, ks[:,i_], ϵs.-μ, U; T=T)
+            # ρsMat[:,:,j_] .+= ρ0[:,:]
         end
 
         # ρsMat[:] .+= ρ0[:]
-
         energies0_k[i_] = groundstate_sumk(real(ϵs), μ)
     end
 
-    ρsMat[:] ./= L
-    flexibleformat!(ρs, ρsMat, δLs)
+    flexibleformat!(ρs, Array(ρsMat/L), δLs)
 
     sum(energies0_k)/L # return the groundstate energy
 end

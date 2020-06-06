@@ -23,17 +23,18 @@ function efficientzero(ρ::AnyHops)
     dims = size(first(values(ρ)))
     
     A = zeros(eltype(first(values(ρ))), dims..., L)
-    
+
     A, collect(keys(ρ))
 end
 
 function flexibleformat(A::AbstractArray, keylist::AbstractVector)
-    Dict(L=>m for (L,m)=zip(keylist,eachslice(A; dims=3)))
+    Dict(L=>Matrix(m) for (L,m)=zip(keylist,eachslice(A; dims=3)))
 end
 
 function flexibleformat!(ρ::AnyHops, A::AbstractArray, keylist::AbstractVector)
-    for (L,m)=zip(keylist,eachslice(A; dims=3))
-        ρ[L][:] .= m[:]
+    for (j_,L)=enumerate(keylist)
+        # ρ[L][:,:] .= m[:,:]
+        copyto!(view(ρ[L],:,:), A[:,:,j_])
     end
     ρ
 end
