@@ -119,17 +119,17 @@ function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, �
 
         # ρ0 = zero(ρsMat)
         for (j_,δL)=enumerate(δLs)
-            densitymatrix!(view(ρsMat, :,:,j_), δL, ks[:,i_], ϵs.-μ, U; T=T)
-            # ρ0 = deepcopy(zeromat)
-            # densitymatrix!(ρ0, δL, ks[:,i_], ϵs.-μ, U; T=T)
-            # ρsMat[:,:,j_] .+= ρ0[:,:]
+            # densitymatrix!(view(ρsMat,:,:,j_), δL, ks[:,i_], ϵs.-μ, U; T=T)
+            ρ0 = deepcopy(zeromat)
+            densitymatrix!(ρ0, δL, ks[:,i_], ϵs.-μ, U; T=T)
+            ρsMat[:,:,j_] .+= ρ0[:,:]
         end
 
         # ρsMat[:] .+= ρ0[:]
         energies0_k[i_] = groundstate_sumk(real(ϵs), μ)
     end
 
-    flexibleformat!(ρs, Array(ρsMat/L), δLs)
+    flexibleformat!(ρs, ρsMat/L, δLs)
 
     sum(energies0_k)/L # return the groundstate energy
 end
@@ -146,10 +146,14 @@ function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ:
 
     @showprogress 10 "Eigensolver... " for i_=1:L
         k = ks[:,i_]
-        energies_k, U_k = spectrumf(k) #@time
+        ϵs, U = spectrumf(k) #@time
 
-        densitymatrix!(ρs, k, energies_k.-μ, U_k; T=T)
-        energies0_k[i_] = groundstate_sumk(real(energies_k), μ)
+        for δL=keys(ρs)
+            densitymatrix!(ρs[δL], δL, ks[:,i_], ϵs.-μ, U; T=T)
+        end
+
+        # densitymatrix!(ρs, k, energies_k.-μ, U_k; T=T)
+        energies0_k[i_] = groundstate_sumk(real(ϵs), μ)
     end
 
     for δL = keys(ρs)
