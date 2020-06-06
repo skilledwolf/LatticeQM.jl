@@ -34,7 +34,8 @@ end
 function flexibleformat!(ρ::AnyHops, A::AbstractArray, keylist::AbstractVector)
     for (j_,L)=enumerate(keylist)
         # ρ[L][:,:] .= m[:,:]
-        copyto!(view(ρ[L],:,:), A[:,:,j_])
+        # copyto!(ρ[L][:,:], A[:,:,j_])
+        ρ[L][:,:] .= A[:,:,j_]
     end
     ρ
 end
