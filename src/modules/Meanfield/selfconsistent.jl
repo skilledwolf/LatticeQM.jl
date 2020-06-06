@@ -40,8 +40,8 @@ end
 function solveselfconsistent!(ρ0::AnyHops, ρ1::AnyHops, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, ks::AbstractMatrix{Float64};
     convergenceerror=false, parallel=false, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
 
-    ρ0 = Dict(δL=>Matrix(complex(m)) for (δL, m)=ρ0) # convert to dense
-    ρ1 = Dict(δL=>Matrix(complex(m)) for (δL, m)=ρ1) # convert to dense
+    ρ0 = Hops(δL=>Matrix(complex(m)) for (δL, m)=ρ0) # convert to dense
+    ρ1 = Hops(δL=>Matrix(complex(m)) for (δL, m)=ρ1) # convert to dense
     H = Hamiltonian(Hops(), 0.0)
 
     function updateH!(H::Hamiltonian, ρ::AnyHops)
