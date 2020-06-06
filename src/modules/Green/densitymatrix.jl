@@ -109,7 +109,7 @@ function densitymatrix_parallel!(ﾏ《::AnyHops, H, ks::AbstractMatrix{Float64}, ﾎ
     energies = SharedArray(zeros(Float64, L))
     spectrumf = spectrum(H; kwargs...)
 
-    ﾏ《Mat, ﾎｴLs = efficientzero(ﾏ《)
+    zeromat, ﾎｴLs = efficientzero(ﾏ《)
 
     ﾏ《Mat = @sync @showprogress 10 "Eigensolver... " @distributed (+) for i_=1:L
         k = ks[:,i_]
