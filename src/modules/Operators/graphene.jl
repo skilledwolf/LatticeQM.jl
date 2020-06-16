@@ -13,9 +13,9 @@ function graphene(lat::Lattice; mode=:nospin, format=:auto, cellrange=2, kwargs.
     hops
 end
 
-
-valleyoperator(args...; kwargs...) = valleyoperator!(Hops(), args...; kwargs...)
-function valleyoperator!(hops, lat::Lattice, fz::Function=x->sign(x[3]+1e-3); spinhalf=false, kwargs...)
+@deprecate valleyoperator valley 
+valley(args...; kwargs...) = valleyoperator!(Hops(), args...; kwargs...)
+function addvalley!(hops, lat::Lattice, fz::Function=x->sign(x[3]+1e-3); spinhalf=false, kwargs...)
     @assert latticedim(lat) == 2 && countorbitals(lat) > 1
 
     t20 = √3/9
@@ -37,13 +37,16 @@ function addsublatticeimbalance!(hops, lat::Lattice, Δ::Real; kwargs...)
     nothing
 end
 
+
+"""
+addhaldane!(hops, lat, t2; ϕ=π/2, spinhalf=false, cellrange=1, mode=:none, zmode=:none)
+
+This method is a somewhat inefficient way to compute the haldane hopping matrix.
+The only upside to it is that it uses methods that I already implemented and
+that it is fairly general.
+"""
 addhaldane!(hops, lat::Lattice, t2::Number; kwargs...) = addhaldane!(hops, lat, x->t2; kwargs...)
 function addhaldane!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=false, cellrange=1, mode=:none, zmode=:none)
-    """
-    This method is a somewhat inefficient way to compute the haldane hopping matrix.
-    The only upside to it is that it uses methods that I already implemented and
-    that it is fairly general.
-    """
 
     d=1    
     cross2D(x, y) = x[1] * y[2] - x[2] * y[1] # needed later on in this scope

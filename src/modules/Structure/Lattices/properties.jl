@@ -52,6 +52,12 @@ end
 function filterindices(lat::Lattice, name::String, condition::Function)
     return [index for (index, val) in enumerate(extracoordinates(lat, name)) if condition(val)]
 end
+function filterindices(lat::Lattice, i::Integer, condition::Function)
+    return [index for (index, val) in enumerate(coordinates(lat, i)) if condition(val)]
+end
+function filterindices(lat::Lattice, condition::Function)
+    return [index for (index, x) in enumerate(eachcol(allpositions(lat))) if condition(x)]
+end
 filterpositions(lat::Lattice, args...) = positions(lat)[:,filterindices(lat, args...)]
 filtercoordinates(lat::Lattice, args...) = coordinates(lat)[:,filterindices(lat, args...)]
 
