@@ -124,13 +124,13 @@ function addspin(hoppings, mode=:nospin) #::AbstractHops
     hoppings
 end
 
-const maximum_dense_size = 300
+const MAX_DENSE = 500
+const MAX_DIAGS = 100
 
 function decidetype(hops::AnyHops, format)
 
     if format==:auto
-        N = size(first(values(hops)), 1)
-        if N < maximum_dense_size + 1
+        if hopdim(hops) < MAX_DENSE + 1
             format=:dense
         end
     end

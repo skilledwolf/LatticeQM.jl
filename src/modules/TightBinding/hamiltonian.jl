@@ -52,15 +52,12 @@ end
 # Main routines for gethops(...)
 ###############################################################################
 
-const MAX_DENSE = 500
-const MAX_DIAGS = 100
-
 function gethops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; vectorized=false, kwargs...)
 
     ####
     # The keyword specialized indicates that the function t accepcts the signature t(R1,R2) where
     # R1 and R2 are matrices. This can be crucial for performance when dealing with huge unit cells
-    # (such as for twister bilayer graphene).
+    # (such as for twisted bilayer graphene).
     # I might make this the default, but then it should be well-documented.
     ####
 

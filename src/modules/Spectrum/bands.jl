@@ -40,7 +40,7 @@ using LatticeQM
 lat = Geometries2D.honeycomb()
 h = Operators.graphene(lat)
 ks = kpath(lat; num_points=200)
-valley = Operators.valleyoperator()
+valley = Operators.valleyoperator(lat)
 
 bands, obs = bandmatrix(h, ks.points, valley)
 
@@ -112,7 +112,7 @@ using LatticeQM
 lat = Geometries2D.honeycomb()
 h = Operators.graphene(lat)
 ks = kpath(lat; num_points=200)
-valley = Operators.valleyoperator()
+valley = Operators.valleyoperator(lat)
 
 bands = getbands(h, ks, valley)
 
