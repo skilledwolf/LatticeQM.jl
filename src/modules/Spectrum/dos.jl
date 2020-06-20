@@ -23,14 +23,14 @@ end
 
 
 """
-    getdos(h, ks, ω; Γ, mode=:parallel, format=:auto)
+    getdos(h, ks, ω; Γ, parallel=true, format=:auto)
 
 Computes the density of states of operator h(k) using the points ks=(k1,k2,...)
 and for the frequencies ω=(ω1, ω2, ...). The paremter \$\\Gamma\$ is the energy broadening.
 
 Mode can be :parallel or :serial, format can be :auto, :sparse or :dense.
 """
-getdos(h, ks, ωs; kwargs...) = (DOS=zero(ωs); dos!(DOS, h, ks, ωs; kwargs...))
+getdos(h, ks, ωs; kwargs...) = (DOS=zero(ωs); getdos!(DOS, h, ks, ωs; kwargs...))
 function getdos!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; parallel=true, kwargs...)
     if (parallel && nprocs()<2)
         parallel=false
@@ -46,6 +46,7 @@ getdos_sparse(h, args...; kwargs...) = getdos(h, args...; format=:sparse, kwargs
 dos!(DOS, energies::AbstractVector, ωs; kwargs...) = foreach(x->dos!(DOS, x, ωs; kwargs...), energies)
 function dos!(DOS, energy::Number, ωs; broadening::Number)
     DOS .+= imag.( 1.0./(ωs .- 1.0im .* broadening .- energy) )
+    DOS
 end
 
 function dos_serial!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; Γ::Number, kwargs...)
@@ -56,7 +57,6 @@ function dos_serial!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVe
         dos!(DOS, ϵs(k), frequencies; broadening=Γ)
     end
     DOS ./= (L / π)
-
     DOS
 end
 
@@ -64,13 +64,12 @@ function dos_parallel!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::Abstract
     L = size(ks)[2]
     ϵs = energies(h; kwargs...)
 
-    DOS0 = SharedArray(Array(DOS))
-    @sync @showprogress 6 "Computing DOS... " @distributed for j=1:L # over ks
+    DOS0 = @sync @showprogress 6 "Computing DOS... " @distributed (+) for j=1:L # over ks
+        DOS0 = zero(DOS)
         dos!(DOS0, ϵs(ks[:,j]), frequencies; broadening=Γ)
     end
-    DOS[:] .= DOS0[:]
+    DOS[:] += DOS0[:]
     DOS[:] ./= (L / π)
-
     DOS
 end
 
