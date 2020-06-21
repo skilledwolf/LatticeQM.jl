@@ -22,6 +22,10 @@ function getdos!(DOS, h, ωs::AbstractVector; klin::Int, kwargs...)
 end
 
 
+getdos_dense(h, args...; kwargs...) = getdos(h, args...; format=:dense, kwargs...)
+getdos_sparse(h, args...; kwargs...) = getdos(h, args...; format=:sparse, kwargs...)
+
+
 """
     getdos(h, ks, ω; Γ, parallel=true, format=:auto)
 
@@ -32,16 +36,18 @@ Mode can be :parallel or :serial, format can be :auto, :sparse or :dense.
 """
 getdos(h, ks, ωs; kwargs...) = (DOS=zero(ωs); getdos!(DOS, h, ks, ωs; kwargs...))
 function getdos!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; parallel=true, kwargs...)
-    if (parallel && nprocs()<2)
+    if nprocs()<2
         parallel=false
     end
     
-    parallel ? dos_parallel!(DOS, h, ks, frequencies; kwargs...) : dos_serial!(DOS, h, ks, frequencies; kwargs...)
+    if parallel
+        DOS = dos_parallel!(DOS, h, ks, frequencies; kwargs...)
+    else
+        DOS = dos_serial!(DOS, h, ks, frequencies; kwargs...)
+    end
+
+    DOS
 end
-
-getdos_dense(h, args...; kwargs...) = getdos(h, args...; format=:dense, kwargs...)
-getdos_sparse(h, args...; kwargs...) = getdos(h, args...; format=:sparse, kwargs...)
-
 
 dos!(DOS, energies::AbstractVector, ωs; kwargs...) = foreach(x->dos!(DOS, x, ωs; kwargs...), energies)
 function dos!(DOS, energy::Number, ωs; broadening::Number)
@@ -56,7 +62,7 @@ function dos_serial!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVe
     @showprogress 6 "Computing DOS... " for k=eachcol(ks) # j=1:L
         dos!(DOS, ϵs(k), frequencies; broadening=Γ)
     end
-    DOS ./= (L / π)
+    DOS ./= L
     DOS
 end
 
@@ -68,7 +74,7 @@ function dos_parallel!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::Abstract
         DOS0 = zero(DOS)
         dos!(DOS0, ϵs(ks[:,j]), frequencies; broadening=Γ)
     end
-    DOS[:] += (DOS0[:] ./ (L / π))
+    DOS[:] += (DOS0[:] ./ L)
     DOS
 end
 
