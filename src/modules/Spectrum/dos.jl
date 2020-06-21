@@ -68,8 +68,7 @@ function dos_parallel!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::Abstract
         DOS0 = zero(DOS)
         dos!(DOS0, ϵs(ks[:,j]), frequencies; broadening=Γ)
     end
-    DOS[:] += DOS0[:]
-    DOS[:] ./= (L / π)
+    DOS[:] += (DOS0[:] ./ (L / π))
     DOS
 end
 
