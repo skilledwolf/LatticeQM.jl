@@ -12,7 +12,7 @@ function superlattice(lat::Lattice, superperiods::Matrix{Int}; kwargs...)
     supercellints = supercellpoints(superperiods; kwargs...)
 
     # Existing atoms will now have to be copied
-    # (note that the following code should be optimized for large systems, to use less memory...)
+    # (note that the following code could be optimized for large systems, to use less memory -- if needed...)
     spacecoordinates_super = hcat([coordinates(lat) .+ padvec(vec,D) for vec in eachcol(supercellints)]...)
     spacecoordinates_super[1:d,:] = inv(superperiods) * spacecoordinates_super[1:d,:]
     extracoordinates_super = hcat([lat.extracoordinates for vec in eachcol(supercellints)]...) # this will copy info's such as z-coordinate or sublattice

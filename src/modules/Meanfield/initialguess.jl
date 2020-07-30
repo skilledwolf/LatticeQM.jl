@@ -2,116 +2,251 @@ using ..TightBinding
 using ..Operators: getoperator
 using ..TightBinding: zerokey
 
-# Generate a random spin orientation at a lattice site
-function randmat()
-    # d = rand(Float64, 3)
-    d = -1.0 .+ 2 .* rand(Float64, 3) # should be drawn from sphere, not from box...
-    p = 0.5 .* (σ0 .+ sum(d[i_]/norm(d) .* σs[i_] for i_=1:3))
+"""
+    spindensitymatrix(d::Vector=[1,0,0]) --> Matrix{Float64}
+    spindensitymatrix(x::Real=1) --> Matrix{Float64}
+    spindensitymatrix(s::Symbol) --> Matrix{Float64}
+
+Returns a spin-1/2 density matrix for given spin orientiation d=[dx,dy,dz].
+Instead, one can also specify the configuration symbolically, in which
+case s should be one of `:up,:down,:upx,:downx,:upy,:downy`.
+
+If vector has norm larger one it gets normalized, otherwise it is left unscaled.
+
+"""
+spindensitymatrix(x::Real=1) = spindensitymatrix([0,0,x])
+function spindensitymatrix(args...; kwargs...)
+    M = zeros(ComplexF64, 2,2)
+    spindensitymatrix!(M, args...; kwargs...)
 end
 
-function randmatXY()
-    # d = rand(Float64, 3)
-    d = -1.0 .+ 2 .* rand(Float64, 2) # should be drawn from sphere, not from box...
-    p = 0.5 .* (σ0 .+ sum(d[i_]/norm(d) .* σs[i_] for i_=1:2))
-end
-
-function initialguess(v::AnyHops, mode=:random; lat=:nothing)
-    N = size(first(values(v)), 1)
-
-    ρs = Hops()
-
-    for δL=keys(v)
-        ρs[δL] = zeros(ComplexF64, size(v[δL]))
+function spindensitymatrix!(M::AbstractMatrix, d::Vector=[1,0,0]; i=1)
+    @assert length(d)<=3 "Spin direction must be length 3."
+    d0 = norm(d)
+    if d0 > 1
+        d = d/d0
     end
 
-    if mode==:randombig
-        mat = rand(ComplexF64, N, N)
-        ρs[zero(first(keys(ρs)))] = (mat + mat') ./ 2
+    δ = 2*(i-1)
+    M[1+δ:2+δ,1+δ:2+δ] .= 0.5 .* (σ0 .+ sum(d[i_] .* σs[i_] for i_=1:length(d)))
 
-    elseif mode==:random
-        @assert mod(N,2)==0
-        n = div(N,2)
+    M
+end
 
-        ρs[zerokey(ρs)] = Matrix(sum(kron(sparse([i_],[i_], [1.0+0.0im], n,n), randmat()) for i_=1:n))
+function spindensitymatrix!(M::AbstractMatrix, s::Symbol)
+    if s==:left || s==:upx || s==:x
+        d = [1,0,0]
+    elseif s==:right || s==:downx
+        d = [-1,0,0]
+    elseif s==:front || s==:upy || s==:y
+        d = [0,1,0]
+    elseif s==:back || s==:downy
+        d = [0,-1,0]
+    elseif s==:up || s==:z
+        d = [0,0,1]
+    elseif s==:down
+        d = [0,0,-1]
+    elseif s==:random || s==:rand
+        θ = π*rand()
+        ϕ = 2π*rand()
+        d = [sin(θ)*cos(ϕ), sin(θ)*sin(ϕ), cos(θ)]
+    elseif s==:randomXY || s==:randXY
+        ϕ = 2π * rand()
+        d = [cos(ϕ), sin(ϕ), 0]
+    end
 
-    elseif mode==:randomXY
-        @assert mod(N,2)==0
-        n = div(N,2)
-
-        ρs[zerokey(ρs)] = Matrix(sum(kron(sparse([i_],[i_], [1.0+0.0im], n,n), randmatXY()) for i_=1:n))
+    spindensitymatrix!(M, d)
+end
 
 
-    elseif mode==:randomferro
-        @assert mod(N,2)==0
-        n = div(N,2)
-        mat = rand(ComplexF64, n, n)
+"""
+    mapspindensitymatrix(vs::AbstractVector, Is::AbstractVector{Int}, N::Int) --> SparseMatrix{Complex}
+    mapspindensitymatrix(vs::AbstractVector, Is::AbstractVector{Int}) = mapspindensitymatrix(vs, Is, length(Is)) --> SparseMatrix{Complex}
+    mapspindensitymatrix(vs::AbstractVector) --> SparseMatrix{Complex}
 
-        σmat = randmat()
+From a list of spin orientations vs (and optionally lattice indices Is, and optionally total number of lattice sites N),
+a spin density matrix for multiple lattice sites is generated.
+"""
+mapspindensitymatrix(vs::AbstractVector) = mapspindensitymatrix(vs, 1:length(vs))
+mapspindensitymatrix(v, N::Int) = mapspindensitymatrix(Iterators.repeated(v, N))
+mapspindensitymatrix(vs::AbstractVector, Is::AbstractVector{Int}) = mapspindensitymatrix(vs, Is, length(Is))
+function mapspindensitymatrix(vs::AbstractVector, Is::AbstractVector{Int}, N::Int)
+    @assert length(Is)==length(vs) "List of indices Is must have same length as list of orientations vs."
+    @assert N >= length(Is) "Target size must be at least as large as specified indices."
 
-        ρs[zerokey(ρs)] = Matrix(sum(kron(sparse([i_],[i_], [1.0+0.0im], n,n), σmat) for i_=1:n))
+    M = spzeros(ComplexF64, 2*N, 2*N) # empty matrix
+    for (i_,v) in zip(Is, vs) # fill up the matrix along block diagonals
+        spindensitymatrix!(M, v; i=i_)
+    end
 
-    elseif mode==:randomantiferro
-        sublA, sublB = getoperator(lat, ["sublatticeA", "sublatticeB"])
+    M
+end
 
-        vec = -1.0 .+ 2 .* rand(Float64, 3) # should be drawn from sphere, not from box...
-        σup = 0.5 .* (σ0 .+ sum(d[i_]/norm(d) .* σs[i_] for i_=1:3))
-        σdown = 0.5 .* (σ0 .- sum(d[i_]/norm(d) .* σs[i_] for i_=1:3))
 
-        ρs[zero(first(keys(ρs)))] = kron(sublA,σup) + kron(sublB,σdown)
 
-    elseif mode==:antiferro || mode==:antiferroZ
-        sublA, sublB = getoperator(lat, ["sublatticeA", "sublatticeB"])
+using ..Structure
 
-        σup = 0.5 .* (σ0 .+ σZ)
-        σdown = 0.5 .* (σ0 .- σZ)
 
-        ρs[zero(first(keys(ρs)))] = kron(sublA,σup) + kron(sublB,σdown)
+function spinspiralangles(lat::Lattice, superperiods)
 
-    elseif mode==:antiferroX
-        sublA, sublB = getoperator(lat, ["sublatticeA", "sublatticeB"])
+    R = eachcol(Structure.positions(lat))
+    slat = Structure.superlattice(lat, superperiods)
+    B = Structure.getB(slat)
 
-        σup = 0.5 .* (σ0 .+ σX)
-        σdown = 0.5 .* (σ0 .- σX)
+    2π * vec(sum(transpose(B)*R; dims=1))
+end
 
-        ρs[zero(first(keys(ρs)))] = kron(sublA,σup) + kron(sublB,σdown)
 
-    elseif mode==:antiferroY
-        sublA, sublB = getoperator(lat, ["sublatticeA", "sublatticeB"])
+"""
+    spinspiraldensitymatrix(lat::Lattice, superperiods; n::Vector=[0,0,1], v0::Vector=[1,0,0])
 
-        σup = 0.5 .* (σ0 .+ σY)
-        σdown = 0.5 .* (σ0 .- σY)
+Create a spin spiral density matrix with periodicity given by a superlattice characterized by `superperiods' (see Structure.superlattice for details).
+The rotation goes around the fixed axis `n=[n1,n2,n3]`. The vector `v0` specifies the spin direction in one site.
 
-        ρs[zero(first(keys(ρs)))] = kron(sublA,σup) + kron(sublB,σdown)
+Useful to create initial states for mean field calculations.
+"""
+function spinspiraldensitymatrix(lat::Lattice, superperiods; n::Vector=[0,0,1], v0::Vector=[1,0,0])
+    @assert length(n) == 3 "Normal vector for rotation must have length 3."
+    @assert length(v0) == 3 "Initial vector for rotation must have length 3."
 
-    elseif mode==:ferro || mode==:ferroZ #|| mode==:ferroz
-        @assert mod(N,2)==0
-        n = div(N,2)
-        σUP = 0.5 .* (σ0 .+ σZ)
-        ρs[zero(first(keys(ρs)))] =  2. * kron(Diagonal(ones(n)),σUP)
+    v(θ) = rotation3D(θ,n)*v0
+    θs = spinspiralangles(lat, superperiods)
 
-    elseif mode==:ferroX #|| mode==:ferroz
-        @assert mod(N,2)==0
-        n = div(N,2)
-        σLEFT = 0.5 .* (σ0 .+ σX)
-        ρs[zero(first(keys(ρs)))] =  2. * kron(Diagonal(ones(n)), σLEFT)
+    mapspindensitymatrix(v(θ) for θ=θs)
+end
 
-    elseif mode==:ferroY #|| mode==:ferroz
-        @assert mod(N,2)==0
-        n = div(N,2)
-        σLEFT = 0.5 .* (σ0 .+ σX)
-        ρs[zero(first(keys(ρs)))] =  2. * kron(Diagonal(ones(n)), σLEFT)
 
+function setrandom!(ρ::AnyHops, mode=:local)
+    N = hopdim(ρ); @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
+    n = div(N,2)
+
+    if mode==:local 
+        M = mapspindensitymatrix(:random, n)
+    elseif mode==:nonlocal
+        M = rand(ComplexF64, N, N); M = (M+M')/2
+    elseif mode==:XY || mode==:xy
+        M = mapspindensitymatrix(:randomXY, n)
+    else
+        error("Unrecognized request for mode '$mode'.")
+    end
+
+    setzero!(ρ, M)
+end
+
+function setferro!(ρ::AnyHops, d=:up) 
+    N = hopdim(ρ); @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
+    n = div(N,2)
+
+    if d==:random # make sure that random only computes a single random vector!
+        d = [sin(π*rand())*cos(2π*rand()), sin(π*rand())*sin(2π*rand()), cos(π*rand())]
+    elseif d==:randomXY
+        d = [cos(2π*rand()), sin(2π*rand()), 0]
+    end
+
+    setzero!(ρ, mapspindensitymatrix(d, n))
+end
+
+function setantiferro!(ρ::AnyHops, lat::Lattice, d=:up)
+    N = hopdim(ρ); @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
+    n = div(N,2)
+
+    sublA, sublB = getoperator(lat, ["sublatticeA", "sublatticeB"])
+    ρup = spindensitymatrix(d)
+
+    setzero!(ρ, kron(sublA, ρup) + kron(sublB, σ0-ρup))
+end
+
+function initialguess(v::AnyHops, mode=:random, args...; lat=:nothing, kwargs...)
+    N = hopdim(v); @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
+    n = div(N,2)
+
+    ρs = zerolike(v)
+
+    if mode==:random
+        setrandom!(ρs, args...)
+    elseif mode==:ferro
+        setferro!(ρs, args...)
+    elseif mode==:antiferro
+        setantiferro!(ρs, lat, args...)
+    elseif mode==:spiral        
+        setzero!(ρs, spinspiraldensitymatrix(lat, args...; kwargs...))
     else
         error("Unrecognized mode '$mode' in initialguess(...).")
-
     end
 
     ρs
 end
 
+# function initialguess(v::AnyHops, mode=:random; lat=:nothing, kwargs...)
+#     N = hopdim(v)#size(first(values(v)), 1)
+#     @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
+#     n = div(N,2)
+
+#     ρs = zerolike(v)
+
+
+#     if mode==:randombig
+#         mat = rand(ComplexF64, N, N)
+#         setzero!(ρs, (mat+mat')/2)
+
+#     elseif mode==:random
+#         setzero!(ρs, mapspindensitymatrix(:random, n))
+
+#     elseif mode==:randomXY
+#         setzero!(ρs, mapspindensitymatrix(:randomXY, n))
+
+#     elseif mode==:randomferro
+#         mat = rand(ComplexF64, n, n)
+#         σmat = randmat()
+
+#         ρs[zerokey(ρs)] = Matrix(sum(kron(sparse([i_],[i_], [1.0+0.0im], n,n), σmat) for i_=1:n))
+
+#     elseif mode==:randomantiferro
+#         sublA, sublB = getoperator(lat, ["sublatticeA", "sublatticeB"])
+
+#         ρs[zero(first(keys(ρs)))] = kron(sublA,ρup) + kron(sublB, σ0-ρup)
+
+#     elseif mode==:antiferro || mode==:antiferroZ
+#         sublA, sublB = getoperator(lat, ["sublatticeA", "sublatticeB"])
+
+#         ρs[zero(first(keys(ρs)))] = kron(sublA, spindensitymatrix(:up)) + kron(sublB, spindensitymatrix(:down))
+
+#     elseif mode==:antiferroX
+#         sublA, sublB = getoperator(lat, ["sublatticeA", "sublatticeB"])
+
+#         ρs[zero(first(keys(ρs)))] = kron(sublA,spindensitymatrix(:upx)) + kron(sublB,spindensitymatrix(:downx))
+
+#     elseif mode==:antiferroY
+#         sublA, sublB = getoperator(lat, ["sublatticeA", "sublatticeB"])
+
+#         ρs[zero(first(keys(ρs)))] = kron(sublA, spindensitymatrix(:upy)) + kron(sublB, spindensitymatrix(:downy))
+
+#     elseif mode==:ferro || mode==:ferroZ
+#         setzero!(ρs, kron(Diagonal(ones(n)), spindensitymatrix(:up)))
+
+#     elseif mode==:ferroX
+#         setzero!(ρs, kron(Diagonal(ones(n)), spindensitymatrix(:upx)))
+
+#     elseif mode==:ferroY
+#         setzero!(ρs, kron(Diagonal(ones(n)), spindensitymatrix(:upy)))
+
+#     elseif mode==:spiral
+#         kwargs = Dict(kwargs)
+#         @assert haskey(kwargs, :superperiods) "You have to specify a superlattice via `superperiods` keyword argument."
+#         superperiods = pop!(kwargs, :superperiods)
+        
+#         setzero!(ρs, spinspiraldensitymatrix(lat, kwargs[:superperiods]; kwargs...))
+
+#     else
+#         error("Unrecognized mode '$mode' in initialguess(...).")
+
+#     end
+
+#     ρs
+# end
+
 
 ###################################################################################################
 # Backwards compatibility
 ###################################################################################################
-export initial_guess
-@legacyalias initialguess initial_guess
+@deprecate initial_guess initialguess 

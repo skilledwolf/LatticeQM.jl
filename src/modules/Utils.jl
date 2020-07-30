@@ -17,7 +17,7 @@ module Utils
     include("Utils/fermidirac.jl")
 
     include("Utils/rotate.jl")
-    export rotation2D
+    export rotation2D, rotation3D
 
     include("Utils/grid.jl")
 

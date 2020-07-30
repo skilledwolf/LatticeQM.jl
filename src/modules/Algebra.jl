@@ -12,6 +12,7 @@ module Algebra
 
     include("Algebra/paulimatrices.jl")
     export σ0, σ1, σ2, σ3, σX, σY, σZ, σs
+    export spinorrotation
 
     include("Algebra/eigen.jl")
 

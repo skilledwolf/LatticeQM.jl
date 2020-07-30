@@ -40,6 +40,26 @@ function flexibleformat!(ρ::AnyHops, A::AbstractArray, keylist::AbstractVector)
     ρ
 end
 
+function zerolike(h::AnyHops; format=:auto)
+    ρ = Hops()
+
+    if format==:dense 
+        for δL=keys(h)
+            ρ[δL] = zeros(ComplexF64, size(h[δL]))
+        end
+    elseif format==:sparse
+        for δL=keys(h)
+            ρ[δL] = spzeros(ComplexF64, size(h[δL]))
+        end
+    else
+        for δL=keys(h)
+            ρ[δL] = zero(h[δL])
+        end
+    end
+
+    ρ
+end
+
 DenseHops(kv::Hop...) = Hops(k=>Matrix(v) for (k,v) in kv)
 DenseHops(d::AnyHops) = DenseHops(d...)
 
@@ -50,6 +70,7 @@ Hops(M::AbstractMatrix,d::Int=2) = Hops(zeros(Int,d)=>M)
 
 zerokey(h::AnyHops) = zero(first(keys(h)))
 getzero(h::AnyHops) = h[zerokey(h)]
+setzero!(h::AnyHops, M::AbstractMatrix) = (h[zerokey(h)].=M; h)
 
 hopdim(hops::AnyHops) = size(first(values(hops)),1)
 
