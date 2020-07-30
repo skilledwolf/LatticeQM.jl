@@ -33,7 +33,7 @@ function spindensitymatrix!(M::AbstractMatrix, d::Vector=[1,0,0]; i=1)
     M
 end
 
-function spindensitymatrix!(M::AbstractMatrix, s::Symbol)
+function spindensitymatrix!(M::AbstractMatrix, s::Symbol; kwargs...)
     if s==:left || s==:upx || s==:x
         d = [1,0,0]
     elseif s==:right || s==:downx
@@ -55,7 +55,7 @@ function spindensitymatrix!(M::AbstractMatrix, s::Symbol)
         d = [cos(ϕ), sin(ϕ), 0]
     end
 
-    spindensitymatrix!(M, d)
+    spindensitymatrix!(M, d; kwargs...)
 end
 
 
