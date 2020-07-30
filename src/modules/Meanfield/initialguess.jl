@@ -68,7 +68,7 @@ From a list of spin orientations vs (and optionally lattice indices Is, and opti
 a spin density matrix for multiple lattice sites is generated.
 """
 mapspindensitymatrix(vs::AbstractVector) = mapspindensitymatrix(vs, 1:length(vs))
-mapspindensitymatrix(v, N::Int) = mapspindensitymatrix(Iterators.repeated(v, N))
+mapspindensitymatrix(v, N::Int) = mapspindensitymatrix(collect(Iterators.repeated(v, N)))
 mapspindensitymatrix(vs::AbstractVector, Is::AbstractVector{Int}) = mapspindensitymatrix(vs, Is, length(Is))
 function mapspindensitymatrix(vs::AbstractVector, Is::AbstractVector{Int}, N::Int)
     @assert length(Is)==length(vs) "List of indices Is must have same length as list of orientations vs."
