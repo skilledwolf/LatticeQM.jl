@@ -18,7 +18,7 @@ import ..Structure.Lattices: Lattice, positions, allpositions, getA, countorbita
 
 include("TightBinding/types.jl") # todo : move to new module Hops
 export DenseHops, SparseHops, Hops, AnyHops, AbstractHops
-export hopdim, addspin, addhops!, addhops
+export hopdim, addspin, addhops!, addhops, zerolike, zerokey, getzero, setzero!
 # export decidetype
 
 include("TightBinding/bloch.jl") # todo : move to new module Hops

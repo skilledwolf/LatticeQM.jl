@@ -10,8 +10,8 @@ spacedim(lat::Lattice) = size(getA(lat), 1) # used to be latticedim(lat) + extra
 hasdimension(lat::Lattice, name::String) = haskey(lat.extralabels, name)
 assertdimension(lat::Lattice, name::String) = !hasdimension(lat, name) ? error("No $name coordinates specified.") : Nothing
 
-basis(lat::Lattice, selector=(:)) = lat.basis[:,selector]
-getA(lat::Lattice, selector=(:)) = basis(lat)[:,1:latticedim(lat)][:,selector]
+basis(lat::Lattice, rselector=(:), cselector=(:)) = lat.basis[rselector,cselector]
+getA(lat::Lattice, rselector=(:), cselector=(:)) = basis(lat)[:,1:latticedim(lat)][rselector,cselector]
 
 
 """
@@ -19,10 +19,10 @@ Calculate the dual lattice of lat.A.
 Here we use the general formula \$B = A * (A^T * A)^-1\$. That works also 
 when the d-dim lattice is embedded in D-dim space.
 """
-function getB(lat::Lattice, selector=(:))
+function getB(lat::Lattice, rselector=(:), cselector=(:))
     d = latticedim(lat)
     A = getA(lat)[:,1:d]
-    return (A * inv(transpose(A)*A))[:,selector]
+    return (A * inv(transpose(A)*A))[rselector, cselector]
 end
 
 coordinates(lat::Lattice, selector=(:)) = lat.spacecoordinates[selector,:]
