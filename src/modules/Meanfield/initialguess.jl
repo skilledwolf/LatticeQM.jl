@@ -138,9 +138,12 @@ function setferro!(ρ::AnyHops, d=:up)
     n = div(N,2)
 
     if d==:random # make sure that random only computes a single random vector!
-        d = [sin(π*rand())*cos(2π*rand()), sin(π*rand())*sin(2π*rand()), cos(π*rand())]
+        θ = π*rand()
+        ϕ = 2π*rand()
+        d = [sin(θ)*cos(ϕ), sin(θ)*sin(ϕ), cos(θ)]
     elseif d==:randomXY
-        d = [cos(2π*rand()), sin(2π*rand()), 0]
+        ϕ = 2π * rand()
+        d = [cos(ϕ), sin(ϕ), 0]
     end
 
     setzero!(ρ, mapspindensitymatrix(d, n))
@@ -177,76 +180,3 @@ function initialguess(v::AnyHops, mode=:random, args...; lat=:nothing, kwargs...
     ρs
 end
 
-# function initialguess(v::AnyHops, mode=:random; lat=:nothing, kwargs...)
-#     N = hopdim(v)#size(first(values(v)), 1)
-#     @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
-#     n = div(N,2)
-
-#     ρs = zerolike(v)
-
-
-#     if mode==:randombig
-#         mat = rand(ComplexF64, N, N)
-#         setzero!(ρs, (mat+mat')/2)
-
-#     elseif mode==:random
-#         setzero!(ρs, mapspindensitymatrix(:random, n))
-
-#     elseif mode==:randomXY
-#         setzero!(ρs, mapspindensitymatrix(:randomXY, n))
-
-#     elseif mode==:randomferro
-#         mat = rand(ComplexF64, n, n)
-#         σmat = randmat()
-
-#         ρs[zerokey(ρs)] = Matrix(sum(kron(sparse([i_],[i_], [1.0+0.0im], n,n), σmat) for i_=1:n))
-
-#     elseif mode==:randomantiferro
-#         sublA, sublB = getoperator(lat, ["sublatticeA", "sublatticeB"])
-
-#         ρs[zero(first(keys(ρs)))] = kron(sublA,ρup) + kron(sublB, σ0-ρup)
-
-#     elseif mode==:antiferro || mode==:antiferroZ
-#         sublA, sublB = getoperator(lat, ["sublatticeA", "sublatticeB"])
-
-#         ρs[zero(first(keys(ρs)))] = kron(sublA, spindensitymatrix(:up)) + kron(sublB, spindensitymatrix(:down))
-
-#     elseif mode==:antiferroX
-#         sublA, sublB = getoperator(lat, ["sublatticeA", "sublatticeB"])
-
-#         ρs[zero(first(keys(ρs)))] = kron(sublA,spindensitymatrix(:upx)) + kron(sublB,spindensitymatrix(:downx))
-
-#     elseif mode==:antiferroY
-#         sublA, sublB = getoperator(lat, ["sublatticeA", "sublatticeB"])
-
-#         ρs[zero(first(keys(ρs)))] = kron(sublA, spindensitymatrix(:upy)) + kron(sublB, spindensitymatrix(:downy))
-
-#     elseif mode==:ferro || mode==:ferroZ
-#         setzero!(ρs, kron(Diagonal(ones(n)), spindensitymatrix(:up)))
-
-#     elseif mode==:ferroX
-#         setzero!(ρs, kron(Diagonal(ones(n)), spindensitymatrix(:upx)))
-
-#     elseif mode==:ferroY
-#         setzero!(ρs, kron(Diagonal(ones(n)), spindensitymatrix(:upy)))
-
-#     elseif mode==:spiral
-#         kwargs = Dict(kwargs)
-#         @assert haskey(kwargs, :superperiods) "You have to specify a superlattice via `superperiods` keyword argument."
-#         superperiods = pop!(kwargs, :superperiods)
-        
-#         setzero!(ρs, spinspiraldensitymatrix(lat, kwargs[:superperiods]; kwargs...))
-
-#     else
-#         error("Unrecognized mode '$mode' in initialguess(...).")
-
-#     end
-
-#     ρs
-# end
-
-
-###################################################################################################
-# Backwards compatibility
-###################################################################################################
-@deprecate initial_guess initialguess 
