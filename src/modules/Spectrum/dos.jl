@@ -19,6 +19,8 @@ getdos(h, ωs; kwargs...) = (DOS=zero(ωs); getdos!(DOS, h, ωs; kwargs...))
 function getdos!(DOS, h, ωs::AbstractVector; klin::Int, kwargs...)
     ks = regulargrid(nk=klin^2)
     getdos!(DOS, h, ks, ωs; kwargs...)
+
+    DOS
 end
 
 
@@ -73,6 +75,8 @@ function dos_parallel!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::Abstract
     DOS0 = @sync @showprogress 6 "Computing DOS... " @distributed (+) for j=1:L # over ks
         tmp = zero(DOS)
         dos!(tmp, ϵs(ks[:,j]), frequencies; broadening=Γ)
+
+        tmp
     end
     DOS[:] += (DOS0 / L)[:]
 
