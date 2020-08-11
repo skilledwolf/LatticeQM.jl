@@ -35,7 +35,7 @@ and for the frequencies ω=(ω1, ω2, ...). The paremter \$\\Gamma\$ is the ener
 Mode can be :parallel or :serial, format can be :auto, :sparse or :dense.
 """
 getdos(h, ks, ωs; kwargs...) = (DOS=zero(ωs); getdos!(DOS, h, ks, ωs; kwargs...))
-function getdos!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; parallel=true, mode=:parallel kwargs...)
+function getdos!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; parallel=true, mode=:parallel, kwargs...)
     if nprocs()<2 || mode!=:parallel
         parallel=false
     end
