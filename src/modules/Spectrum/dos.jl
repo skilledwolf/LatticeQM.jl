@@ -35,8 +35,8 @@ and for the frequencies ω=(ω1, ω2, ...). The paremter \$\\Gamma\$ is the ener
 Mode can be :parallel or :serial, format can be :auto, :sparse or :dense.
 """
 getdos(h, ks, ωs; kwargs...) = (DOS=zero(ωs); getdos!(DOS, h, ks, ωs; kwargs...))
-function getdos!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; parallel=true, kwargs...)
-    if nprocs()<2
+function getdos!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; parallel=true, mode=:parallel kwargs...)
+    if nprocs()<2 || mode!=:parallel
         parallel=false
     end
     
@@ -71,8 +71,8 @@ function dos_parallel!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::Abstract
     ϵs = energies(h; kwargs...)
 
     DOS0 = @sync @showprogress 6 "Computing DOS... " @distributed (+) for j=1:L # over ks
-        DOS0 = zero(DOS)
-        dos!(DOS0, ϵs(ks[:,j]), frequencies; broadening=Γ)
+        tmp = zero(DOS)
+        dos!(tmp, ϵs(ks[:,j]), frequencies; broadening=Γ)
     end
     DOS[:] += (DOS0[:] ./ L)
     DOS
