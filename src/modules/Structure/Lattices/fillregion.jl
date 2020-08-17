@@ -1,5 +1,5 @@
 function minsum(x::AbstractVector,y::AbstractVector)
-	if length(y) > length(y)
+	if length(y) > length(x)
 		minsum(y,x)
 	else
 		N = minimum([length(x),length(y)])
