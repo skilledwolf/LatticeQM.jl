@@ -87,7 +87,7 @@ module Geometries2D
 
     honeycomb_bilayer(a::Float64=1.0, z::Float64=3.0; δ::Vector{Float64}=[0.0,0.0]) = Lattice(
         a .* A_hex,
-        [[0.0;0.0;-z/2]  [1/3; 1/3; -z/2] [δ;z/2] [δ; z/2]],
+        [[0.0;0.0;-z/2]  [1/3; 1/3; -z/2] [δ; z/2] δ_hex+[δ; z/2]],
         1.0*hcat([0 1 0 1]);
         extralabels=["sublattice"],
         specialpoints=kdict_tri
