@@ -30,7 +30,7 @@ function twist(lat1::Lattice, lat2::Lattice, n::Int; z::Float64=3, m::Int=1, ver
     foldcoordinates!(lat2)
     # mirrorZ!(lat2)
 
-    # Build (non-orthogonal) supercells and move it up along z
+    # Build (non-orthogonal) supercells
     superlat1 = superlattice(lat1, superperiods)
     newdimension!(superlat1, "layer", fill(0.0, (1, countorbitals(superlat1))))
     superlat2 = superlattice(lat2, superperiods)
@@ -40,9 +40,11 @@ function twist(lat1::Lattice, lat2::Lattice, n::Int; z::Float64=3, m::Int=1, ver
     if verbose
         println("Twist α="*string(round(angle/π*180; digits=3))*"°   (n,m)=($n,$m)")
     end
+    repeat!(superlat1, [-1:1,-1:1])
     repeat!(superlat2, [-1:1,-1:1])
-    # rotatecoordinates!(superlat1, -angle/2)
-    rotatecoordinates!(superlat2, angle)
+    rotatecoordinates!(superlat1, -angle/2)
+    rotatecoordinates!(superlat2, angle/2)
+    crop2unitcell!(superlat1)
     crop2unitcell!(superlat2)
 
     mergelattices!(superlat1, superlat2)
