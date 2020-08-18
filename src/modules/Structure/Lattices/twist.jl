@@ -40,11 +40,11 @@ function twist(lat1::Lattice, lat2::Lattice, n::Int; z::Float64=3, m::Int=1, ver
     if verbose
         println("Twist α="*string(round(angle/π*180; digits=3))*"°   (n,m)=($n,$m)")
     end
-    repeat!(superlat1, [-1:1,-1:1])
+    # repeat!(superlat1, [-1:1,-1:1])
     repeat!(superlat2, [-1:1,-1:1])
-    rotatecoordinates!(superlat1, -angle/2)
-    rotatecoordinates!(superlat2, angle/2)
-    crop2unitcell!(superlat1)
+    # rotatecoordinates!(superlat1, -angle/2)
+    rotatecoordinates!(superlat2, angle)
+    # crop2unitcell!(superlat1)
     crop2unitcell!(superlat2)
 
     mergelattices!(superlat1, superlat2)
