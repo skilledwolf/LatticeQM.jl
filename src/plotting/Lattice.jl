@@ -19,7 +19,7 @@ import LatticeQM.Structure.Lattices: Lattice, allpositions, extracoordinates, re
 
     perm = (:)
     if sort != false
-        perm = sortextraposition!(lat, sort)
+        perm = sortposition!(lat, sort)
         colors = colors[perm]
         spacecoordinates = spacecoordinates[:,perm]
     end
