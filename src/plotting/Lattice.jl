@@ -1,4 +1,4 @@
-import LatticeQM.Structure.Lattices: Lattice, allpositions, extracoordinates, repeat!, sortextraposition!, filterindices, positions, countorbitals
+import LatticeQM.Structure.Lattices: Lattice, allpositions, extracoordinates, repeat!, sortposition!, filterindices, positions, countorbitals
 
 @recipe function f(lat0::Lattice, colors::Union{Nothing,Vector{Float64},String,Int}=nothing; filter=(), sort=false, supercell=0:0, markercolor=:RdYlBu, clims=:auto)
     # filter could be for example filter=("layer", z->z==0.0)
