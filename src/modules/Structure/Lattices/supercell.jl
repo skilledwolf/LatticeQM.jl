@@ -59,13 +59,27 @@ Translates all points in "atom" by lattice vectors as defined by the "repeat" li
     spacecoordinates_super = hcat([spacecoordinates.+v for v in Λsuper]...)
 end
 
-function sortextraposition!(lat::Lattice, name::String)
+sortextraposition!(lat::Lattice, name::String) = sortposition!(lat,name) # alias for backwards compatibility
+function sortposition!(lat::Lattice, name::String)
 """
 Sorts all coordinates in the lattice according to extraposition "name" (e.g. z coordinates or sublattice).
-This is useful for example when plotting, such layers get plotted one on top of each other (even in supercells).
+This is useful for example when plotting, such that layers get plotted one on top of each other (even in supercells).
 """
 
     perm = sortperm(vec(extracoordinates(lat,name)))
+
+    lat.extracoordinates[:,:] = lat.extracoordinates[:,perm]
+    lat.spacecoordinates[:,:] = lat.spacecoordinates[:,perm]
+
+    perm
+end
+function sortposition!(lat::Lattice, index::Int)
+"""
+Sorts all coordinates in the lattice according to extraposition "name" (e.g. z coordinates or sublattice).
+This is useful for example when plotting, such that layers get plotted one on top of each other (even in supercells).
+"""
+
+    perm = sortperm(vec(coordinates(lat,index)))
 
     lat.extracoordinates[:,:] = lat.extracoordinates[:,perm]
     lat.spacecoordinates[:,:] = lat.spacecoordinates[:,perm]
