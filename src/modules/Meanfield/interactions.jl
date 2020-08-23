@@ -22,7 +22,7 @@ function gethubbard(lat, neighbors=[[0;0]]; mode=:nospin, format=:auto, kwargs..
 end
 
 function getcappedyukawa(lat, neighbors=[[i;j] for i=-1:1 for j=-1:1]; mode=:nospin, format=:auto, kwargs...)
-    t(args...) = Hubbard(args...; kwargs...)
+    t(args...) = CappedYukawa(args...; kwargs...)
     ee_exchange = gethops(lat, neighbors, t; format=format)
 
     addspin(ee_exchange, mode)
