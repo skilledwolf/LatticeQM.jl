@@ -28,6 +28,8 @@ mutable struct Hamiltonian
     μ::Float64
 end
 
+using JLD
+
 """
     Searches a self-consistent meanfield solution for the functional ℋ: ρ → h
     at given filling (between 0 and 1). k space is discretized with the given points ks.
