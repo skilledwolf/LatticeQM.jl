@@ -137,7 +137,7 @@ function setferro!(ρ::AnyHops, d=:up)
     N = hopdim(ρ); @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
     n = div(N,2)
 
-    if d==:random # make sure that random only computes a single random vector!
+    if d==:random # makes sure that random only computes a single random vector!
         θ = π*rand()
         ϕ = 2π*rand()
         d = [sin(θ)*cos(ϕ), sin(θ)*sin(ϕ), cos(θ)]
