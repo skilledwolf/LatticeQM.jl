@@ -46,14 +46,16 @@ using JLD
 function solveselfconsistent!(ρ0::AnyHops, ρ1::AnyHops, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, ks::AbstractMatrix{Float64};
     convergenceerror=false, parallel=false, checkpoint::String="", hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
 
-    ρ0 = Hops(δL=>Matrix(complex(m)) for (δL, m)=ρ0) # convert to dense
-    ρ1 = Hops(δL=>Matrix(complex(m)) for (δL, m)=ρ1) # convert to dense
-    H = Hamiltonian(Hops(), 0.0)
-
     if checkpoint != "" && isfile(checkpoint) && hotstart
         println("Loading checkpoint file as initial guess: $checkpoint")
         ρ0 = JLD.load(checkpoint, "mf")
     end
+
+    ρ0 = Hops(δL=>Matrix(complex(m)) for (δL, m)=ρ0) # convert to dense
+    ρ1 = Hops(δL=>Matrix(complex(m)) for (δL, m)=ρ1) # convert to dense
+    H = Hamiltonian(Hops(), 0.0)
+
+
 
     function updateH!(H::Hamiltonian, ρ::AnyHops)
         verbose ? @info("Updating chemical potential for given filling.") : nothing
