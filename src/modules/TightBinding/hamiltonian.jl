@@ -121,7 +121,7 @@ function getsparsehops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Fl
 end
 
 function densehoppingmatrix!(M::Array{ComplexF64}, Ri::Matrix{Float64}, Rj::Matrix{Float64}, t::Function)
-    d = size(V, 2) # bond dimension
+    d = size(M, 2) # bond dimension
     N = size(Ri,2) # number of atoms
 
     # Iterate over atom pairs and calculate the (possibly matrix-valued) hopping amplitudes
