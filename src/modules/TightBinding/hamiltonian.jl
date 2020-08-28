@@ -93,7 +93,7 @@ function getdensehops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Flo
 
     hops = Hops()
     for (δL,δa) in neighbors
-        hops[δL] = densehoppingmatrix!(M, R.+δa, R, t; precision=precision)
+        hops[δL] = densehoppingmatrix!(M, R.+δa, R, t)
         hops[-δL] = hops[δL]' # create the Hermitian conjugates
     end
 
@@ -125,7 +125,7 @@ function densehoppingmatrix!(M::Array{ComplexF64}, Ri::Matrix{Float64}, Rj::Matr
     N = size(Ri,2) # number of atoms
 
     # Iterate over atom pairs and calculate the (possibly matrix-valued) hopping amplitudes
-    @fastmath for i=1:N,j=1:N
+    for i=1:N,j=1:N
         I = (i-1)*d; J = (j-1)*d
         @views M[I+1:I+d, J+1:J+d] .= t(Ri[:,i], Rj[:,j])
     end
@@ -142,7 +142,7 @@ function sparsehoppingmatrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{Comple
 
     count = 0 # counter for added matrix elements
 
-    @fastmath for i=1:N,j=1:N
+    for i=1:N,j=1:N
         @views V[1:d, 1:d] .= t(Ri[:,i], Rj[:,j])
 
         for i0=1:d, j0=1:d
