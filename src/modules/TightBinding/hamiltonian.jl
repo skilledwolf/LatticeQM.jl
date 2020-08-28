@@ -24,15 +24,10 @@ Returns the hopping elements in the format
 
 """
 function gethops(lat::Lattice, t::Function; cellrange=1, format=:auto, precision::Float64=sqrt(eps()), kwargs...)# where {T<:AbstractMatrix{Float64}}
-
-    # Get lattice neighbors
-#     neighbors = [[i;j] for i=-1:1 for j=-1:1 if i+j>=0 && i>=0]
+    # Get neighbor cells
     neighbors = getneighborcells(lat, cellrange; halfspace=true, innerpoints=true, excludeorigin=false)
-
-    hops = gethops(lat, neighbors, t; precision=precision, format=format, kwargs...)
-
-    # (latticedim(lat) == 0) ? first(values(hops)) : hops
-    hops
+    # Iterate the hopping function over orbital pairs and neighbors
+    gethops(lat, neighbors, t; precision=precision, format=format, kwargs...)
 end
 
 using ..Utils: padvec
@@ -52,39 +47,31 @@ end
 # Main routines for gethops(...)
 ###############################################################################
 
-function gethops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; vectorized=false, kwargs...)
+asserthopdim(t0::Number) = 1
+asserthopdim(t0::AbstractMatrix) = size(v0,1)
 
-    ####
-    # The keyword specialized indicates that the function t accepcts the signature t(R1,R2) where
-    # R1 and R2 are matrices. This can be crucial for performance when dealing with huge unit cells
-    # (such as for twisted bilayer graphene).
-    # I might make this the default, but then it should be well-documented.
-    ####
+function gethops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; vectorized=false, format=:auto, kwargs...)
 
-    if vectorized
-        return gethops_vectorized(R, neighbors, t; kwargs...)
+    if vectorized # indicates that the function t accepcts the call signature t(R1::Matrix,R2::Matrix)
+        return getvectorizedhops(R, neighbors, t; format=format, kwargs...)
     end
 
-    ####
-    # Switch between matrix-valued t and scalar t functions.
-    # For large unit cells matrix-valued t is a bad idea!
-    ###
-    v0 = t(R[:,1])
-    if isa(v0, Number)
-        d = 1
-    elseif isa(v0, AbstractMatrix)
-        d = size(v0,1)
+    if format==:auto
+        format = decidetype(size(R,1))
+    end
+
+    if format==:dense
+        getdensehops(R, neighbors, t; kwargs...)
+    elseif format==:sparse
+        getsparsehops(R, neighbors, t; kwargs...)
     else
-        error("Hopping function t must return number or matrix of number")
+        error("Format `$format` does not exist. Choose `:auto`, `:dense` or `sparse`.")
     end
-
-    return gethops(R, neighbors, t, d; kwargs...)
 end
 
 using Distributed
 
-function gethops_vectorized(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; precision::Float64=1e-6, format=:auto)
-
+function getvectorizedhops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; precision::Float64=1e-6, format=:auto)
     N = size(R,2)
     hops = Hops()
 
@@ -94,11 +81,28 @@ function gethops_vectorized(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vect
         hops[-δL] = hops[δL]' # create the Hermitian conjugates
     end
 
-    decidetype(hops, format)
+    ensuretype(hops, format)
 end
 
-function gethops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function, d::Int; precision::Float64=1e-6, format=:auto)
+function getdensehops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; precision::Float64=1e-6)
     N = size(R,2)
+    d = asserthopdim(t(R[:,1]))::Int
+
+    # Preallocate memory: avoid unnecessary allocations
+    M  = Matrix{ComplexF64}(undef, (d*N, d*N))
+
+    hops = Hops()
+    for (δL,δa) in neighbors
+        hops[δL] = densehoppingmatrix!(M, R.+δa, R, t; precision=precision)
+        hops[-δL] = hops[δL]' # create the Hermitian conjugates
+    end
+
+    hops
+end
+
+function getsparsehops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; precision::Float64=1e-6)
+    N = size(R,2)
+    d = asserthopdim(t(R[:,1]))::Int
 
     # Preallocate memory: important for huge sparse matrices
     maxind = (N>MAX_DENSE) ? round(Int, MAX_DIAGS * N) : N^2 # semi-arbitrary limit for dense allocation
@@ -109,14 +113,28 @@ function gethops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}
 
     hops = Hops()
     for (δL,δa) in neighbors
-        hops[δL] = hoppingmatrix!(IS, JS, VS, V, R.+δa, R, t; precision=precision) # heavy lifting
+        hops[δL] = sparsehoppingmatrix!(IS, JS, VS, V, R.+δa, R, t; precision=precision) # heavy lifting
         hops[-δL] = hops[δL]' # create the Hermitian conjugates
     end
 
-    decidetype(hops, format)
+    hops
 end
 
-function hoppingmatrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64}, V::Array{ComplexF64}, Ri::Matrix{Float64}, Rj::Matrix{Float64}, t::Function; precision::Float64)
+function densehoppingmatrix!(M::Array{ComplexF64}, Ri::Matrix{Float64}, Rj::Matrix{Float64}, t::Function)
+    d = size(V, 2) # bond dimension
+    N = size(Ri,2) # number of atoms
+
+    # Iterate over atom pairs and calculate the (possibly matrix-valued) hopping amplitudes
+    @fastmath for i=1:N,j=1:N
+        I = (i-1)*d; J = (j-1)*d
+        @views M[I+1:I+d, J+1:J+d] .= t(Ri[:,i], Rj[:,j])
+    end
+
+    M
+end
+
+
+function sparsehoppingmatrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64}, V::Array{ComplexF64}, Ri::Matrix{Float64}, Rj::Matrix{Float64}, t::Function; precision::Float64)
 
     d = size(V, 2) # bond dimension
     N = size(Ri,2) # number of atoms
@@ -131,7 +149,13 @@ function hoppingmatrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64},
             if abs(V[i0, j0]) < precision
                 continue
             end
+
             count = count+1
+
+            if count > maxind 
+                error("The tight-binding matrix is not sparse enough for this constructor.")
+            end
+            
             IS[count] = (i-1)*d + i0
             JS[count] = (j-1)*d + j0
             VS[count] = V[i0, j0]
@@ -140,9 +164,3 @@ function hoppingmatrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64},
 
     sparse(IS[1:count], JS[1:count], VS[1:count], N*d, N*d)
 end
-
-
-###################################################################################################
-# Backwards compatibility
-###################################################################################################
-@legacyalias gethops get_hops

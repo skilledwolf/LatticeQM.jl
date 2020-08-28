@@ -148,13 +148,22 @@ end
 const MAX_DENSE = 500
 const MAX_DIAGS = 100
 
-function decidetype(hops::AnyHops, format)
+decidetype(hops::AnyHops) = decidetype(hopdim(hops))
 
-    if format==:auto
-        if hopdim(hops) < MAX_DENSE + 1
-            format=:dense
-        end
+function decidetype(N::Int)
+    if N < MAX_DENSE + 1
+        return :dense
+    else
+        return :sparse
     end
+end
+
+
+function ensuretype(hops::AnyHops, format=:auto)
+    if format==:auto
+        # format = decidetype(hops) # old behaviour
+        return hops
+    end 
 
     if format==:dense
         hops = DenseHops(hops)
@@ -164,12 +173,3 @@ function decidetype(hops::AnyHops, format)
 
     hops
 end
-
-###################################################################################################
-# Backwards compatibility
-###################################################################################################
-export extend_space
-@legacyalias addspin extend_space
-
-export decide_type
-@legacyalias decidetype decide_type
