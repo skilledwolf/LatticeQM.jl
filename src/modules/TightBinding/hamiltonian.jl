@@ -48,7 +48,7 @@ end
 ###############################################################################
 
 asserthopdim(t0::Number) = 1
-asserthopdim(t0::AbstractMatrix) = size(v0,1)
+asserthopdim(t0::AbstractMatrix) = size(t0,1)
 
 function gethops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; vectorized=false, format=:auto, kwargs...)
 

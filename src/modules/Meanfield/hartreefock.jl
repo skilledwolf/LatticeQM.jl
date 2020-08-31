@@ -7,22 +7,24 @@
     using solve_selfconsistent(...).
 """
 
-function hartreefock(h::Function, v::AnyHops)
-    mf, E = hartreefock_k(v)
-    ℋ(ρ) = k -> (h(k) .+ mf(ρ)(k))
+# function hartreefock(h::Function, v::AnyHops)
+#     mf, E = hartreefock_k(v)
+#     ℋ(ρ) = k -> (h(k) .+ mf(ρ)(k))
 
-    ℋ, E
-end
+#     ℋ, E
+# end
+
+# function hartreefock_k(v::AnyHops)
+#     vMF, ϵMF = hartreefock(v)
+#     getbloch(vMF), ϵMF
+# end
 
 function hartreefock(h::AnyHops, v::AnyHops)
     vMF, ϵMF = hartreefock(v)
 
-    ρ::AnyHops -> addhops(h, vMF(ρ)), ϵMF
-end
+    hMF(ρ::AnyHops) = h + vMF(ρ)
 
-function hartreefock_k(v::AnyHops)
-    vMF, ϵMF = hartreefock(v)
-    getbloch(vMF), ϵMF
+    hMF, ϵMF
 end
 
 function hartreefock(v::AnyHops)
@@ -61,10 +63,3 @@ function hartreefock(v::AnyHops)
 
     vMF, ϵMF
 end
-
-
-###################################################################################################
-# Backwards compatibility
-###################################################################################################
-@legacyalias hartreefock get_mf_functional
-@legacyalias hartreefock_k get_mf_operator
