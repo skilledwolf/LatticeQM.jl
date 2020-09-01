@@ -83,6 +83,24 @@ function dos_parallel!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::Abstract
     DOS
 end
 
+# todo: include into dos!(...)
+function dos_multithread!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; Γ::Number, kwargs...)
+    L = size(ks)[2]
+    ϵs = energies(h; kwargs...)
+
+    Threads.@threads for k=ProgressBar(eachcol(ks)) # j=1:L
+        tmp = zero(DOS)
+        dos!(tmp, ϵs(k), frequencies; broadening=Γ)
+
+        lock(DOS) do 
+            DOS[:] .+= tmp[:]
+        end
+    end
+    DOS ./= L
+
+    DOS
+end
+
 
 
 # function dos_parallel(h, ks::AbstractMatrix{Float64}, frequencies::AbstractVector{Float64}; Γ::Float64, kwargs...)

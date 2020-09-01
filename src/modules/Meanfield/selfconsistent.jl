@@ -28,7 +28,9 @@ mutable struct Hamiltonian
     μ::Float64
 end
 
+
 using JLD
+
 
 """
     Searches a self-consistent meanfield solution for the functional ℋ: ρ → h
@@ -44,7 +46,7 @@ using JLD
     note that for small problems `parallel=true` may decrease performance (communication overhead)
 """
 function solveselfconsistent!(ρ0::AnyHops, ρ1::AnyHops, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, ks::AbstractMatrix{Float64};
-    convergenceerror=false, parallel=false, checkpoint::String="", hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
+    convergenceerror=false, multimode=:serial, checkpoint::String="", hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
 
     if checkpoint != "" && isfile(checkpoint) && hotstart
         println("Loading checkpoint file as initial guess: $checkpoint")
@@ -54,8 +56,6 @@ function solveselfconsistent!(ρ0::AnyHops, ρ1::AnyHops, ℋ_op::Function, ℋ_
     ρ0 = Hops(δL=>Matrix(complex(m)) for (δL, m)=ρ0) # convert to dense
     ρ1 = Hops(δL=>Matrix(complex(m)) for (δL, m)=ρ1) # convert to dense
     H = Hamiltonian(Hops(), 0.0)
-
-
 
     function updateH!(H::Hamiltonian, ρ::AnyHops)
         verbose ? @info("Updating chemical potential for given filling.") : nothing
@@ -68,7 +68,7 @@ function solveselfconsistent!(ρ0::AnyHops, ρ1::AnyHops, ℋ_op::Function, ℋ_
         updateH!(H, ρ0)
 
         verbose ? @info("Updating the meanfield density matrix.") : nothing
-        ϵ0 = densitymatrix!(ρ1, H.h, ks, H.μ; parallel=parallel, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
+        ϵ0 = densitymatrix!(ρ1, H.h, ks, H.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
 
         if checkpoint != ""
             JLD.save(checkpoint, "mf", ρ1)
@@ -88,3 +88,4 @@ function solveselfconsistent!(ρ0::AnyHops, ρ1::AnyHops, ℋ_op::Function, ℋ_
 
     ρ1, ϵ_GS, H, converged, Error
 end
+

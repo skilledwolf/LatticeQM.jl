@@ -102,6 +102,38 @@ end
 # end
 
 using ..TightBinding: efficientformat, efficientzero, flexibleformat!
+using ProgressBars
+
+function densitymatrix_multithread!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
+    L = size(ks,2)
+
+    energies = zeros(Float64, L)
+    spectrumf = spectrum(H; kwargs...)
+
+    for (δL,ρ0)=ρs
+        ρs[δL][:] .= 0.0 #convert(SharedArray, zero(ρ0))[:]
+    end
+
+    Threads.@threads for i_=ProgressBar(1:L)
+        k = ks[:,i_]
+        ϵs, U = spectrumf(k) #@time
+
+        lock(ρs) do
+            for δL=keys(ρs)
+                densitymatrix!(ρs[δL], δL, k, ϵs.-μ, U; T=T)
+            end
+        end
+
+        # densitymatrix!(ρs, k, ϵs.-μ, U; T=T)
+        energies[i_] = groundstate_sumk(real(ϵs), μ)
+    end
+
+    for δL = keys(ρs)
+        ρs[δL][:] ./= L
+    end
+
+    sum(energies)/L # return the groundstate energy
+end
 
 function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
     L = size(ks,2)
@@ -117,7 +149,7 @@ function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, �
 
         ρ0 = deepcopy(zeromat)
         for (j_,δL)=enumerate(δLs)
-            densitymatrix!(view(ρ0, :,:,j_), δL, k, ϵs.-μ, U; T=T)
+            densitymatrix!(view(ρ0,:,:,j_), δL, k, ϵs.-μ, U; T=T)
             # densitymatrix!(view(ρsMat, :,:,j_), δL, k, ϵs.-μ, U; T=T)
         end
 
@@ -161,10 +193,14 @@ function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ:
 end
 
 
-densitymatrix!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; parallel::Bool=false, kwargs...) = (parallel && nprocs()>1) ? densitymatrix_parallel!(ρs, H, ks, μ; kwargs...) : densitymatrix_serial!(ρs, H, ks, μ; kwargs...)
+function densitymatrix!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; multimode=:serial, kwargs...)
 
-###################################################################################################
-# Legacy maps
-###################################################################################################
-export ρ_L
-@legacyalias densitymatrix ρ_L
+    if multimode==:parallel && nprocs()>1
+        densitymatrix_parallel!(ρs, H, ks, μ; kwargs...)
+    elseif multimode==:multithread && Threads.nthreads()>1
+        densitymatrix_multithread!(ρs, H, ks, μ; kwargs...)
+    else
+        densitymatrix_serial!(ρs, H, ks, μ; kwargs...)
+    end
+end
+
