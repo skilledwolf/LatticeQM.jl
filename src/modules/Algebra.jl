@@ -8,6 +8,7 @@ module Algebra
 
     using LinearAlgebra
     using Arpack
+    # using KrylovKit
 
 
     include("Algebra/paulimatrices.jl")

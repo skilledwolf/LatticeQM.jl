@@ -75,7 +75,7 @@ function bandmatrix_multithread(H, ks; num_bands::Int=0, kwargs...)
 
     energiesf = energies(H; num_bands=num_bands, kwargs...)
 
-    Threads.@threads for j_=ProgressBar(1:N)
+    Threads.@threads for j_=1:N
 
         bands[:,j_] .= real.(energiesf(ks[:,j_]))
     end
@@ -124,7 +124,7 @@ function bandmatrix_multithread(H, ks, projector; num_bands::Int=0, kwargs...)
 
     spectrumf = spectrum(H; num_bands=num_bands, kwargs...)
 
-    Threads.@threads for j_=ProgressBar(1:N)
+    Threads.@threads for j_=1:N
         ϵs, U = spectrumf(ks[:,j_])
         
         bands[:,j_] .= real.(ϵs)
@@ -166,16 +166,32 @@ using Plots
 plot(bands)
 ```
 """
-function getbands(H, ks::DiscretePath; kwargs...)
+getbands(args...; multithread=false, kwargs...) = multithread ? getbands_multithread(args...; kwargs...) : getbands_parallel(args...; kwargs...)
+
+
+function getbands_parallel(H, ks::DiscretePath; kwargs...)
     bands = bandmatrix(H, points(ks); kwargs...)
     obs = nothing
     BandData(bands, obs, ks)
 end
 
-function getbands(H, ks::DiscretePath, projector; kwargs...)
+function getbands_parallel(H, ks::DiscretePath, projector; kwargs...)
     bands, obs = bandmatrix(H, points(ks), projector; kwargs...)
     BandData(bands, obs, ks)
 end
+
+function getbands_multithread(H, ks::DiscretePath; kwargs...)
+    bands = bandmatrix_multithread(H, points(ks); kwargs...)
+    obs = nothing
+    BandData(bands, obs, ks)
+end
+
+function getbands_multithread(H, ks::DiscretePath, projector; kwargs...)
+    bands, obs = bandmatrix_multithread(H, points(ks), projector; kwargs...)
+    BandData(bands, obs, ks)
+end
+
+
 
 ## The following code snippet might come in handy some day:
 # p = Progress(nk)

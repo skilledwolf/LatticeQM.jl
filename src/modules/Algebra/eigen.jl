@@ -13,6 +13,12 @@ eigen_sparse(M::AbstractMatrix; num_bands::Int, sigma::Float64=1e-8, which=:LM, 
 eigvals_sparse(M::AbstractMatrix; num_bands::Int, sigma::Float64=1e-8, which=:LM, kwargs...) = real.((eigen_sparse(M; num_bands=num_bands, sigma=sigma, which=which, kwargs...))[1])
 eigvecs_sparse(M::AbstractMatrix; num_bands::Int, sigma::Float64=1e-8, which=:LM, kwargs...) = (eigen_sparse(M; num_bands=num_bands, sigma=sigma, which=which, kwargs...))[2]
 
+# function eigvals_sparse(M::AbstractMatrix; num_bands::Int, sigma::Float64=1e-8, which=EigSorter(abs; rev = false), kwargs...)
+#     vals, vecs, info = eigsolve(M, num_bands, which)
+
+#     real.(vals)
+# end
+
 ###################################################################################################
 # Interfaces for matrix functions
 ###################################################################################################
