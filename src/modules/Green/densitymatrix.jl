@@ -142,6 +142,9 @@ function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, �
 
     for δL=keys(ρs)
         ρs[δL][:] .= 0
+    end
+
+    for δL=keys(ρs)
         ρs[δL] = SharedArray(ρs[δL])
     end
 
@@ -158,6 +161,9 @@ function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, �
         energies[i_] = groundstate_sumk(real(ϵs), μ)
     end
 
+    for δL=keys(ρs)
+        ρs[δL] = Matrix(ρs[δL])
+    end
 
     for δL=keys(ρs)
         ρs[δL][:] ./= L
