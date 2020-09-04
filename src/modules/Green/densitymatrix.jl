@@ -135,17 +135,13 @@ function densitymatrix_multithread!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}
     sum(energies)/L # return the groundstate energy
 end
 
-function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
+function densitymatrix_parallel!(ρs::Dict{Vector{Int},SharedMatrix}, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
     L = size(ks,2)
 
     energies = SharedArray(zeros(Float64, L))
 
     for δL=keys(ρs)
         ρs[δL][:] .= 0
-    end
-
-    for δL=keys(ρs)
-        ρs[δL] = SharedArray(ρs[δL])
     end
 
     spectrumf = spectrum(H; kwargs...)
@@ -229,6 +225,7 @@ end
 function densitymatrix!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; multimode=:serial, kwargs...)
 
     if multimode==:parallel && nprocs()>1
+
         densitymatrix_parallel!(ρs, H, ks, μ; kwargs...)
     elseif multimode==:multithread && Threads.nthreads()>1
         densitymatrix_multithread!(ρs, H, ks, μ; kwargs...)
