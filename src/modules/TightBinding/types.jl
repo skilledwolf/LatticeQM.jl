@@ -25,7 +25,7 @@ const SparseHops = Hops{SparseMatrixCSC}
 # end
 
 function zerolike(h::AnyHops; format=:auto)
-    ρ = Hops()
+    ρ = Hops{AbstractMatrix}()
 
     if format==:dense 
         for δL=keys(h)
@@ -44,12 +44,13 @@ function zerolike(h::AnyHops; format=:auto)
     ρ
 end
 
-DenseHops(kv::Hop...) = Hops(k=>Matrix(v) for (k,v) in kv)
+DenseHops(kv::Hop...) = Hops{Matrix{ComplexF64}}(k=>Matrix(v) for (k,v) in kv)
 DenseHops(d::AnyHops) = DenseHops(d...)
 
-SparseHops(kv::Hop...) = Hops(k=>sparse(v) for (k,v) in kv)
+SparseHops(kv::Hop...) = Hops{SparseMatrixCSC{Complex{Float64},Int64}}(k=>sparse(v) for (k,v) in kv)
 SparseHops(d::AnyHops) = SparseHops(d...)
 
+Hops() = Hops{AbstractMatrix}()
 Hops(M::AbstractMatrix,d::Int=2) = Hops(zeros(Int,d)=>M)
 
 zerokey(h::AnyHops) = zero(first(keys(h)))
