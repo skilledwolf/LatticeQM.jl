@@ -155,14 +155,10 @@ function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, �
         ϵs, U = spectrumf(k) #@time
 
         for δL=keys(ρs)
-            densitymatrix!(ρs[δL], δL, k, ϵs.-μ, U; T=T)
+            densitymatrix!(view(ρs[δL],:,:), δL, k, ϵs.-μ, U; T=T)
         end
 
         energies[i_] = groundstate_sumk(real(ϵs), μ)
-    end
-
-    for δL=keys(ρs)
-        ρs[δL] = Matrix(ρs[δL])
     end
 
     for δL=keys(ρs)
