@@ -101,7 +101,7 @@ end
 #     sum(energies0_k)/L # return the groundstate energy
 # end
 
-using ..TightBinding: efficientformat, efficientzero, flexibleformat!
+# using ..TightBinding: efficientformat, efficientzero, flexibleformat!
 using ProgressBars
 
 function densitymatrix_multithread!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
