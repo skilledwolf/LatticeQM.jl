@@ -23,9 +23,9 @@ function efficientformat(ρ::AnyHops)
     A = Array{eltype(first(values(ρ)))}(undef, dims..., L)
     
     keylist = []
-    for (i,δl) in enumerate(keys(ρ))
-        A[:,:,i] .= ρ[δl][:,:]
-        append!(keylist, [δl])
+    for (i,δL) in enumerate(keys(ρ))
+        A[:,:,i] .= ρ[δL][:,:]
+        append!(keylist, [δL])
     end
     
     A, keylist
