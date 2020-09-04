@@ -1,7 +1,20 @@
 
-const Hop  = Pair{Vector{Int}, <:AbstractMatrix}
-const Hops = Dict{Vector{Int}, AbstractMatrix}
-const AnyHops = Dict{Vector{Int}, <:AbstractMatrix}
+# const Hop  = Pair{Vector{Int}, T} where T<:AbstractMatrix
+# const Hops = Dict{Vector{Int}, AbstractMatrix}
+# const AnyHops = Dict{Vector{Int}, T} where T<:AbstractMatrix
+
+const HopVector = Vector{Int}
+
+const Hop{T<:AbstractMatrix}  = Pair{HopVector, T}
+const AnyHop    = Hop{T} where {T<:AbstractMatrix}
+const DenseHop  = Hop{Matrix}
+const SparseHop = Hop{SparseMatrixCSC}
+
+const Hops{T<:AbstractMatrix} = Dict{HopVector, T}
+const AnyHops    = Hops{T} where {T<:AbstractMatrix}
+const DenseHops  = Hops{Matrix}
+const SparseHops = Hops{SparseMatrixCSC}
+
 
 # abstract type AbstractHops{T<:AbstractMatrix} end
 # abstract type AbstractHamiltonian{T} end
