@@ -16,11 +16,21 @@ const DenseHops  = Hops{Matrix}
 const SparseHops = Hops{SparseMatrixCSC}
 
 
+# abstract type AbstractHops{T<:AbstractMatrix} end
+# abstract type AbstractHamiltonian{T} end
+
+# struct Hamiltonian{T} <: AbstractHamiltonian{T}
+#     H::T 
+#     mu::Float64
+# end
+
 function efficientformat(ρ::AnyHops)
-    L = length(values(ρ))
+    L = length(̢ρ)
+    @assert L > 0 "Must have at least one hopping element."
+
     dims = size(first(values(ρ)))
     
-    A = Array{eltype(first(values(ρ)))}(undef, dims..., L)
+    A = Array{eltype(valtype(ρ))}(undef, dims..., L)
     
     keylist = []
     for (i,δL) in enumerate(keys(ρ))
@@ -32,10 +42,12 @@ function efficientformat(ρ::AnyHops)
 end
 
 function efficientzero(ρ::AnyHops)
-    L = length(values(ρ))
+    L = length(̢ρ)
+    @assert L > 0 "Must have at least one hopping element."
+
     dims = size(first(values(ρ)))
     
-    A = zeros(eltype(first(values(ρ))), dims..., L)
+    A = zeros(eltype(valtype(ρ)), dims..., L)
 
     A, collect(keys(ρ))
 end
