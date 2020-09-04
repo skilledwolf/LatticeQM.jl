@@ -54,11 +54,11 @@ function solveselfconsistent!(ρ0::AnyHops, ρ1::AnyHops, ℋ_op::Function, ℋ_
     end
 
     if multimode==:parallel
-        ρ0 = Hops(δL=>SharedArray(complex(m)) for (δL, m)=ρ0) # ensure dense
-        ρ1 = Hops(δL=>SharedArray(complex(m)) for (δL, m)=ρ1) # convert to dense
+        ρ0 = Hops{SharedMatrix{ComplexF64}}(δL=>SharedArray(Matrix(complex(m))) for (δL, m)=ρ0) # ensure dense
+        ρ1 = Hops{SharedMatrix{ComplexF64}}(δL=>SharedArray(Matrix(complex(m))) for (δL, m)=ρ1) # convert to dense
     else
-        ρ0 = Hops(δL=>Matrix(complex(m)) for (δL, m)=ρ0) # ensure dense
-        ρ1 = Hops(δL=>Matrix(complex(m)) for (δL, m)=ρ1) # convert to dense
+        ρ0 = Hops{Matrix{ComplexF64}}(δL=>Matrix(complex(m)) for (δL, m)=ρ0) # ensure dense
+        ρ1 = Hops{Matrix{ComplexF64}}(δL=>Matrix(complex(m)) for (δL, m)=ρ1) # convert to dense
     end
 
     H = Hamiltonian(Hops(), 0.0)
