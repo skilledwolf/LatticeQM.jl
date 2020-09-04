@@ -135,6 +135,8 @@ function densitymatrix_multithread!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}
     sum(energies)/L # return the groundstate energy
 end
 
+using ..TightBinding: Hops, AnyHops
+
 function densitymatrix_parallel!(ρs::Hops{SharedMatrix}, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
     L = size(ks,2)
 
