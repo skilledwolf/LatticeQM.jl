@@ -1,7 +1,7 @@
 
-const Hop  = Pair{Vector{Int}, <:AbstractMatrix}
+const Hop  = Pair{Vector{Int}, T} where T<:AbstractMatrix
 const Hops = Dict{Vector{Int}, AbstractMatrix}
-const AnyHops = Dict{Vector{Int}, <:AbstractMatrix}
+const AnyHops = Dict{Vector{Int}, T} where T<:AbstractMatrix
 
 function efficientformat(ρ::AnyHops)
     L = length(values(ρ))
