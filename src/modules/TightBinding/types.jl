@@ -24,47 +24,6 @@ const SparseHops = Hops{SparseMatrixCSC}
 #     mu::Float64
 # end
 
-function efficientformat(ρ::AnyHops)
-    L = length(̢ρ)
-    @assert L > 0 "Must have at least one hopping element."
-
-    dims = size(first(values(ρ)))
-    
-    A = Array{eltype(valtype(ρ))}(undef, dims..., L)
-    
-    keylist = []
-    for (i,δL) in enumerate(keys(ρ))
-        A[:,:,i] .= ρ[δL][:,:]
-        append!(keylist, [δL])
-    end
-    
-    A, keylist
-end
-
-function efficientzero(ρ::AnyHops)
-    L = length(̢ρ)
-    @assert L > 0 "Must have at least one hopping element."
-
-    dims = size(first(values(ρ)))
-    
-    A = zeros(eltype(valtype(ρ)), dims..., L)
-
-    A, collect(keys(ρ))
-end
-
-function flexibleformat(A::AbstractArray, keylist::AbstractVector)
-    Dict(L=>Matrix(m) for (L,m)=zip(keylist,eachslice(A; dims=3)))
-end
-
-function flexibleformat!(ρ::AnyHops, A::AbstractArray, keylist::AbstractVector)
-    for (j_,L)=enumerate(keylist)
-        # ρ[L][:,:] .= m[:,:]
-        # copyto!(ρ[L][:,:], A[:,:,j_])
-        ρ[L][:,:] .= A[:,:,j_]
-    end
-    ρ
-end
-
 function zerolike(h::AnyHops; format=:auto)
     ρ = Hops()
 
@@ -198,3 +157,48 @@ function ensuretype(hops::AnyHops, format=:auto)
 
     hops
 end
+
+
+
+
+
+# function efficientformat(ρ::AnyHops)
+#     L = length(̢ρ)
+#     @assert L > 0 "Must have at least one hopping element."
+
+#     dims = size(first(values(ρ)))
+    
+#     A = Array{eltype(valtype(ρ))}(undef, dims..., L)
+    
+#     keylist = []
+#     for (i,δL) in enumerate(keys(ρ))
+#         A[:,:,i] .= ρ[δL][:,:]
+#         append!(keylist, [δL])
+#     end
+    
+#     A, keylist
+# end
+
+# function efficientzero(ρ::AnyHops)
+#     L = length(̢ρ)
+#     @assert L > 0 "Must have at least one hopping element."
+
+#     dims = size(first(values(ρ)))
+    
+#     A = zeros(eltype(valtype(ρ)), dims..., L)
+
+#     A, collect(keys(ρ))
+# end
+
+# function flexibleformat(A::AbstractArray, keylist::AbstractVector)
+#     Dict(L=>Matrix(m) for (L,m)=zip(keylist,eachslice(A; dims=3)))
+# end
+
+# function flexibleformat!(ρ::AnyHops, A::AbstractArray, keylist::AbstractVector)
+#     for (j_,L)=enumerate(keylist)
+#         # ρ[L][:,:] .= m[:,:]
+#         # copyto!(ρ[L][:,:], A[:,:,j_])
+#         ρ[L][:,:] .= A[:,:,j_]
+#     end
+#     ρ
+# end
