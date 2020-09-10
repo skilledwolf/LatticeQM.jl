@@ -1,13 +1,15 @@
 
+"""
+    foldcell!(M, points::AbstractMatrix)
+
+Fold all points into the two-dimensional cell with the metric M.
+
+M = B^T B, where B=[G1 G2] contains the reciprocal lattice vectors as columns
+points has the lattice points as columns in units of lattice vectors
+"""
 function foldcell!(M, points::AbstractMatrix)
-    @assert size(M)==(2,2) "Cell folding is only supported for d=2 lattices."
+    @assert size(M)==(2,2) "Cell folding is (currently) only supported for d=2 lattices."
 
-    """
-    Fold all points into the two-dimensional cell with the metric M.
-
-    M = B^T B, where B=[G1 G2] contains the reciprocal lattice vectors as columns
-    points has the lattice points as columns in units of lattice vectors
-    """
     G0sq = sum(M)
     b = M[1,2]/G0sq
 
@@ -36,6 +38,8 @@ end
 
 
 """
+    foldBZ!(lat::Lattice, points::AbstractMatrix)
+
 Fold coordinates of k-points into the first Brillouin zone.
 """
 function foldBZ!(lat::Lattice, points::AbstractMatrix)
@@ -46,11 +50,13 @@ end
 
 
 """
+    foldPC!(lat::Lattice; shift=0.0)
+
 Fold all latticecoordinates into the first primitive unit cell.
 """
 function foldPC!(lat::Lattice; shift=0.0)
     d = latticedim(lat)
-    @assert d == 2 "At the moment folding is only implented for 2d lattices."
+    @assert d == 2 "Cell folding is (currently) only supported for d=2 lattices."
 
     A = getA(lat)
     lat.spacecoordinates .-= shift
