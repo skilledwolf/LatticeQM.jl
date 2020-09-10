@@ -3,6 +3,8 @@
 project_*.zip
 Draft_*.zip
 *private/*
+dev/*.pdf
+dev/output/*.pdf
 
 ## Core latex/pdflatex auxiliary files:
 *.aux

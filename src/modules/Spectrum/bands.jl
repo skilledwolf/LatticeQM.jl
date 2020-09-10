@@ -65,6 +65,7 @@ function bandmatrix(H, ks; num_bands::Int=0, kwargs...)
     convert(Array, bands)
 end
 
+
 function bandmatrix_multithread(H, ks; num_bands::Int=0, kwargs...)
     ks = points(ks)
     if !(num_bands>0)
@@ -82,6 +83,7 @@ function bandmatrix_multithread(H, ks; num_bands::Int=0, kwargs...)
 
     bands
 end
+
 
 function bandmatrix(H, ks, projector; num_bands::Int=0, kwargs...)
     projector = handleprojector(projector)
@@ -110,6 +112,7 @@ function bandmatrix(H, ks, projector; num_bands::Int=0, kwargs...)
     Array(bands), Array(obs)
 end
 
+
 function bandmatrix_multithread(H, ks, projector; num_bands::Int=0, kwargs...)
     projector = handleprojector(projector)
     ks = points(ks)
@@ -136,6 +139,7 @@ function bandmatrix_multithread(H, ks, projector; num_bands::Int=0, kwargs...)
 
     bands, obs
 end
+
 
 """
     getbands(H, ks::DiscretePath [, As]; kwargs...)
