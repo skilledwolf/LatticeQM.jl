@@ -63,7 +63,7 @@ function superlattice(hops::AnyHops, M::Matrix{Int}, phasefunc::Function) where 
 
     sneighbors = hcat([[i;j] for i=-2:2 for j=-2:2]...)
 
-    shops = Hops(L => spzeros(ComplexF64, D,D) for L=eachcol(sneighbors))
+    shops = Dict(Vector(L) => spzeros(ComplexF64, D,D) for L=eachcol(sneighbors))
 
     basislookup = Dict(L => i for (L, i) in zip(eachcol(coordinates), 1:count))
 
