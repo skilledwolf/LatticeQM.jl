@@ -51,6 +51,8 @@ SparseHops(kv::Hop...) = Hops{SparseMatrixCSC{Complex{Float64},Int64}}(k=>sparse
 SparseHops(d::AnyHops) = SparseHops(d...)
 
 Hops() = Hops{AbstractMatrix}()
+Hops(kv::Hop...) = Hops{AbstractMatrix}(k=>v for (k,v) in kv)
+Hops(d::AnyHops) = Hops(d...)
 Hops(M::AbstractMatrix,d::Int=2) = Hops(zeros(Int,d)=>M)
 
 zerokey(h::AnyHops) = zero(first(keys(h)))

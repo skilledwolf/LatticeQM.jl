@@ -93,7 +93,8 @@ function getdensehops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Flo
 
     hops = Hops()
     for (δL,δa) in neighbors
-        hops[δL] = densehoppingmatrix!(M, R.+δa, R, t)
+        densehoppingmatrix!(M, R.+δa, R, t)
+        hops[δL] = copy(M)
         hops[-δL] = hops[δL]' # create the Hermitian conjugates
     end
 
@@ -126,7 +127,7 @@ function densehoppingmatrix!(M::Array{ComplexF64}, Ri::Matrix{Float64}, Rj::Matr
     @assert mod(size(M, 2), d)==0 "Incompatible dimensions."
 
     # Iterate over atom pairs and calculate the (possibly matrix-valued) hopping amplitudes
-    for i=1:N,j=1:N
+    for i=1:N, j=1:N
         I = (i-1)*d; J = (j-1)*d
         @views M[I+1:I+d, J+1:J+d] .= t(Ri[:,i], Rj[:,j])
     end
