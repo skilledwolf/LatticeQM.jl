@@ -156,8 +156,8 @@ module Geometries2D
     using ..Structure.Lattices: displaceZ!
 
     function smoothdisplaceZ!(lat, δz_even=0.055, δz_odd=0.0; sharp::Real=1)
-        @assert latticedim(lat) == 2
-        @assert abs(dot(getA(lat,1), getA(lat,2))/(norm(getA(lat,1))*norm(getA(lat,1)))) ≈ 0.5
+        @assert latticedim(lat) == 2 "Lattice must be two-dimensional."
+        @assert abs(dot(getA(lat,:,1), getA(lat,:,2))/(norm(getA(lat,:,1))*norm(getA(lat,:,1)))) ≈ 0.5
 
         # Define smooth (super)lattice functions
         G1 = getB(lat)[:,1]

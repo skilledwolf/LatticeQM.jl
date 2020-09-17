@@ -11,8 +11,8 @@ const DenseHop  = Hop{Matrix}
 const SparseHop = Hop{SparseMatrixCSC}
 
 const Hops{T<:AbstractMatrix} = Dict{HopVector, T}
-const AnyHops    = Hops{T} where {T<:AbstractMatrix}
-const DenseHops  = Hops{Matrix}
+const AnyHops = Hops{T} where {T<:AbstractMatrix}
+const DenseHops = Hops{Matrix}
 const SparseHops = Hops{SparseMatrixCSC}
 
 
