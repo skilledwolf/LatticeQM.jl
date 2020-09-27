@@ -137,62 +137,64 @@ end
 
 using ..TightBinding: Hops, AnyHops
 
-function densitymatrix_parallel!(ρs::Hops{<:SharedMatrix}, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
-    L = size(ks,2)
-
-    energies = SharedArray(zeros(Float64, L))
-
-    for δL=keys(ρs)
-        ρs[δL][:] .= 0
-    end
-
-    spectrumf = spectrum(H; kwargs...)
-
-    @sync @showprogress 10 "Eigensolver... " @distributed for i_=1:L
-        k = ks[:,i_]
-        ϵs, U = spectrumf(k) #@time
-
-        for δL=keys(ρs)
-            densitymatrix!(view(ρs[δL],:,:), δL, k, ϵs.-μ, U; T=T)
-        end
-
-        energies[i_] = groundstate_sumk(real(ϵs), μ)
-    end
-
-    for δL=keys(ρs)
-        ρs[δL][:] ./= L
-    end
-
-    sum(energies)/L # return the groundstate energy
-end
-
-# function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
+# function densitymatrix_parallel!(ρs::Hops{<:SharedMatrix}, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
 #     L = size(ks,2)
 
 #     energies = SharedArray(zeros(Float64, L))
+
+#     for δL=keys(ρs)
+#         ρs[δL][:] .= 0
+#     end
+
 #     spectrumf = spectrum(H; kwargs...)
 
-#     zeromat, δLs = efficientzero(ρs)
-
-#     ρsMat = @sync @showprogress 10 "Eigensolver... " @distributed (+) for i_=1:L
+#     @sync @showprogress 10 "Eigensolver... " @distributed for i_=1:L
 #         k = ks[:,i_]
 #         ϵs, U = spectrumf(k) #@time
 
-#         ρ0 = deepcopy(zeromat)
-#         for (j_,δL)=enumerate(δLs)
-#             densitymatrix!(view(ρ0,:,:,j_), δL, k, ϵs.-μ, U; T=T)
-#             # densitymatrix!(view(ρsMat, :,:,j_), δL, k, ϵs.-μ, U; T=T)
+#         for δL=keys(ρs)
+#             densitymatrix!(view(ρs[δL],:,:), δL, k, ϵs.-μ, U; T=T)
 #         end
 
 #         energies[i_] = groundstate_sumk(real(ϵs), μ)
-
-#         ρ0
 #     end
 
-#     flexibleformat!(ρs, ρsMat/L, δLs)
+#     for δL=keys(ρs)
+#         ρs[δL][:] ./= L
+#     end
 
 #     sum(energies)/L # return the groundstate energy
 # end
+
+using ..TightBinding: efficientzero, flexibleformat!
+
+function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
+    L = size(ks,2)
+
+    energies = SharedArray(zeros(Float64, L))
+    spectrumf = spectrum(H; kwargs...)
+
+    zeromat, δLs = efficientzero(ρs)
+
+    ρsMat = @sync @showprogress 10 "Eigensolver... " @distributed (+) for i_=1:L
+        k = ks[:,i_]
+        ϵs, U = spectrumf(k) #@time
+
+        ρ0 = deepcopy(zeromat)
+        for (j_,δL)=enumerate(δLs)
+            densitymatrix!(view(ρ0,:,:,j_), δL, k, ϵs.-μ, U; T=T)
+            # densitymatrix!(view(ρsMat, :,:,j_), δL, k, ϵs.-μ, U; T=T)
+        end
+
+        energies[i_] = groundstate_sumk(real(ϵs), μ)
+
+        ρ0
+    end
+
+    flexibleformat!(ρs, ρsMat/L, δLs)
+
+    sum(energies)/L # return the groundstate energy
+end
 
 function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
     L = size(ks,2)
