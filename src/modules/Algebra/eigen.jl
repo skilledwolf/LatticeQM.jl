@@ -41,6 +41,7 @@ eigvals_sparse(h::Function; kwargs...) = k -> eigvals_sparse(h(k); kwargs...)
 eigvecs_sparse(h::Function; kwargs...) = k -> eigvecs_sparse(h(k); kwargs...)
 eigen_sparse(h::Function; kwargs...) = k -> eigen_sparse(h(k); kwargs...)
 
+
 geteigvals(h; format=:dense, num_bands=nothing, kwargs...) = (format==:sparse) ?  eigvals_sparse(h; num_bands=num_bands, kwargs...) : eigvals_dense(h; kwargs...)
 geteigvecs(h; format=:dense, num_bands=nothing, kwargs...) = (format==:sparse) ?  eigvecs_sparse(h; num_bands=num_bands, kwargs...) : eigvecs_dense(h; kwargs...)
 geteigen(h; format=:dense,   num_bands=nothing, kwargs...) = (format==:sparse) ?  eigen_sparse(h; num_bands=num_bands, kwargs...) : eigen_dense(h; kwargs...)

@@ -16,7 +16,6 @@ module Spectrum
     using ..Structure.Paths: kIterable, DiscretePath, eachpoint, points, sumk
 
     export getbands, spectrum, chemicalpotential
-    export chemical_potential # backwards compatibility
 
     include("Spectrum/types.jl")
 
