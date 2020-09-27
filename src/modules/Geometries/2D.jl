@@ -153,23 +153,24 @@ module Geometries2D
     end
 
 
-    using ..Structure.Lattices: displaceZ!
+    using ..Structure.Lattices: displaceZ!, getneighborBZ
 
     function smoothdisplaceZ!(lat, δz_even=0.055, δz_odd=0.0; sharp::Real=1)
         @assert latticedim(lat) == 2 "Lattice must be two-dimensional."
-        @assert abs(dot(getA(lat,:,1), getA(lat,:,2))/(norm(getA(lat,:,1))*norm(getA(lat,:,1)))) ≈ 0.5
+        @assert abs(dot(getA(lat,:,1), getA(lat,:,2))/(norm(getA(lat,:,1))*norm(getA(lat,:,2)))) ≈ 0.5
 
         # Define smooth (super)lattice functions
-        G1 = getB(lat)[:,1]
-        G2 = getB(lat)[:,2]
-        L1 = getA(lat)[:,1]
-        L2 = getA(lat)[:,2]
+        Gs = [getB(lat)*v for v = getneighborBZ(lat,1; halfspace=false, innerpoints=true)]
 
-        p0=(L1+L2)/3
-        fodd(x::AbstractVector) =  1/(3*√3) * (sin(2*π*dot(G1,x)) + sin(2*π*dot(G2,x)) - sin(2*π*dot(G1+G2,x)))
-        feven(x::AbstractVector) = 1/3 + 2/9 * (cos(2*π*dot(G1,x-p0)) + cos(2*π*dot(G2,x-p0)) + cos(2*π*dot(G1+G2,x-p0)))
-        foddsharp(x::AbstractVector) = tanh(2 * sharp * 1/(3*√3) * (sin(2*π*dot(G1,x)) + sin(2*π*dot(G2,x)) - sin(2*π*dot(G1+G2,x))))
-        fevensharp(x::AbstractVector) = tanh(sharp * (1/3 + 2/9 * (cos(2*π*dot(G1,x-p0)) + cos(2*π*dot(G2,x-p0)) + cos(2*π*dot(G1+G2,x-p0)))))/2
+        anglef(b1,b2) = acos(dot(b1,b2)/norm(b1)/norm(b2))
+        angles = [anglef(Gs[1], G) for G=Gs]
+        angles /= minimum(abs.(filter(α->α!=0, angles)))
+        signs = (-1).^round.(Int,angles)
+        
+        fodd(x::AbstractVector) =  1/(3*√3) * sum((s/2)*sin(2*π*dot(G,x)) for (s,G)=zip(signs,Gs))
+        foddsharp(x::AbstractVector) = tanh(2 * sharp * fodd(x))
+        feven(x::AbstractVector) = 1/3 + 2/9 * sum((1/2)*cos(2*π*dot(G,x)) for G=Gs)
+        fevensharp(x::AbstractVector) = tanh(sharp * feven(x))/2
 
         if sharp > 1
             displaceZ!(lat, p -> sign(p[3]) * (δz_even * (fevensharp(p)-0.5) + δz_odd * foddsharp(p)))
@@ -177,6 +178,5 @@ module Geometries2D
             displaceZ!(lat, p -> sign(p[3]) * (δz_even * (feven(p)-0.5) + δz_odd * fodd(p)))
         end
     end
-
 
 end
