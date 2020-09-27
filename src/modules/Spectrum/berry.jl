@@ -36,6 +36,7 @@ function berry(wavefunctions::Function, NX::Int, NY::Int=0, bandindex=[1])
     M2 = size(bandindex,1)
 
     kgrid = [[x;y] for x=range(0; stop=1, length=NX), y=range(0; stop=1, length=NY)]
+    midkgrid = [[1/(2*NX)+x;1/(2*NY)+y] for x=range(0; stop=1-1.0/NX, length=NX-1), y=range(0; stop=1-1.0/NY, length=NY-1)]
 
     statesgrid = convert(SharedArray, zeros(ComplexF64, NX, NY, M1, M2))
 
@@ -45,7 +46,7 @@ function berry(wavefunctions::Function, NX::Int, NY::Int=0, bandindex=[1])
         statesgrid[i_,j_, :, :] = wavefunctions(kgrid[i_,j_])[:,bandindex]
     end
 
-    berry(statesgrid)
+    midkgrid, berry(statesgrid)
 end
 
 @legacyalias berryalongpath BerryCurvature

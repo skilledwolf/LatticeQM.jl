@@ -21,9 +21,11 @@ Note: f must define a finite region that includes the origin.
 """
 
 	d = latticedim(lat)
+	D = spacedim(lat)
 	@assert d==2 "Only implemented for 2d at the moment"
 
 	unitcell = allpositions(lat)
+
 	A = getA(lat)
 
 	δA = hcat(getneighborcells(lat; halfspace=false, innerpoints=true, excludeorigin=true)...)
@@ -79,14 +81,15 @@ Note: f must define a finite region that includes the origin.
 
 	points = hcat(points...)
 	# points = vcat(points, hcat(fill(extracoordinates(lat), N)...))
-	extralabels = [["x$i" for i=1:d]; collect(keys(lat.extralabels))[sortperm(collect(values(lat.extralabels)))]]
+	# extralabels = [["x$i" for i=1:d]; collect(keys(lat.extralabels))[sortperm(collect(values(lat.extralabels)))]]
 
 	# Return a zero-dimensional lattice object. The unitcell contains the positions of orbitals in the region
 	# Original orbital labels (such as sublattice or layer-index) are preserved.
-	return Lattice(zeros(0,0), 
-	    zeros(0,N), 
-	    points, 
-	    extralabels=extralabels, 
+	return Lattice(Matrix(1.0*I, D, D),
+		0,
+	    points[1:D,:],
+	    points[D+1:end,:], 
+	    extralabels=collect(keys(lat.extralabels)), 
 	    specialpoints=LabeledPoints(
 	        ["γ"],
 	        [zeros(0)],

@@ -35,19 +35,16 @@ function getneighbors(lat, d=1.0; cellrange::Int=1)
     return pairs
 end
 
-
 """
-    getneighborcells(lat, k=1; halfspace=true, innerpoints=false, excludeorigin=true)
+    getneighborcells(A, k=1; halfspace=true, innerpoints=false, excludeorigin=true)
 
-A naive implementation to find a list of `k`-th-nearest neighboring unit cells.
+A naive implementation to find a list of `k`-th-nearest neighboring unit cells given lattice vectors `A[:,i]`.
 If `halfspace=true`, the list only contain `[I,J]` without its partner `[-I,-J]`.
 If `innerpoints=true`, returns all neighboring cells up to and including the `k`-th ones.
 """
-function getneighborcells(lat, k::Int=1; halfspace=true, innerpoints=false, excludeorigin=true)
+function getneighborcells(A::AbstractMatrix, k::Int=1; halfspace=true, innerpoints=false, excludeorigin=true)
 
-
-    ldim = latticedim(lat)
-    A = getA(lat)
+    ldim = size(A,2)
 
     if ldim == 0 # special case
         return excludeorigin ? Vector{Int64}[] : Vector{Int64}[Int64[]]
@@ -78,12 +75,44 @@ function getneighborcells(lat, k::Int=1; halfspace=true, innerpoints=false, excl
                 filter!(x->(x==zeros(eltype(el), length(el))) || (x != -1 .* el), result)
             end
         end
-
+    else 
+        if excludeorigin
+            filter!(x->x != -1 .* x, result) # remove the origin
+        end
     end
 
     return result
 end
 
+
+"""
+    getneighborcells(lat, k=1; halfspace=true, innerpoints=false, excludeorigin=true)
+
+A naive implementation to find a list of `k`-th-nearest neighboring unit cells.
+If `halfspace=true`, the list only contain `[I,J]` without its partner `[-I,-J]`.
+If `innerpoints=true`, returns all neighboring cells up to and including the `k`-th ones.
+"""
+getneighborcells(lat, args...; kwargs...) = getneighborcells(getA(lat), args...; kwargs...)
+
+
+"""
+    getneighborBZ(lat, k=1; halfspace=true, innerpoints=false, excludeorigin=true)
+
+This is the analogue of method `getneighborcells()`, except that it looks for 
+nearest neighbor cells in reciprocal space.
+"""
+getneighborBZ(lat, args...; kwargs...) = getneighborcells(getB(lat), args...; kwargs...)
+
+
+"""
+    commonneighbor(i,j,NN)
+
+Given a dictionary `NN` that contains lists of nearest neighbors, we search for the
+common nearest neighbor of site index i and site index j.
+
+This method is primarily used in the construction of Haldane type models, where the common nearest
+neighbor determines the chirality of the next-nearest neighbor bond.
+"""
 function commonneighbor(i,j,NN)
 
     k = -1; R0 = zero(first(keys(NN)))
