@@ -166,7 +166,7 @@ end
 
 
 function efficientformat(ρ::AnyHops)
-    L = length(̢ρ)
+    L = length(ρ)
     @assert L > 0 "Must have at least one hopping element."
 
     dims = size(first(values(ρ)))
