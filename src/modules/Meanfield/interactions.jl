@@ -21,16 +21,16 @@ function gethubbard(lat, neighbors=[[0;0]]; mode=:nospin, format=:auto, kwargs..
     addspin(ee_exchange, mode)
 end
 
-function getcappedyukawa(lat; cellrange=1, mode=:nospin, format=:auto, kwargs...)
-    t(args...) = CappedYukawa(args...; kwargs...)
-    ee_exchange = gethops(lat, neighbors, t; cellrange=cellrange, format=format)
+# function getcappedyukawa(lat; cellrange=1, mode=:nospin, format=:auto, kwargs...)
+#     t(args...) = CappedYukawa(args...; kwargs...)
+#     ee_exchange = gethops(lat, neighbors, t; cellrange=cellrange, format=format)
 
-    addspin(ee_exchange, mode)
-end
+#     addspin(ee_exchange, mode)
+# end
 
-function getcappedyukawa(lat, neighbors=[[i;j] for i=-1:1 for j=-1:1]; mode=:nospin, format=:auto, kwargs...)
-    t(args...) = CappedYukawa(args...; kwargs...)
-    ee_exchange = gethops(lat, neighbors, t; format=format)
+function getcappedyukawa(lat, args...; mode=:nospin, k0=1.0, U=1.0, kwargs...)
+    t(args0...) = CappedYukawa(args0...; k0=k0, U=U)
+    ee_exchange = gethops(lat, args..., t; kwargs...)
 
     addspin(ee_exchange, mode)
 end
