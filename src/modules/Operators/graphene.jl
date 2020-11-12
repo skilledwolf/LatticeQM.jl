@@ -167,8 +167,9 @@ getrashba(lat::Lattice, λ::AbstractFloat; kwargs...) = getrashba(lat, x->λ; kw
 
 addrashba!(hops, lat, rashba::Function; kwargs...) = addhops!(hops, getrashba(lat, rashba; kwargs...))
 function addrashba!(hops, lat, rashba::Number)
-    if !isapprox(rashba, 0, 1e-8)
-        addrashba!(hops, lat, x->rasbha)
+    if !isapprox(rashba, 0; atol=sqrt(eps()))
+        t(x) = rashba
+        addrashba!(hops, lat, t)
     end
 end
 

@@ -35,6 +35,8 @@ function getcappedyukawa(lat, args...; mode=:nospin, k0=1.0, U=1.0, kwargs...)
     addspin(ee_exchange, mode)
 end
 
+# todo: implement https://en.wikipedia.org/wiki/Screened_Poisson_equation#Two_dimensions
+
 # build_CappedYukawa(lat; mode=:nospin, format=:auto, kwargs...) = gethamiltonian(lat, r->CappedYukawa(r; kwargs...); mode=mode, format=format)
 # gethamiltonianubbard(lat; mode=:nospin, format=:auto, kwargs...) = gethamiltonian(lat, r->Hubbard(r; kwargs...); mode=mode, format=format)
 

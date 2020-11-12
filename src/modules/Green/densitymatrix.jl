@@ -37,16 +37,16 @@ densitymatrix(ϵ::Number, ψ::AbstractVector; T::Float64=0.01) = fermidirac(real
 
 function densitymatrix!(ρ0::AbstractMatrix, ϵs::AbstractVector, U::AbstractMatrix; φk::ComplexF64=1.0+0.0im, kwargs...)
     for (ϵ, ψ) in zip(ϵs, eachcol(U))
-        # ρ0[:,:] .+= (densitymatrix(ϵ, ψ; kwargs...) .* φk)
-        broadcast!(+, ρ0, ρ0, (densitymatrix(ϵ, ψ; kwargs...) .* φk))
+        ρ0[:,:] .+= (densitymatrix(ϵ, ψ; kwargs...) .* φk)
+        # broadcast!(+, ρ0, ρ0, (densitymatrix(ϵ, ψ; kwargs...) .* φk))
     end
     ρ0
 end
 
 function densitymatrix!(ρ0::AbstractMatrix, δL::AbstractVector, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; kwargs...)
     for (ϵ, ψ) in zip(ϵs, eachcol(U))
-        # ρ0[:,:] .+= (densitymatrix(ϵ, ψ; kwargs...) .* fourierphase(-k, δL)) # ϵ-μ # -k
-        broadcast!(+, ρ0, ρ0, (densitymatrix(ϵ, ψ; kwargs...) .* fourierphase(-k, δL)))
+        ρ0[:,:] .+= (densitymatrix(ϵ, ψ; kwargs...) .* fourierphase(-k, δL)) # ϵ-μ # -k
+        # broadcast!(+, ρ0, ρ0, (densitymatrix(ϵ, ψ; kwargs...) .* fourierphase(-k, δL)))
     end
     ρ0
 end
@@ -166,6 +166,53 @@ using ..TightBinding: Hops, AnyHops
 #     sum(energies)/L # return the groundstate energy
 # end
 
+function densitymatrix_parallel!(ρs::SharedArray{Float64,3}, δLs::Vector{String}, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
+    L = size(ks,2)
+
+    energies = SharedArray(zeros(Float64, L))
+    spectrumf = spectrum(H; kwargs...)
+
+    ρs[:] .= 0.0
+
+    @sync @showprogress 10 "Eigensolver... " @distributed for i_=1:L
+        k = ks[:,i_]
+        ϵs, U = spectrumf(k) #@time
+
+        for (j_,δL)=enumerate(δLs)
+            @views densitymatrix!(ρs[:,:,j_], δL, k, ϵs.-μ, U; T=T)
+        end
+
+        energies[i_] = groundstate_sumk(real(ϵs), μ)
+    end
+
+    ρs[:] ./= L
+    sum(energies)/L # return the groundstate energy
+end
+
+function densitymatrix_serial!(ρs::AbstractArray{Float64,3}, δLs::Vector{String}, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
+    L = size(ks,2)
+
+    energies = zeros(Float64, L)
+    spectrumf = spectrum(H; kwargs...)
+
+    ρs[:] .= 0.0
+
+    @showprogress 10 "Eigensolver... " for i_=1:L
+        k = ks[:,i_]
+        ϵs, U = spectrumf(k) #@time
+
+        for (j_,δL)=enumerate(δLs)
+            @views densitymatrix!(ρs[:,:,j_], δL, k, ϵs.-μ, U; T=T)
+        end
+
+        energies[i_] = groundstate_sumk(real(ϵs), μ)
+    end
+
+    ρs[:] ./= L
+    sum(energies)/L # return the groundstate energy
+end
+
+
 using ..TightBinding: efficientzero, flexibleformat!
 
 function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
@@ -225,12 +272,23 @@ function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ:
     sum(energies)/L # return the groundstate energy
 end
 
+function densitymatrix!(ρs::AbstractArray{Float64,3}, δLs::Vector{String}, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; multimode=:serial, kwargs...)
+
+    if multimode==:parallel && nprocs()>1
+        densitymatrix_parallel!(ρs, δLs, H, ks, μ; kwargs...)
+    elseif multimode==:multithread && Threads.nthreads()>1
+        error(":multithread not implemented.")
+    else
+        densitymatrix_serial!(ρs, δLs, H, ks, μ; kwargs...)
+    end
+end
 
 function densitymatrix!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; multimode=:serial, kwargs...)
 
     if multimode==:parallel && nprocs()>1
         densitymatrix_parallel!(ρs, H, ks, μ; kwargs...)
     elseif multimode==:multithread && Threads.nthreads()>1
+        error(":multithread not implemented.")
         densitymatrix_multithread!(ρs, H, ks, μ; kwargs...)
     else
         densitymatrix_serial!(ρs, H, ks, μ; kwargs...)
