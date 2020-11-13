@@ -36,19 +36,27 @@ end
 densitymatrix(ϵ::Number, ψ::AbstractVector; T::Float64=0.01) = fermidirac(real(ϵ); T=T) .* transpose(ψ * ψ') #transpose(ψ * ψ') # (ψ * ψ')
 
 function densitymatrix!(ρ0::AbstractMatrix, ϵs::AbstractVector, U::AbstractMatrix; φk::ComplexF64=1.0+0.0im, kwargs...)
-    for (ϵ, ψ) in zip(ϵs, eachcol(U))
-        ρ0[:,:] .+= (densitymatrix(ϵ, ψ; kwargs...) .* φk)
-        # broadcast!(+, ρ0, ρ0, (densitymatrix(ϵ, ψ; kwargs...) .* φk))
-    end
+    fd = fermidirac.(real.(ϵs); T=T)
+
+    ρ0[:,:] .+= sum(fd[m] .* φk .* conj.(U[:,m]) * transpose(U[:,m]) for m in 1:length(ϵs))
     ρ0
 end
 
 function densitymatrix!(ρ0::AbstractMatrix, δL::AbstractVector, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; T=0.01, kwargs...)
     
     phase = fourierphase(-k, δL)
-    fd = fermidirac.(real.(ϵs); T=T)
+    densitymatrix!(ρ0, ϵs, U; φk=phase, kwargs...)
+end
 
-    ρ0[:,:] .+= sum(fd[m] .* phase .* conj.(U[:,m]) * transpose(U[:,m]) for m in 1:length(ϵs))
+function mapdensitymatrix!(ρ0::AbstractMatrix, δLs::AbstractVector{AbstractVector}, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; T=0.01, kwargs...)
+
+    M = zero(ρ0)
+    densitymatrix!(M, ϵs, U; φk=phase, kwargs...)
+
+    for δL=δLs 
+        ρ0[:,:] .+= M .* fourierphase(-k, δL)
+    end
+
     ρ0
 end
 
@@ -61,6 +69,7 @@ end
 # end
 
 function densitymatrix!(ρs::AnyHops, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; kwargs...)
+ 
     for δL=keys(ρs)
         densitymatrix!(ρs[δL], δL, k, ϵs, U; kwargs...)
     end
@@ -175,51 +184,51 @@ using ..TightBinding: Hops, AnyHops
 #     sum(energies)/L # return the groundstate energy
 # end
 
-function densitymatrix_parallel!(ρs::SharedArray{Float64,3}, δLs::Vector{String}, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
-    L = size(ks,2)
+# function densitymatrix_parallel!(ρs::SharedArray{Float64,3}, δLs::Vector{String}, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
+#     L = size(ks,2)
 
-    energies = SharedArray(zeros(Float64, L))
-    spectrumf = spectrum(H; kwargs...)
+#     energies = SharedArray(zeros(Float64, L))
+#     spectrumf = spectrum(H; kwargs...)
 
-    ρs[:] .= 0.0
+#     ρs[:] .= 0.0
 
-    @sync @showprogress 10 "Eigensolver... " @distributed for i_=1:L
-        k = ks[:,i_]
-        ϵs, U = spectrumf(k) #@time
+#     @sync @showprogress 10 "Eigensolver... " @distributed for i_=1:L
+#         k = ks[:,i_]
+#         ϵs, U = spectrumf(k) #@time
 
-        for (j_,δL)=enumerate(δLs)
-            @views densitymatrix!(ρs[:,:,j_], δL, k, ϵs.-μ, U; T=T)
-        end
+#         for (j_,δL)=enumerate(δLs)
+#             @views densitymatrix!(ρs[:,:,j_], δL, k, ϵs.-μ, U; T=T)
+#         end
 
-        energies[i_] = groundstate_sumk(real(ϵs), μ)
-    end
+#         energies[i_] = groundstate_sumk(real(ϵs), μ)
+#     end
 
-    ρs[:] ./= L
-    sum(energies)/L # return the groundstate energy
-end
+#     ρs[:] ./= L
+#     sum(energies)/L # return the groundstate energy
+# end
 
-function densitymatrix_serial!(ρs::AbstractArray{Float64,3}, δLs::Vector{String}, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
-    L = size(ks,2)
+# function densitymatrix_serial!(ρs::AbstractArray{Float64,3}, δLs::Vector{String}, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
+#     L = size(ks,2)
 
-    energies = zeros(Float64, L)
-    spectrumf = spectrum(H; kwargs...)
+#     energies = zeros(Float64, L)
+#     spectrumf = spectrum(H; kwargs...)
 
-    ρs[:] .= 0.0
+#     ρs[:] .= 0.0
 
-    @showprogress 10 "Eigensolver... " for i_=1:L
-        k = ks[:,i_]
-        ϵs, U = spectrumf(k) #@time
+#     @showprogress 10 "Eigensolver... " for i_=1:L
+#         k = ks[:,i_]
+#         ϵs, U = spectrumf(k) #@time
 
-        for (j_,δL)=enumerate(δLs)
-            @views densitymatrix!(ρs[:,:,j_], δL, k, ϵs.-μ, U; T=T)
-        end
+#         for (j_,δL)=enumerate(δLs)
+#             @views densitymatrix!(ρs[:,:,j_], δL, k, ϵs.-μ, U; T=T)
+#         end
 
-        energies[i_] = groundstate_sumk(real(ϵs), μ)
-    end
+#         energies[i_] = groundstate_sumk(real(ϵs), μ)
+#     end
 
-    ρs[:] ./= L
-    sum(energies)/L # return the groundstate energy
-end
+#     ρs[:] ./= L
+#     sum(energies)/L # return the groundstate energy
+# end
 
 
 using ..TightBinding: efficientzero, flexibleformat!
@@ -236,10 +245,13 @@ function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, �
         k = ks[:,i_]
         ϵs, U = spectrumf(k) #@time
 
-        ρ0 = deepcopy(zeromat)
+        ρ0 = zero(zeromat)
+        M = zero(ρ0[:,:,1])
+
+        densitymatrix!(M, ϵs.-μ, U; T=T)
+
         for (j_,δL)=enumerate(δLs)
-            densitymatrix!(view(ρ0,:,:,j_), δL, k, ϵs.-μ, U; T=T)
-            # densitymatrix!(view(ρsMat, :,:,j_), δL, k, ϵs.-μ, U; T=T)
+            ρ0[:,:,j_] .+= M .* fourierphase(-k, δL)
         end
 
         energies[i_] = groundstate_sumk(real(ϵs), μ)
@@ -266,8 +278,11 @@ function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ:
         k = ks[:,i_]
         ϵs, U = spectrumf(k) #@time
 
+        M = zero(first(values(ρs)))
+        densitymatrix!(M, ϵs.-μ, U; T=T)
+
         for δL=keys(ρs)
-            densitymatrix!(ρs[δL], δL, k, ϵs.-μ, U; T=T)
+            ρs[δL][:,:] .+= M .* fourierphase(-k, δL)
         end
 
         # densitymatrix!(ρs, k, ϵs.-μ, U; T=T)
@@ -281,16 +296,16 @@ function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ:
     sum(energies)/L # return the groundstate energy
 end
 
-function densitymatrix!(ρs::AbstractArray{Float64,3}, δLs::Vector{String}, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; multimode=:serial, kwargs...)
+# function densitymatrix!(ρs::AbstractArray{Float64,3}, δLs::Vector{String}, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; multimode=:serial, kwargs...)
 
-    if multimode==:parallel && nprocs()>1
-        densitymatrix_parallel!(ρs, δLs, H, ks, μ; kwargs...)
-    elseif multimode==:multithread && Threads.nthreads()>1
-        error(":multithread not implemented.")
-    else
-        densitymatrix_serial!(ρs, δLs, H, ks, μ; kwargs...)
-    end
-end
+#     if multimode==:parallel && nprocs()>1
+#         densitymatrix_parallel!(ρs, δLs, H, ks, μ; kwargs...)
+#     elseif multimode==:multithread && Threads.nthreads()>1
+#         error(":multithread not implemented.")
+#     else
+#         densitymatrix_serial!(ρs, δLs, H, ks, μ; kwargs...)
+#     end
+# end
 
 function densitymatrix!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; multimode=:serial, kwargs...)
 
