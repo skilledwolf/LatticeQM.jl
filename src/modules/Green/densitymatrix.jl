@@ -35,7 +35,7 @@ end
 # end
 densitymatrix(ϵ::Number, ψ::AbstractVector; T::Float64=0.01) = fermidirac(real(ϵ); T=T) .* transpose(ψ * ψ') #transpose(ψ * ψ') # (ψ * ψ')
 
-function densitymatrix!(ρ0::AbstractMatrix, ϵs::AbstractVector, U::AbstractMatrix; φk::ComplexF64=1.0+0.0im, kwargs...)
+function densitymatrix!(ρ0::AbstractMatrix, ϵs::AbstractVector, U::AbstractMatrix; φk::ComplexF64=1.0+0.0im, T=0.01, kwargs...)
     fd = fermidirac.(real.(ϵs); T=T)
 
     ρ0[:,:] .+= sum(fd[m] .* φk .* conj.(U[:,m]) * transpose(U[:,m]) for m in 1:length(ϵs))
@@ -45,13 +45,13 @@ end
 function densitymatrix!(ρ0::AbstractMatrix, δL::AbstractVector, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; T=0.01, kwargs...)
     
     phase = fourierphase(-k, δL)
-    densitymatrix!(ρ0, ϵs, U; φk=phase, kwargs...)
+    densitymatrix!(ρ0, ϵs, U; φk=phase, T=T, kwargs...)
 end
 
 function mapdensitymatrix!(ρ0::AbstractMatrix, δLs::AbstractVector{AbstractVector}, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; T=0.01, kwargs...)
 
     M = zero(ρ0)
-    densitymatrix!(M, ϵs, U; φk=phase, kwargs...)
+    densitymatrix!(M, ϵs, U; φk=phase, T=T, kwargs...)
 
     for δL=δLs 
         ρ0[:,:] .+= M .* fourierphase(-k, δL)
