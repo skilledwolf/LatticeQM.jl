@@ -43,13 +43,22 @@ function densitymatrix!(ρ0::AbstractMatrix, ϵs::AbstractVector, U::AbstractMat
     ρ0
 end
 
-function densitymatrix!(ρ0::AbstractMatrix, δL::AbstractVector, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; kwargs...)
-    for (ϵ, ψ) in zip(ϵs, eachcol(U))
-        ρ0[:,:] .+= (densitymatrix(ϵ, ψ; kwargs...) .* fourierphase(-k, δL)) # ϵ-μ # -k
-        # broadcast!(+, ρ0, ρ0, (densitymatrix(ϵ, ψ; kwargs...) .* fourierphase(-k, δL)))
-    end
+function densitymatrix!(ρ0::AbstractMatrix, δL::AbstractVector, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; T=0.01, kwargs...)
+    
+    phase = fourierphase(-k, δL)
+    fd = fermidirac.(real.(ϵs); T=T)
+
+    ρ0[:,:] .+= sum(fd[m] .* phase .* conj.(U[:,m]) * transpose(U[:,m]) for m in 1:length(ϵs))
     ρ0
 end
+
+# function densitymatrix!(ρ0::AbstractMatrix, δL::AbstractVector, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; kwargs...)
+#     for (ϵ, ψ) in zip(ϵs, eachcol(U))
+#         ρ0[:,:] .+= (densitymatrix(ϵ, ψ; kwargs...) .* fourierphase(-k, δL)) # ϵ-μ # -k
+#         # broadcast!(+, ρ0, ρ0, (densitymatrix(ϵ, ψ; kwargs...) .* fourierphase(-k, δL)))
+#     end
+#     ρ0
+# end
 
 function densitymatrix!(ρs::AnyHops, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; kwargs...)
     for δL=keys(ρs)
