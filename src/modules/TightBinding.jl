@@ -5,7 +5,7 @@ module TightBinding
 
 using Base
 using LinearAlgebra
-using SparseArrays
+using SparseArrays, SharedArrays
 using ElasticArrays, RecursiveArrayTools
 
 using ..Utils

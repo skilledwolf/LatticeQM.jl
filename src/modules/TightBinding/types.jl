@@ -44,8 +44,11 @@ function zerolike(h::AnyHops; format=:auto)
     ρ
 end
 
-DenseHops(kv::Hop...) = Hops{Matrix{ComplexF64}}(k=>Matrix(v) for (k,v) in kv)
+DenseHops(kv::Hop...) = Hops{Matrix{ComplexF64}}(k=>Matrix(complex(v)) for (k,v) in kv)
 DenseHops(d::AnyHops) = DenseHops(d...)
+
+SharedDenseHops(kv::Hop...) = Hops{Matrix{ComplexF64}}(k=>SharedArray(Matrix(complex(v))) for (k,v) in kv)
+SharedDenseHops(d::AnyHops) = SharedDenseHops(d...)
 
 SparseHops(kv::Hop...) = Hops{SparseMatrixCSC{Complex{Float64},Int64}}(k=>sparse(v) for (k,v) in kv)
 SparseHops(d::AnyHops) = SparseHops(d...)

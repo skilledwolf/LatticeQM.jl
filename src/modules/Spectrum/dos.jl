@@ -58,7 +58,7 @@ function dos!(DOS, energy::Number, ωs; broadening::Number)
 end
 
 function dos_serial!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; Γ::Number, kwargs...)
-    L = size(ks)[2]
+    L = size(ks,2)
     ϵs = energies(h; kwargs...)
 
     @showprogress 6 "Computing DOS... " for k=eachcol(ks) # j=1:L
@@ -69,7 +69,7 @@ function dos_serial!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVe
 end
 
 function dos_parallel!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; Γ::Number, kwargs...)
-    L = size(ks)[2]
+    L = size(ks,2)
     ϵs = energies(h; kwargs...)
 
     DOS0 = @sync @showprogress 6 "Computing DOS... " @distributed (+) for j=1:L # over ks
@@ -85,7 +85,7 @@ end
 
 # todo: include into dos!(...)
 function dos_multithread!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; Γ::Number, kwargs...)
-    L = size(ks)[2]
+    L = size(ks,2)
     ϵs = energies(h; kwargs...)
 
     Threads.@threads for k=ProgressBar(eachcol(ks)) # j=1:L
