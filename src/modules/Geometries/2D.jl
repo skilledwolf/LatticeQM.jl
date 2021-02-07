@@ -20,10 +20,10 @@ module Geometries2D
 
     # Dictionary to construct Paths in k space
     kdict_sq = LabeledPoints(
-        ["Γ", "M", "M1", "X"],
+        ["Γ", "X", "Y", "M"],
         [[0.0;  0.0], [1/2;  0.0], [0.0;  1/2], [1/2;  1/2]],
-        ["\$\\Gamma\$", "M", "M'", "X"],
-        ["M", "Γ", "X", "M1", "Γ"]
+        ["\$\\Gamma\$", "X", "Y", "M"],
+        ["Y", "Γ", "M", "X", "Γ"]
     )
 
     kdict_tri = LabeledPoints(

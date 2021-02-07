@@ -9,7 +9,7 @@ function gethaldanelike(lat; t1, t2, cellrange=3, kwargs...)
     addhops!(hops0, lat, (r1,r2=0)->t_haldanelike(r1,r2;d0=√3,t=t2); cellrange=cellrange)
 
     hops1 = kron(hops0, [1.0 0.0; 0.0 0.0])
-    hops2 = kron(Hops(r=>conj(M) for (r,M) in hops0), [0.0 0.0; 0.0 1.0]) # time reversal symmetric partner sector
+    hops2 = kron(Hops(Dict(r=>conj(M) for (r,M) in hops0)), [0.0 0.0; 0.0 1.0]) # time reversal symmetric partner sector
 
     addhops!(hops1, hops2)
 

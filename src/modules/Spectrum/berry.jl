@@ -106,6 +106,145 @@ function getberry!(bands::BandData, h, ks)
     nothing
 end
 
+function NestedWilson2D(wavefunctions::Function, NX::Int, NY::Int=0, bandindex=[1])
+
+    # Prepare indices and sizes
+    NY = (NY<1) ? NX : NY
+    indices = collect(Iterators.product(1:NX, 1:NY))
+    M1 = size(wavefunctions(zeros(2)), 2) # dimension of hilbert space
+    M2 = size(bandindex,1) # number of occupied bands
+
+    # Prepare k-grid
+    kgrid = [[x;y] for x=range(0; stop=1, length=NX), y=range(0; stop=1, length=NY)]
+    midkgrid = [[1/(2*NX)+x;1/(2*NY)+y] for x=range(0; stop=1-1.0/NX, length=NX-1), y=range(0; stop=1-1.0/NY, length=NY-1)]
+
+    # Compute eigenspectrum on the k-grid
+    statesgrid = convert(SharedArray, zeros(ComplexF64, NX, NY, M1, M2))
+    @sync @distributed for (i_,j_) in indices
+        statesgrid[i_,j_, :, :] = wavefunctions(kgrid[i_,j_].+1.34e-8)[:,bandindex]
+    end
+
+    return NestedWilson2D(statesgrid)
+end
+
+function NestedWilson2D(statesgrid::AbstractArray{ComplexF64,4})
+    NX, NY, M1, M2 = size(statesgrid)
+
+    en1, U1= WilsonSlice1D(statesgrid, 1)
+    # @views p1 = [sum(Wilson1D(W1[i_,:,:,n_]) for i_=1:NX)/NX for n_=1:M2]
+    
+    en2, U2 = WilsonSlice1D(statesgrid, 2)
+    # @views p2 = [sum(Wilson1D(W2[:,j_,:,n_]) for j_=1:NY)/NY for n_=1:M2]
+
+    # en1, U1, p1, en2, U2, p2
+    en1, U1, en2, U2
+end
+
+function NestedWilsonWannier2D(wavefunctions::Function, NX::Int, NY::Int=0, bandindex=[1])
+
+    # Prepare indices and sizes
+    NY = (NY<1) ? NX : NY
+    indices = collect(Iterators.product(1:NX, 1:NY))
+    M1 = size(wavefunctions(zeros(2)), 2) # dimension of hilbert space
+    M2 = size(bandindex,1) # number of occupied bands
+
+    # Prepare k-grid
+    kgrid = [[x;y] for x=range(0; stop=1, length=NX), y=range(0; stop=1, length=NY)]
+    midkgrid = [[1/(2*NX)+x;1/(2*NY)+y] for x=range(0; stop=1-1.0/NX, length=NX-1), y=range(0; stop=1-1.0/NY, length=NY-1)]
+
+    # Compute eigenspectrum on the k-grid
+    statesgrid = convert(SharedArray, zeros(ComplexF64, NX, NY, M1, M2))
+    @sync @distributed for (i_,j_) in indices
+        statesgrid[i_,j_, :, :] = wavefunctions(kgrid[i_,j_].+1.34e-8)[:,bandindex]
+    end
+
+    NestedWilsonWannier2D(statesgrid)
+end
+
+function NestedWilsonWannier2D(statesgrid::AbstractArray{ComplexF64,4})
+    NX, NY, M1, M2 = size(statesgrid)
+
+    newstatesgrid1 = similar(statesgrid)
+    for i_=1:NX, j_=1:NY
+        @views _, U = Wilson1D(statesgrid[i_,:,:,:], j_-1)
+        newstatesgrid1[i_,j_,:,:] = statesgrid[i_, j_, :, :] * U
+    end
+
+    newstatesgrid2 = similar(statesgrid)
+    for i_=1:NX, j_=1:NY
+        @views _, U = Wilson1D(statesgrid[:,j_,:,:], i_-1)
+        newstatesgrid2[i_,j_,:,:] = statesgrid[i_, j_, :, :] * U
+    end
+
+    @views p1 = [sum(Wilson1D(newstatesgrid1[:,j_,:,n_]) for j_=1:NY)/NY for n_=1:M2]
+    @views p2 = [sum(Wilson1D(newstatesgrid2[i_,:,:,n_]) for i_=1:NX)/NX for n_=1:M2]
+    
+    p1, p2
+end
+
+mymod(i::Int,j::Int) = 1+mod(i-1, j-1)
+
+function Wilson1D(statesgrid::AbstractArray{ComplexF64,3}, j0::Int=0)
+    NY, M1, M2 = size(statesgrid)
+
+    F = Matrix((1.0+0im)*I, (M2,M2))
+    for j_=1:NY-1
+        SVD = svd(statesgrid[mymod(j0+j_,NY), :, :]' * statesgrid[mymod(j0+j_+1,NY), :, :])#1+mod(j_-1+1,NY-1)
+        F *= (SVD.U * SVD.Vt)
+        # F *= statesgrid[j_, :, :]' * statesgrid[1+mod(j_-1+1,NY-1), :, :]
+    end
+    
+    en, U = spectrum(F)
+    en = angle.(en)./(2π)
+    perm = sortperm(en)
+
+    en[perm], U[:,perm]
+end
+
+function Wilson1D(statesgrid::AbstractArray{ComplexF64,2}, j0::Int=0)
+    NY, M1= size(statesgrid)
+
+    F = 1.0+0im
+    for j_=1:NY-1
+        F *= statesgrid[mymod(j0+j_,NY),:]' * statesgrid[mymod(j0+j_+1,NY),:]
+    end
+
+    angle(F)/(2π)
+end
+
+function WilsonSlice1D(statesgrid::AbstractArray{ComplexF64,4})
+    NX, NY, M1, M2 = size(statesgrid)
+
+    en1 = Array{Float64}(undef, (NX,M2))
+    U1 = Array{ComplexF64}(undef, (NX,M2,M2))
+    # W1 = Array{ComplexF64}(undef, (NX,NY,M1,M2))
+    for i_=1:NX
+        @views en, U = Wilson1D(statesgrid[i_,  :, :, :])
+
+        en1[i_,:] = en
+        U1[i_,:,:] = U
+
+        # for j_=1:NY
+        #     W1[i_,j_,:,:] = statesgrid[i_, j_, :, :] * U
+        # end
+    end
+
+    en1, U1#, W1
+end
+
+function WilsonSlice1D(statesgrid::AbstractArray{ComplexF64,4}, dim::Int)
+    myperm(n::Int, N::Int) = (v = collect(1:N); v[n] = 1; v[1]=n; v)
+
+    if dim == 1
+        return @views WilsonSlice1D(statesgrid)
+    else
+        perm = myperm(dim,ndims(statesgrid))
+        @views en, U= WilsonSlice1D(permutedims(statesgrid, perm))
+        # W = permutedims(W, perm)
+        return en, U#, W
+    end
+end
+
 
 
 ##########################################################################
