@@ -49,7 +49,7 @@ function circleregion(lat::Lattice, r=30.0)
 	cropcircle(slat)
 end
 
-circleregion(lat::Lattice, r=30.0) = fillregion(lat, p-> norm(p) < r)
+# circleregion(lat::Lattice, r=30.0) = fillregion(lat, p-> norm(p) < r)
 
 """
 	fillregion(lat::Lattice, f::Function)
