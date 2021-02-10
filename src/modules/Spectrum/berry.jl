@@ -24,29 +24,33 @@ function berry(statesgrid::AbstractArray{<:Complex, 4})
     F
 end
 
-@legacyalias berry BerryF
-function berry(wavefunctions::Function, NX::Int, NY::Int=0, bandindex=[1])
-    # wavefunctions(k::Vector) -> Matrix{Complex}
+function statesgrid(wavefunctions::Function, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
+    # Prepare indices and sizes
+    NY = (NY<1) ? NX : NY
+    indices = collect(Iterators.product(1:NX, 1:NY))
+    M1 = size(wavefunctions(zeros(2)), 2) # dimension of hilbert space
+    M2 = size(bandindices,1) # number of occupied bands
+    bandindices = (bandindices==[]) ? collect(1:M1) : bandindices
 
-    if NY < 1
-        NY = NX
-    end
-
-    M1 = size(wavefunctions(zeros(2)), 2)
-    M2 = size(bandindex,1)
-
+    # Prepare k-grid
     kgrid = [[x;y] for x=range(0; stop=1, length=NX), y=range(0; stop=1, length=NY)]
     midkgrid = [[1/(2*NX)+x;1/(2*NY)+y] for x=range(0; stop=1-1.0/NX, length=NX-1), y=range(0; stop=1-1.0/NY, length=NY-1)]
 
-    statesgrid = convert(SharedArray, zeros(ComplexF64, NX, NY, M1, M2))
-
-    indices = collect(Iterators.product(1:NX, 1:NY))
-
+    # Compute eigenspectrum on the k-grid
+    statesgrid0 = convert(SharedArray, zeros(ComplexF64, NX, NY, M1, M2))
     @sync @distributed for (i_,j_) in indices
-        statesgrid[i_,j_, :, :] = wavefunctions(kgrid[i_,j_])[:,bandindex]
+        statesgrid0[i_,j_, :, :] = wavefunctions(kgrid[i_,j_].+1.34e-8)[:,bandindices]
     end
 
-    midkgrid, berry(statesgrid)
+    kgrid, midkgrid, statesgrid0
+end
+
+@legacyalias berry BerryF
+function berry(wavefunctions::Function, NX::Int, NY::Int=0, bandindices::AbstractArray=[1])
+    # wavefunctions(k::Vector) -> Matrix{Complex}
+
+    kgrid, midgrid, statesgrid0 = statesgrid(wavefunctions, NX, NY, bandindices)
+    midkgrid, berry(statesgrid0)
 end
 
 @legacyalias berryalongpath BerryCurvature
@@ -93,8 +97,10 @@ function berryalongpath(wavefunctions::Function, kpoints::AbstractMatrix{<:Float
 end
 
 @legacyalias getberry! get_berry!
-function getberry!(bands::BandData, h, ks)
-    obs = Array(berryalongpath(wavefunctions(h), ks.points))
+getberry!(bands::BandData, h, ks) = getberry_wf!(bands, wavefunctions(h), ks)
+
+function getberry_wf!(bands::BandData, wavefunctions, ks)
+    obs = Array(berryalongpath(wavefunctions, ks.points))
     obs = reshape(obs, (size(obs)...,1))
 
     if bands.obs == nothing
@@ -106,25 +112,11 @@ function getberry!(bands::BandData, h, ks)
     nothing
 end
 
-function NestedWilson2D(wavefunctions::Function, NX::Int, NY::Int=0, bandindex=[1])
+function NestedWilson2D(wavefunctions::Function, NX::Int, NY::Int=0, bandindices=[1])
 
-    # Prepare indices and sizes
-    NY = (NY<1) ? NX : NY
-    indices = collect(Iterators.product(1:NX, 1:NY))
-    M1 = size(wavefunctions(zeros(2)), 2) # dimension of hilbert space
-    M2 = size(bandindex,1) # number of occupied bands
+    _, _, statesgrid0 = statesgrid(wavefunctions, NX, NY, bandindices)
 
-    # Prepare k-grid
-    kgrid = [[x;y] for x=range(0; stop=1, length=NX), y=range(0; stop=1, length=NY)]
-    midkgrid = [[1/(2*NX)+x;1/(2*NY)+y] for x=range(0; stop=1-1.0/NX, length=NX-1), y=range(0; stop=1-1.0/NY, length=NY-1)]
-
-    # Compute eigenspectrum on the k-grid
-    statesgrid = convert(SharedArray, zeros(ComplexF64, NX, NY, M1, M2))
-    @sync @distributed for (i_,j_) in indices
-        statesgrid[i_,j_, :, :] = wavefunctions(kgrid[i_,j_].+1.34e-8)[:,bandindex]
-    end
-
-    return NestedWilson2D(statesgrid)
+    return NestedWilson2D(statesgrid0)
 end
 
 function NestedWilson2D(statesgrid::AbstractArray{ComplexF64,4})
@@ -140,25 +132,10 @@ function NestedWilson2D(statesgrid::AbstractArray{ComplexF64,4})
     en1, U1, en2, U2
 end
 
-function NestedWilsonWannier2D(wavefunctions::Function, NX::Int, NY::Int=0, bandindex=[1])
+function NestedWilsonWannier2D(wavefunctions::Function, NX::Int, NY::Int=0, bandindices=[1])
 
-    # Prepare indices and sizes
-    NY = (NY<1) ? NX : NY
-    indices = collect(Iterators.product(1:NX, 1:NY))
-    M1 = size(wavefunctions(zeros(2)), 2) # dimension of hilbert space
-    M2 = size(bandindex,1) # number of occupied bands
-
-    # Prepare k-grid
-    kgrid = [[x;y] for x=range(0; stop=1, length=NX), y=range(0; stop=1, length=NY)]
-    midkgrid = [[1/(2*NX)+x;1/(2*NY)+y] for x=range(0; stop=1-1.0/NX, length=NX-1), y=range(0; stop=1-1.0/NY, length=NY-1)]
-
-    # Compute eigenspectrum on the k-grid
-    statesgrid = convert(SharedArray, zeros(ComplexF64, NX, NY, M1, M2))
-    @sync @distributed for (i_,j_) in indices
-        statesgrid[i_,j_, :, :] = wavefunctions(kgrid[i_,j_].+1.34e-8)[:,bandindex]
-    end
-
-    NestedWilsonWannier2D(statesgrid)
+    _, _, statesgrid0 = statesgrid(wavefunctions, NX, NY, bandindices)
+    NestedWilsonWannier2D(statesgrid0)
 end
 
 function NestedWilsonWannier2D(statesgrid::AbstractArray{ComplexF64,4})
@@ -176,8 +153,8 @@ function NestedWilsonWannier2D(statesgrid::AbstractArray{ComplexF64,4})
         newstatesgrid2[i_,j_,:,:] = statesgrid[i_, j_, :, :] * U
     end
 
-    @views p1 = [sum(Wilson1D(newstatesgrid1[:,j_,:,n_]) for j_=1:NY)/NY for n_=1:M2]
-    @views p2 = [sum(Wilson1D(newstatesgrid2[i_,:,:,n_]) for i_=1:NX)/NX for n_=1:M2]
+    @views p1 = [sum(Wilson1D(newstatesgrid1[:,j_,:,n_]) for j_=1:(NY-1))/(NY-1) for n_=1:M2]
+    @views p2 = [sum(Wilson1D(newstatesgrid2[i_,:,:,n_]) for i_=1:(NX-1))/(NX-1) for n_=1:M2]
     
     p1, p2
 end
@@ -193,7 +170,7 @@ function Wilson1D(statesgrid::AbstractArray{ComplexF64,3}, j0::Int=0)
         F *= (SVD.U * SVD.Vt)
         # F *= statesgrid[j_, :, :]' * statesgrid[1+mod(j_-1+1,NY-1), :, :]
     end
-    
+
     en, U = spectrum(F)
     en = angle.(en)./(2π)
     perm = sortperm(en)
@@ -245,6 +222,34 @@ function WilsonSlice1D(statesgrid::AbstractArray{ComplexF64,4}, dim::Int)
     end
 end
 
+
+
+"""
+    getcherns(wavefunctions::Function, NX::Int, NY::Int=0, bands::AbstractArray=[])
+
+Returns the chern numbers of wavefunctions corresponding to all bands in bands,
+where NX and NY denote the coarseness of discretization of k-space.
+For bands=[] it returns all chern numbers.
+"""
+function getcherns(wavefunctions::Function, NX::Int, NY::Int=0, bands::AbstractArray=[])
+    _, _, grid = statesgrid(wavefunctions, NX, NY, bands)
+    cherns = [sum(Spectrum.berry(grid[:,:,:,i:i])) for i=1:size(grid,4)]
+
+end
+
+
+"""
+    getwindnum(wavefunctions::Function, NX::Int, NY::Int=0, bandnr::Integer=1)
+
+Returns the winding number (according to Rudner et al. 2013) of the band which is on position bandnr in the spectrum.
+NX and NY denote the coarsness of the discretization in k-space and wavefunctions is a function returning the wavefunctions of the problem.
+(NB: The winding number of a band is the sum of the chern numbers of all the bands below it including its own chern number.
+For undriven systems or systems which are driven but "normal" it is equal to the chern number of said band.
+It only makes sense when looking at Floquet bands ie quasi energiess.)
+"""
+function getwindnum(wavefunctions::Function, NX::Int, NY::Int=0, bandnr::Integer=1)
+    return sum(getcherns(wavefunctions, NX, NY, collect(1:bandnr)))
+end
 
 
 ##########################################################################

@@ -56,6 +56,10 @@ module LatticeQM
     export Spectrum
     export getbands
 
+    include("modules/Floquet.jl")
+    using .Floquet
+    export Floquet
+
     include("modules/Green.jl")
     using .Green
     export Green

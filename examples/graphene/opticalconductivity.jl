@@ -9,7 +9,7 @@ lat = Geometries2D.honeycomb()
 
 # Get nearest-neighbor hops in the honeycomb lattice
 using LatticeQM.Operators: graphene, addsublatticeimbalance!
-hops = graphene(lat; mode=:nospin) # or mode=:spinhalf for spin-1/2
+hops = graphene(lat; format=:dense, mode=:nospin) # or mode=:spinhalf for spin-1/2
 addsublatticeimbalance!(hops, lat, 0.1)
 
 # Get band structure
