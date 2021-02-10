@@ -8,6 +8,8 @@ function plaquettephase(S00::T, S10::T, S01::T, S11::T) where {T<:AbstractArray{
     real(1.0/(2π*1.0im) * log( L(S00, S10) * L(S10, S11) * L(S01, S11)^(-1) * L(S00,S01)^(-1) ))
 end
 
+mymod(i::Int,j::Int) = 1+mod(i-1, j)
+
 function berry(statesgrid::AbstractArray{<:Complex, 4})
 
     (n,m) = size(statesgrid)[1:2]
@@ -116,27 +118,25 @@ function NestedWilson2D(wavefunctions::Function, NX::Int, NY::Int=0, bandindices
 
     _, _, statesgrid0 = statesgrid(wavefunctions, NX, NY, bandindices)
 
-    return NestedWilson2D(statesgrid0)
+    return NestedWilson2D(statesgrid0[1:(NX-1),1:(NY-1),:,:])
 end
 
 function NestedWilson2D(statesgrid::AbstractArray{ComplexF64,4})
     NX, NY, M1, M2 = size(statesgrid)
 
     en1, U1= WilsonSlice1D(statesgrid, 1)
-    # @views p1 = [sum(Wilson1D(W1[i_,:,:,n_]) for i_=1:NX)/NX for n_=1:M2]
-    
     en2, U2 = WilsonSlice1D(statesgrid, 2)
-    # @views p2 = [sum(Wilson1D(W2[:,j_,:,n_]) for j_=1:NY)/NY for n_=1:M2]
 
-    # en1, U1, p1, en2, U2, p2
     en1, U1, en2, U2
 end
 
 function NestedWilsonWannier2D(wavefunctions::Function, NX::Int, NY::Int=0, bandindices=[1])
 
     _, _, statesgrid0 = statesgrid(wavefunctions, NX, NY, bandindices)
-    NestedWilsonWannier2D(statesgrid0)
+    NestedWilsonWannier2D(statesgrid0[1:(NX-1),1:(NY-1),:,:])
 end
+
+import Statistics
 
 function NestedWilsonWannier2D(statesgrid::AbstractArray{ComplexF64,4})
     NX, NY, M1, M2 = size(statesgrid)
@@ -144,31 +144,29 @@ function NestedWilsonWannier2D(statesgrid::AbstractArray{ComplexF64,4})
     newstatesgrid1 = similar(statesgrid)
     for i_=1:NX, j_=1:NY
         @views _, U = Wilson1D(statesgrid[i_,:,:,:], j_-1)
-        newstatesgrid1[i_,j_,:,:] = statesgrid[i_, j_, :, :] * U
+        newstatesgrid1[i_,j_,:,:] = statesgrid[i_,j_, :, :] * U
     end
 
     newstatesgrid2 = similar(statesgrid)
     for i_=1:NX, j_=1:NY
         @views _, U = Wilson1D(statesgrid[:,j_,:,:], i_-1)
-        newstatesgrid2[i_,j_,:,:] = statesgrid[i_, j_, :, :] * U
+        newstatesgrid2[i_,j_,:,:] = statesgrid[i_,j_, :, :] * U
     end
 
-    @views p1 = [sum(Wilson1D(newstatesgrid1[:,j_,:,n_]) for j_=1:(NY-1))/(NY-1) for n_=1:M2]
-    @views p2 = [sum(Wilson1D(newstatesgrid2[i_,:,:,n_]) for i_=1:(NX-1))/(NX-1) for n_=1:M2]
+    @views p1 = [Statistics.mean(Wilson1D(newstatesgrid1[:,j_,:,n_]) for j_=1:NY) for n_=1:M2]
+    @views p2 = [Statistics.mean(Wilson1D(newstatesgrid2[i_,:,:,n_]) for i_=1:NX) for n_=1:M2]
     
     p1, p2
 end
-
-mymod(i::Int,j::Int) = 1+mod(i-1, j-1)
 
 function Wilson1D(statesgrid::AbstractArray{ComplexF64,3}, j0::Int=0)
     NY, M1, M2 = size(statesgrid)
 
     F = Matrix((1.0+0im)*I, (M2,M2))
-    for j_=1:NY-1
+    for j_=1:NY
         SVD = svd(statesgrid[mymod(j0+j_,NY), :, :]' * statesgrid[mymod(j0+j_+1,NY), :, :])#1+mod(j_-1+1,NY-1)
         F *= (SVD.U * SVD.Vt)
-        # F *= statesgrid[j_, :, :]' * statesgrid[1+mod(j_-1+1,NY-1), :, :]
+        # F *= statesgrid[mymod(j0+j_,NY), :, :]' * statesgrid[mymod(j0+j_+1,NY), :, :]
     end
 
     en, U = spectrum(F)
@@ -182,7 +180,7 @@ function Wilson1D(statesgrid::AbstractArray{ComplexF64,2}, j0::Int=0)
     NY, M1= size(statesgrid)
 
     F = 1.0+0im
-    for j_=1:NY-1
+    for j_=1:NY
         F *= statesgrid[mymod(j0+j_,NY),:]' * statesgrid[mymod(j0+j_+1,NY),:]
     end
 
@@ -200,13 +198,9 @@ function WilsonSlice1D(statesgrid::AbstractArray{ComplexF64,4})
 
         en1[i_,:] = en
         U1[i_,:,:] = U
-
-        # for j_=1:NY
-        #     W1[i_,j_,:,:] = statesgrid[i_, j_, :, :] * U
-        # end
     end
 
-    en1, U1#, W1
+    en1, U1
 end
 
 function WilsonSlice1D(statesgrid::AbstractArray{ComplexF64,4}, dim::Int)
