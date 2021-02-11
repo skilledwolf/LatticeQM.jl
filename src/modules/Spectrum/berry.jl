@@ -30,9 +30,9 @@ function statesgrid(wavefunctions::Function, NX::Int, NY::Int=0, bandindices::Ab
     # Prepare indices and sizes
     NY = (NY<1) ? NX : NY
     indices = collect(Iterators.product(1:NX, 1:NY))
-    M1 = size(wavefunctions(zeros(2)), 2) # dimension of hilbert space
-    M2 = size(bandindices,1) # number of occupied bands
+    M1 = size(wavefunctions(zeros(2)), 2) # dimension of Hilbert space
     bandindices = (bandindices==[]) ? collect(1:M1) : bandindices
+    M2 = size(bandindices,1) # number of occupied bands
 
     # Prepare k-grid
     kgrid = [[x;y] for x=range(0; stop=1, length=NX), y=range(0; stop=1, length=NY)]
