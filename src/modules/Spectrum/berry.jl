@@ -51,7 +51,7 @@ end
 function berry(wavefunctions::Function, NX::Int, NY::Int=0, bandindices::AbstractArray=[1])
     # wavefunctions(k::Vector) -> Matrix{Complex}
 
-    kgrid, midgrid, statesgrid0 = statesgrid(wavefunctions, NX, NY, bandindices)
+    kgrid, midkgrid, statesgrid0 = statesgrid(wavefunctions, NX, NY, bandindices)
     midkgrid, berry(statesgrid0)
 end
 
@@ -239,7 +239,7 @@ Returns the winding number (according to Rudner et al. 2013) of the band which i
 NX and NY denote the coarsness of the discretization in k-space and wavefunctions is a function returning the wavefunctions of the problem.
 (NB: The winding number of a band is the sum of the chern numbers of all the bands below it including its own chern number.
 For undriven systems or systems which are driven but "normal" it is equal to the chern number of said band.
-It only makes sense when looking at Floquet bands ie quasi energiess.)
+It only makes sense when looking at Floquet bands ie quasi-energies.)
 """
 function getwindnum(wavefunctions::Function, NX::Int, NY::Int=0, bandnr::Integer=1)
     return sum(getcherns(wavefunctions, NX, NY, collect(1:bandnr)))
