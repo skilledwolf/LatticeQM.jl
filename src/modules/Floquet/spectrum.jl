@@ -3,7 +3,7 @@
     bandmatrix(H, ks, drive, M::Integer; num_bands::Int=0, kwargs...)
 Returns all(!) Floquet bands of a system with time-averaged Hamiltonian H, driven by a periodic potential given in drive.
 The path is chosen along ks and M denotes the cutoff frequency for not regarding Fourier modes anymore.
-A d-dimensional system with a cutoff M will lead to dim*(2*M+1) bands.
+A d-dimensional system with a cutoff M will lead to d*(2*M+1) bands.
 """
 function Spectrum.bandmatrix(H, ks, drive, M::Integer; kwargs...)
 
@@ -96,28 +96,28 @@ end
 """From bands.jl in LatticeQM: I added additional functions taking a periodicDrive as argument.
 Maybe it would be wise to put it into that file in the end."""
 function Spectrum.getbands_parallel(H, ks::DiscretePath, drive, M::Integer;kwargs...)
-    bands = bandmatrix(H, points(ks), drive, M; kwargs...)
+    bands = Spectrum.bandmatrix(H, points(ks), drive, M; kwargs...)
     bands = reducetoFBZ(bands, M) # reduce the bands to the first Floquet-Brioullin-zone. We choose the result from the middle of the spectrum because they are the most accurate.
     obs = nothing
     Spectrum.BandData(bands, obs, ks)
 end
 
 function Spectrum.getbands_parallel(H, ks::DiscretePath, projector, drive::periodicDrive, M::Integer; kwargs...)
-    bands, obs = bandmatrix(H, points(ks), projector, drive, M; kwargs...)
+    bands, obs = Spectrum.bandmatrix(H, points(ks), projector, drive, M; kwargs...)
     bands = reducetoFBZ(bands, M) # reduce the bands to the first Floquet-Brioullin-zone.
     Spectrum.BandData(bands, obs, ks)
 end
 
 
 function Spectrum.getbands_multithread(H, ks::DiscretePath, drive, M::Integer; kwargs...)
-    bands = bandmatrix_multithread(H, points(ks), drive, M; kwargs...)
+    bands = Spectrum.bandmatrix_multithread(H, points(ks), drive, M; kwargs...)
     bands = reducetoFBZ(bands, M) # reduce the bands to the first Floquet-Brioullin-zone. We choose the result from the middle of the spectrum because they are the most accurate.
     obs = nothing
     Spectrum.BandData(bands, obs, ks)
 end
 
 function Spectrum.getbands_multithread(H, ks::DiscretePath, projector, drive::periodicDrive, M::Integer; kwargs...)
-    bands, obs = bandmatrix_multithread(H, points(ks), projector, drive, M; kwargs...)
+    bands, obs = Spectrum.bandmatrix_multithread(H, points(ks), projector, drive, M; kwargs...)
     bands = reducetoFBZ(bands, M) # reduce the bands to the first Floquet-Brioullin-zone.
     Spectrum.BandData(bands, obs, ks)
 end
@@ -127,9 +127,9 @@ end
     wavefunctions(H, drive::periodicDrive, M::Integer; timespace=false)
 
 Returns a matrix of Floquet eigenstates of a system with time-averaged Hamiltonian H,
-driven by periodic potential contained in drive.
+driven by the periodic potential contained in drive.
 M denotes the frequency cutoff and therefore also the length of the eigenvectors in frequency space.
-For a d-dimensional Hamiltonian, the Fourier-space eigenvectors will have length dim*(2*M+1).
+For a d-dimensional Hamiltonian, the Fourier-space eigenvectors will have length d*(2*M+1).
 If timespace=true, these eigenvectors are converted back to time space and will have length dim.
 """
 function Spectrum.wavefunctions(H::AbstractMatrix, drive::periodicDrive, M::Integer; timespace=false)
