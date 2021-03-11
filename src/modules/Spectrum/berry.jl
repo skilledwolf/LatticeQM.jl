@@ -31,8 +31,8 @@ function statesgrid(wavefunctions::Function, NX::Int, NY::Int=0, bandindices::Ab
     NY = (NY<1) ? NX : NY
     indices = collect(Iterators.product(1:NX, 1:NY))
     M1 = size(wavefunctions(zeros(2)), 2) # dimension of hilbert space
-    M2 = size(bandindices,1) # number of occupied bands
     bandindices = (bandindices==[]) ? collect(1:M1) : bandindices
+    M2 = size(bandindices,1) # number of occupied bands
 
     # Prepare k-grid
     kgrid = [[x;y] for x=range(0; stop=1, length=NX), y=range(0; stop=1, length=NY)]
@@ -50,8 +50,7 @@ end
 @legacyalias berry BerryF
 function berry(wavefunctions::Function, NX::Int, NY::Int=0, bandindices::AbstractArray=[1])
     # wavefunctions(k::Vector) -> Matrix{Complex}
-
-    kgrid, midgrid, statesgrid0 = statesgrid(wavefunctions, NX, NY, bandindices)
+    kgrid, midkgrid, statesgrid0 = statesgrid(wavefunctions, NX, NY, bandindices)
     midkgrid, berry(statesgrid0)
 end
 
@@ -159,13 +158,37 @@ function NestedWilsonWannier2D(statesgrid::AbstractArray{ComplexF64,4})
     p1, p2
 end
 
+function statesgrid1D(wavefunctions::Function, NX::Int, bandindices::AbstractArray=[])
+
+    M1 = size(wavefunctions(zeros(1)), 2) # dimension of hilbert space
+    bandindices = (bandindices==[]) ? collect(1:M1) : bandindices
+    M2 = size(bandindices,1) # number of occupied bands
+
+    # Prepare k-grid
+    kgrid = LinRange(0,1,NX)
+
+    # Compute eigenspectrum on the k-grid
+    statesgrid0 = convert(SharedArray, zeros(ComplexF64, NX, M1, M2))
+    @sync @distributed for i_ in 1:NX
+        statesgrid0[i_, :, :] = wavefunctions([kgrid[i_]])[:,bandindices]
+    end
+
+    kgrid, statesgrid0
+end
+
+function Wilson1D(wavefunctions::Function, NX::Int, bandindices::AbstractArray=[])
+    _, statesgrid = statesgrid1D(wavefunctions, NX, bandindices)
+
+    Wilson1D(statesgrid)..., statesgrid
+end
+
 function Wilson1D(statesgrid::AbstractArray{ComplexF64,3}, j0::Int=0)
     NY, M1, M2 = size(statesgrid)
 
     F = Matrix((1.0+0im)*I, (M2,M2))
     for j_=1:NY
         SVD = svd(statesgrid[mymod(j0+j_,NY), :, :]' * statesgrid[mymod(j0+j_+1,NY), :, :])#1+mod(j_-1+1,NY-1)
-        F *= (SVD.U * SVD.Vt)
+        F = F * (SVD.U * SVD.Vt)
         # F *= statesgrid[mymod(j0+j_,NY), :, :]' * statesgrid[mymod(j0+j_+1,NY), :, :]
     end
 
@@ -181,7 +204,7 @@ function Wilson1D(statesgrid::AbstractArray{ComplexF64,2}, j0::Int=0)
 
     F = 1.0+0im
     for j_=1:NY
-        F *= statesgrid[mymod(j0+j_,NY),:]' * statesgrid[mymod(j0+j_+1,NY),:]
+        F = F * (statesgrid[mymod(j0+j_,NY),:]' * statesgrid[mymod(j0+j_+1,NY),:])
     end
 
     angle(F)/(2π)

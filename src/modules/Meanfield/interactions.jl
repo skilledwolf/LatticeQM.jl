@@ -1,5 +1,7 @@
-using ..TightBinding: gethops, addspin
+using ..TightBinding: gethops, addspin, getneighborhops
 using ..Utils: heaviside, @scalar2vector
+
+using ..TightBinding: zerokey
 
 # Functions with scalar arguments
 CappedYukawa(r::Float64; k0=1.0, U=1.0) = U/(k0*r*exp(k0*r)+exp(k0*r))
@@ -19,6 +21,28 @@ function gethubbard(lat, neighbors=[[0;0]]; mode=:nospin, format=:auto, kwargs..
     ee_exchange = gethops(lat, neighbors, t; format=format)
 
     addspin(ee_exchange, mode)
+end
+
+function getshortrangedpotential(lat, V0, V1=0, V2=0; spin=true)
+
+    dists, neighborhops = getneighborhops(lat;cellrange=4)
+    hops1, hops2, hops3 = neighborhops[1:3]
+
+    hops = V0 * hops1 
+
+    if V1 != 0
+        hops += V1 * hops2
+    end
+    if V2 != 0
+        hops += V2 * hops3
+    end
+
+    if spin
+        hops = kron(hops, ones(2,2))
+        hops[zerokey(hops)][diagind(hops[zerokey(hops)])] .= 0
+    end
+
+    Dict(R=>complex(M) for (R,M) in hops)
 end
 
 # function getcappedyukawa(lat; cellrange=1, mode=:nospin, format=:auto, kwargs...)
