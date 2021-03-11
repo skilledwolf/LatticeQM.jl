@@ -24,7 +24,7 @@ function getneighbors(lat, d=1.0; cellrange::Int=1)
             for j=1:N
                 Rj = R[:,j]
 
-                if d-1e-7 < norm(Ri-Rj) < d+1e-7 #&& abs2(Z[i]-Z[j]) < 0.01
+                if d-1e-10 < norm(Ri-Rj) < d+1e-10 #&& abs2(Z[i]-Z[j]) < 0.01
                     # pairs[δR][i,j] = 1
                     append!(pairs[δR], [(i,j)])
                 end
@@ -34,6 +34,8 @@ function getneighbors(lat, d=1.0; cellrange::Int=1)
 
     return pairs
 end
+
+
 
 """
     getneighborcells(A, k=1; halfspace=true, innerpoints=false, excludeorigin=true)
@@ -83,6 +85,7 @@ function getneighborcells(A::AbstractMatrix, k::Int=1; halfspace=true, innerpoin
 
     return result
 end
+
 
 
 """

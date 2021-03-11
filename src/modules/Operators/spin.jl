@@ -10,7 +10,7 @@ function Sn(lat::Lattice, n::Vector{Float64})
     N = countorbitals(lat)
 
     # d.σ ⊗ 𝟙_N
-    mat = spzeros(Complex, 2*N, 2*N)
+    mat = spzeros(ComplexF64, 2*N, 2*N)
     σn = sum(n[i] .* σs[i] for i=1:3)
 
     @simd for i = 1:2:2*N

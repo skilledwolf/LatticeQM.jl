@@ -86,7 +86,6 @@ end
 
 using ..Structure
 
-
 function spinspiralangles(lat::Lattice, superperiods)
 
     R = eachcol(Structure.positions(lat))
@@ -116,18 +115,18 @@ function spinspiraldensitymatrix(lat::Lattice, superperiods; n::Vector=[0,0,1], 
 end
 
 
-function setrandom!(ρ::AnyHops, mode=:local)
+function setrandom!(ρ::AnyHops, kind=:local)
     N = hopdim(ρ); @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
     n = div(N,2)
 
-    if mode==:local 
+    if kind==:local 
         M = mapspindensitymatrix(:random, n)
-    elseif mode==:nonlocal
+    elseif kind==:nonlocal
         M = rand(ComplexF64, N, N); M = (M+M')/2
-    elseif mode==:XY || mode==:xy
+    elseif kind==:XY || kind==:xy
         M = mapspindensitymatrix(:randomXY, n)
     else
-        error("Unrecognized request for mode '$mode'.")
+        error("Unrecognized request for mode '$kind'.")
     end
 
     setzero!(ρ, M)
@@ -179,4 +178,3 @@ function initialguess(v::AnyHops, mode=:random, args...; lat=:nothing, kwargs...
 
     ρs
 end
-

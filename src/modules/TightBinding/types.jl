@@ -44,6 +44,10 @@ function zerolike(h::AnyHops; format=:auto)
     ρ
 end
 
+getelectronsector(H::Function) = H
+getelectronsector(H::AbstractMatrix) = H
+getelectronsector(H::T) where T<:AnyHops = H
+
 DenseHops(kv::Hop...) = Hops{Matrix{ComplexF64}}(k=>Matrix(complex(v)) for (k,v) in kv)
 DenseHops(d::AnyHops) = DenseHops(d...)
 
@@ -75,9 +79,9 @@ Base.:*(h1::AnyHops, h2::AbstractMatrix) = multiplyhops(h1,h2)
 Base.:*(h1::AbstractMatrix, h2::AnyHops) = multiplyhops(h1,h2)
 multiplyhops(h1::AbstractMatrix, h2::AnyHops) = multiplyhops(Hops(h1),h2)
 multiplyhops(h1::AnyHops, h2::AbstractMatrix) = multiplyhops(h1,Hops(h2))
-multiplyhops(h1::AnyHops, h2::AnyHops) = Hops(k=>h1[k]*h2[k] for k=intersect(keys(h1),keys(h2)))
-multiplyhops(h::AnyHops, s::Number) = Hops(k=>h[k]*s for k=keys(h))
-multiplyhops(s::Number, h::AnyHops) = Hops(k=>h[k]*s for k=keys(h))
+multiplyhops(h1::AnyHops, h2::AnyHops) = Dict(k=>h1[k]*h2[k] for k=intersect(keys(h1),keys(h2)))
+multiplyhops(h::AnyHops, s::Number) = Dict(k=>h[k]*s for k=keys(h))
+multiplyhops(s::Number, h::AnyHops) = Dict(k=>h[k]*s for k=keys(h))
 
 """
 Naive implementation of combining the linear spaces of two hopping models.

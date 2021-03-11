@@ -31,6 +31,9 @@ include("TightBinding/operators.jl")
 
 include("TightBinding/superlattice.jl")
 
+include("TightBinding/neighbors.jl")
+export getneighborhops
+
 
 # Legacy definitions:
 @legacymoved get_neighbors "Structure.neighbors"
