@@ -30,7 +30,11 @@ function statesgrid(wavefunctions::Function, NX::Int, NY::Int=0, bandindices::Ab
     # Prepare indices and sizes
     NY = (NY<1) ? NX : NY
     indices = collect(Iterators.product(1:NX, 1:NY))
+<<<<<<< HEAD
     M1 = size(wavefunctions(zeros(2)), 2) # dimension of hilbert space
+=======
+    M1 = size(wavefunctions(zeros(2)), 2) # dimension of Hilbert space
+>>>>>>> 3ee3fe153851daa4e2175fe9b863f9da186b5478
     bandindices = (bandindices==[]) ? collect(1:M1) : bandindices
     M2 = size(bandindices,1) # number of occupied bands
 
@@ -50,6 +54,10 @@ end
 @legacyalias berry BerryF
 function berry(wavefunctions::Function, NX::Int, NY::Int=0, bandindices::AbstractArray=[1])
     # wavefunctions(k::Vector) -> Matrix{Complex}
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3ee3fe153851daa4e2175fe9b863f9da186b5478
     kgrid, midkgrid, statesgrid0 = statesgrid(wavefunctions, NX, NY, bandindices)
     midkgrid, berry(statesgrid0)
 end
@@ -262,7 +270,7 @@ Returns the winding number (according to Rudner et al. 2013) of the band which i
 NX and NY denote the coarsness of the discretization in k-space and wavefunctions is a function returning the wavefunctions of the problem.
 (NB: The winding number of a band is the sum of the chern numbers of all the bands below it including its own chern number.
 For undriven systems or systems which are driven but "normal" it is equal to the chern number of said band.
-It only makes sense when looking at Floquet bands ie quasi energiess.)
+It only makes sense when looking at Floquet bands ie quasi-energies.)
 """
 function getwindnum(wavefunctions::Function, NX::Int, NY::Int=0, bandnr::Integer=1)
     return sum(getcherns(wavefunctions, NX, NY, collect(1:bandnr)))
