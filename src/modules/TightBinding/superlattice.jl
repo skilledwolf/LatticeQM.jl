@@ -84,6 +84,39 @@ function superlattice(hops::AnyHops, M::Matrix{Int}, phasefunc::Function) where 
     shops
 end
 
+superlattice(lat::Lattice, hops::AnyHops, v::Vector{Int}, args...; kwargs...) = superlattice(lat, hops, Matrix(Diagonal(v)), args...; kwargs...)
+superlattice(lat::Lattice, hops::AnyHops, M::Matrix{Int}; kwargs...) = superlattice(lat, hops, M, (r,R)->1; kwargs...)
+function superlattice(lat::Lattice, hops::AnyHops, M::Matrix{Int}, phasefunc::Function; cellrange=2) where {T<:Number}
+    coordinates = supercellpoints(M)
+    count = size(coordinates, 2)
+    D = count  * hopdim(hops) # size of superlattice hopping matrices
+
+    slat = Structure.superlattice(lat, M, coordinates)
+
+    sneighbors = hcat(getneighborcells(lat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)...)
+    # sneighbors = hcat([[i;j] for i=-2:2 for j=-2:2]...)
+
+    shops = Dict(Vector(L) => spzeros(ComplexF64, D,D) for L=eachcol(sneighbors))
+
+    basislookup = Dict(L => i for (L, i) in zip(eachcol(coordinates), 1:count))
+
+    for (j,a) in enumerate(eachcol(coordinates))
+        for (δa, t) in hops
+            v = round.(a + δa)
+            n = findfirst(i->haskey(basislookup, v + M' * sneighbors[:,i]), 1:size(sneighbors,2))
+
+            L = (n==nothing) ? (print(eltype(coordinates)); error("Error: target atom at coordinate $v not found.")) : sneighbors[:,n] # throw error if the required position does not exist
+            i = basislookup[v+ M'*L]
+
+            z = phasefunc([i,j], δa) # phase
+
+            blockmatrix!(shops[L], i, j, t .* z) # write to the corresponding block of the corresponding superlattice hopping matrix
+        end
+    end
+
+    slat, shops
+end
+
 """
     reducelatdim(hops, index::Int)
 

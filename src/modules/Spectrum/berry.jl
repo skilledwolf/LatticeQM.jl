@@ -24,9 +24,17 @@ function berry(statesgrid::AbstractArray{<:Complex, 4})
     F
 end
 
-@legacyalias berry BerryF
-function berry(wavefunctions::Function, NX::Int, NY::Int=0, bandindex=[1])
-    # wavefunctions(k::Vector) -> Matrix{Complex}
+function statesgrid(wavefunctions::Function, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
+    # Prepare indices and sizes
+    NY = (NY<1) ? NX : NY
+    indices = collect(Iterators.product(1:NX, 1:NY))
+    M1 = size(wavefunctions(zeros(2)), 2) # dimension of Hilbert space
+    bandindices = (bandindices==[]) ? collect(1:M1) : bandindices
+    M2 = size(bandindices,1) # number of occupied bands
+
+    # Prepare k-grid
+    kgrid = [[x;y] for x=range(0; stop=1, length=NX), y=range(0; stop=1, length=NY)]
+    midkgrid = [[1/(2*NX)+x;1/(2*NY)+y] for x=range(0; stop=1-1.0/NX, length=NX-1), y=range(0; stop=1-1.0/NY, length=NY-1)]
 
     if NY < 1
         NY = NX
@@ -35,17 +43,11 @@ function berry(wavefunctions::Function, NX::Int, NY::Int=0, bandindex=[1])
     M1 = size(wavefunctions(zeros(2)), 2)
     M2 = size(bandindex,1)
 
-    kgrid = [[x;y] for x=range(0; stop=1, length=NX), y=range(0; stop=1, length=NY)]
-
-    statesgrid = convert(SharedArray, zeros(ComplexF64, NX, NY, M1, M2))
-
-    indices = collect(Iterators.product(1:NX, 1:NY))
-
-    @sync @distributed for (i_,j_) in indices
-        statesgrid[i_,j_, :, :] = wavefunctions(kgrid[i_,j_])[:,bandindex]
-    end
-
-    berry(statesgrid)
+@legacyalias berry BerryF
+function berry(wavefunctions::Function, NX::Int, NY::Int=0, bandindices::AbstractArray=[1])
+    # wavefunctions(k::Vector) -> Matrix{Complex}
+    kgrid, midkgrid, statesgrid0 = statesgrid(wavefunctions, NX, NY, bandindices)
+    midkgrid, berry(statesgrid0)
 end
 
 @legacyalias berryalongpath BerryCurvature
