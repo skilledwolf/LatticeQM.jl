@@ -58,7 +58,6 @@ function bandmatrix(H, ks; num_bands::Int=0, kwargs...)
     energiesf = energies(H; num_bands=num_bands, kwargs...)
 
     @sync @showprogress 1 "Computing bands... "  @distributed for j_=1:N
-#     @showprogress 1 "Computing bands..."  for j_=1:N
         bands[:,j_] .= real.(energiesf(ks[:,j_]))
     end
 

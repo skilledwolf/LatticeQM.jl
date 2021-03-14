@@ -2,7 +2,12 @@ using ..Utils: padvec
 
 # Interface to Supercell module
 @legacyalias superlattice build_superlattice
-superlattice(lat::Lattice, superperiods::Vector{Int}) = superlattice(lat, Matrix(Diagonal(superperiods)))
+superlattice(lat::Lattice, superperiods::Vector{Int}, args...) = superlattice(lat, Matrix(Diagonal(superperiods)), args...)
+"""
+    superlattice(lat::Lattice, superperiods; kwargs...)
+
+Build superlattice geometry, i.e., build a larger supercell at it's new lattice vectors.
+"""
 function superlattice(lat::Lattice, superperiods::Matrix{Int}; kwargs...)
 
     D = spacedim(lat)
@@ -10,6 +15,26 @@ function superlattice(lat::Lattice, superperiods::Matrix{Int}; kwargs...)
     Λ = basis(lat)
     Λ[:,1:d] = Λ[:,1:d] * superperiods
     supercellints = supercellpoints(superperiods; kwargs...)
+
+    # Existing atoms will now have to be copied
+    # (note that the following code could be optimized for large systems, to use less memory -- if needed...)
+    spacecoordinates_super = hcat([coordinates(lat) .+ padvec(vec,D) for vec in eachcol(supercellints)]...)
+    spacecoordinates_super[1:d,:] = inv(superperiods) * spacecoordinates_super[1:d,:]
+    extracoordinates_super = hcat([lat.extracoordinates for vec in eachcol(supercellints)]...) # this will copy info's such as z-coordinate or sublattice
+
+    return Lattice(Λ, d, spacecoordinates_super, extracoordinates_super, lat.extralabels, lat.specialpoints)
+end
+
+"""
+This is a low-level function. Not meant for end-users.
+"""
+function superlattice(lat::Lattice, superperiods::Matrix{Int}, supercellints::Matrix{Int}; kwargs...)
+
+    D = spacedim(lat)
+    d = latticedim(lat)
+    Λ = basis(lat)
+    Λ[:,1:d] = Λ[:,1:d] * superperiods
+    # supercellints = supercellpoints(superperiods; kwargs...)
 
     # Existing atoms will now have to be copied
     # (note that the following code could be optimized for large systems, to use less memory -- if needed...)
@@ -139,12 +164,14 @@ BoundIterator(bounds) = Iterators.product(map(x->x[1]:x[2], bounds)...)
 inunitrange(u; offset=1e-6) = all( (u .< 1 - offset) .& (u .>= 0 - offset) ) #all(y -> 0.0 - offset < y  < 1.0 - offset, u)
 
 @legacyalias supercellpoints points_within_supercell
-function supercellpoints(M::AbstractMatrix{Int}; offset::Float64=1e-2)#, check=false) # offset is a dummy variable, should be removed
 """
-Consider an integer lattice of dimension D=size(M)[1]. Matrix M describes a (non-orthogonal) superlattice
+    supercellpoints(M::AbstractMatrix{Int}; offset::Float64=1e-2)
+
+Consider an integer lattice of dimension D=size(M,1). Matrix M describes a (non-orthogonal) superlattice
 of this integer lattice. We want to find all lattice points that lie inside a unit cell of this
 new superlattice.
 """
+function supercellpoints(M::AbstractMatrix{Int}; offset::Float64=1e-7)#, check=false) # offset is a dummy variable, should be removed
     d = size(M)[1]
     Φ = inv(M) # transformation from integer lattice into unit cube coordinates of the
                 # superlattice unit cell

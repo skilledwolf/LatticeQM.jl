@@ -55,11 +55,15 @@ function fixedpoint!(f!, x1, x0;
             break
         end
 
-        # Convergence acceleration for the next step
+        # Convergence acceleration ("damped fixed point iterater")
         # The new x0 for the next step is:
         for δL=keys(x0)
             @. x0[δL] .= β * x1[δL] + (1-β) * x0[δL]
         end
+    end
+
+    if !converged
+        @warn("Did not convergence to requested target tolerance.")
     end
 
     ϵ0, error, converged

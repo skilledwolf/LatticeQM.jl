@@ -13,7 +13,13 @@ function bandgap_filling(H, ks, filling::Real; kwargs...)
     bandgap_energy(bands, μ)
 end
 
-function bandgap_energy(H, ks, μ::Real) # Note: dense diagonalization!
+function bandgap(H, μ::Real=0.0; klin=10) # Note: dense diagonalization!
+    # Calculate the gap around in which the Fermi level lies
+    kgrid = regulargrid(;nk=klin^2)
+    bandgap_energy(bandmatrix(H, kgrid), μ)
+end
+
+function bandgap_energy(H, ks, μ::Real=0.0) # Note: dense diagonalization!
     # Calculate the gap around in which the Fermi level lies
     bandgap_energy(bandmatrix(H, points(ks)), μ)
 end

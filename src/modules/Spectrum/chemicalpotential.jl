@@ -1,9 +1,11 @@
 # TODO: implement chemicalpotential!(bands::AbstractMatrix, ...)
 # the repeated allocation of bands is problematic for large systems!
 
+using ..TightBinding: getelectronsector
+
 function chemicalpotential(H, ks, filling::Float64; kwargs...)
 
-    chemicalpotential(bandmatrix(H, ks), filling; kwargs...)
+    chemicalpotential(bandmatrix(getelectronsector(H), ks), filling; kwargs...)
 end
 
 function chemicalpotential(bands::AbstractMatrix, filling::Float64; kwargs...)

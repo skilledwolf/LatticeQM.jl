@@ -31,3 +31,20 @@ function rotation3D(θ, n::Vector=[0,0,1])
       r12 d2  r23;
       r13 r23 d3 ]
 end
+
+
+"""
+    signedangle(e1::T,e2::T; z=nothing)
+
+returns the signed angle between 3D vectors e1 and e2.
+z should be the normal vector.
+
+"""
+function signedangle(e1::T,e2::T; z=[0.0,0,1]) where T<:AbstractVector
+    @assert length(e1)==length(e2)==3 "Vectors must have length 3."
+    e1 = e1/norm(e1)
+    e2 = e2/norm(e2)
+    z /= norm(z)
+
+    atan(dot(cross(e1,e2),normalv), dot(e1,e2))
+end

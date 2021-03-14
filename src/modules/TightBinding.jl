@@ -5,7 +5,7 @@ module TightBinding
 
 using Base
 using LinearAlgebra
-using SparseArrays
+using SparseArrays, SharedArrays
 using ElasticArrays, RecursiveArrayTools
 
 using ..Utils
@@ -30,6 +30,9 @@ export gethops, gethamiltonian
 include("TightBinding/operators.jl")
 
 include("TightBinding/superlattice.jl")
+
+include("TightBinding/neighbors.jl")
+export getneighborhops
 
 
 # Legacy definitions:

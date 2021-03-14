@@ -35,7 +35,7 @@ positions(lat::Lattice, selector=(:)) = (basis(lat) * coordinates(lat))[selector
 allpositions(lat::Lattice, args...) = [ positions(lat); extracoordinates(lat, args...)]
 
 extracoordinates(lat::Lattice) = lat.extracoordinates
-extracoordinates(lat::Lattice, dim::String) = extracoordinates(lat, [dim])
+extracoordinates(lat::Lattice, dim::String) = vec(extracoordinates(lat, [dim]))
 function extracoordinates(lat::Lattice, dims::Vector{String})
     for dim in dims
         assertdimension(lat, dim)

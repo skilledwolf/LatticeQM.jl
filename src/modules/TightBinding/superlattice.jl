@@ -43,7 +43,9 @@ end
 ####################################################################################################
 ####################################################################################################
 
-using ..Structure.Lattices: supercellpoints
+import ..Structure
+using ..Structure: Lattice
+using ..Structure.Lattices: supercellpoints#, superlattice
 
 """
     superlattice(hops, periods)

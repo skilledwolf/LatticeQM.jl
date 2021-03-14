@@ -11,8 +11,8 @@ const DenseHop  = Hop{Matrix}
 const SparseHop = Hop{SparseMatrixCSC}
 
 const Hops{T<:AbstractMatrix} = Dict{HopVector, T}
-const AnyHops    = Hops{T} where {T<:AbstractMatrix}
-const DenseHops  = Hops{Matrix}
+const AnyHops = Hops{T} where {T<:AbstractMatrix}
+const DenseHops = Hops{Matrix}
 const SparseHops = Hops{SparseMatrixCSC}
 
 
@@ -44,8 +44,15 @@ function zerolike(h::AnyHops; format=:auto)
     ρ
 end
 
-DenseHops(kv::Hop...) = Hops{Matrix{ComplexF64}}(k=>Matrix(v) for (k,v) in kv)
+getelectronsector(H::Function) = H
+getelectronsector(H::AbstractMatrix) = H
+getelectronsector(H::T) where T<:AnyHops = H
+
+DenseHops(kv::Hop...) = Hops{Matrix{ComplexF64}}(k=>Matrix(complex(v)) for (k,v) in kv)
 DenseHops(d::AnyHops) = DenseHops(d...)
+
+SharedDenseHops(kv::Hop...) = Hops{Matrix{ComplexF64}}(k=>SharedArray(Matrix(complex(v))) for (k,v) in kv)
+SharedDenseHops(d::AnyHops) = SharedDenseHops(d...)
 
 SparseHops(kv::Hop...) = Hops{SparseMatrixCSC{Complex{Float64},Int64}}(k=>sparse(v) for (k,v) in kv)
 SparseHops(d::AnyHops) = SparseHops(d...)
@@ -72,9 +79,9 @@ Base.:*(h1::AnyHops, h2::AbstractMatrix) = multiplyhops(h1,h2)
 Base.:*(h1::AbstractMatrix, h2::AnyHops) = multiplyhops(h1,h2)
 multiplyhops(h1::AbstractMatrix, h2::AnyHops) = multiplyhops(Hops(h1),h2)
 multiplyhops(h1::AnyHops, h2::AbstractMatrix) = multiplyhops(h1,Hops(h2))
-multiplyhops(h1::AnyHops, h2::AnyHops) = Hops(k=>h1[k]*h2[k] for k=intersect(keys(h1),keys(h2)))
-multiplyhops(h::AnyHops, s::Number) = Hops(k=>h[k]*s for k=keys(h))
-multiplyhops(s::Number, h::AnyHops) = Hops(k=>h[k]*s for k=keys(h))
+multiplyhops(h1::AnyHops, h2::AnyHops) = Dict(k=>h1[k]*h2[k] for k=intersect(keys(h1),keys(h2)))
+multiplyhops(h::AnyHops, s::Number) = Dict(k=>h[k]*s for k=keys(h))
+multiplyhops(s::Number, h::AnyHops) = Dict(k=>h[k]*s for k=keys(h))
 
 """
 Naive implementation of combining the linear spaces of two hopping models.
@@ -165,43 +172,43 @@ end
 
 
 
-# function efficientformat(ρ::AnyHops)
-#     L = length(̢ρ)
-#     @assert L > 0 "Must have at least one hopping element."
+function efficientformat(ρ::AnyHops)
+    L = length(ρ)
+    @assert L > 0 "Must have at least one hopping element."
 
-#     dims = size(first(values(ρ)))
+    dims = size(first(values(ρ)))
     
-#     A = Array{eltype(valtype(ρ))}(undef, dims..., L)
+    A = Array{eltype(valtype(ρ))}(undef, dims..., L)
     
-#     keylist = []
-#     for (i,δL) in enumerate(keys(ρ))
-#         A[:,:,i] .= ρ[δL][:,:]
-#         append!(keylist, [δL])
-#     end
+    keylist = []
+    for (i,δL) in enumerate(keys(ρ))
+        A[:,:,i] .= ρ[δL][:,:]
+        append!(keylist, [δL])
+    end
     
-#     A, keylist
-# end
+    A, keylist
+end
 
-# function efficientzero(ρ::AnyHops)
-#     L = length(̢ρ)
-#     @assert L > 0 "Must have at least one hopping element."
+function efficientzero(ρ::AnyHops)
+    L = length(ρ)
+    @assert L > 0 "Must have at least one hopping element."
 
-#     dims = size(first(values(ρ)))
+    dims = size(first(values(ρ)))
     
-#     A = zeros(eltype(valtype(ρ)), dims..., L)
+    A = zeros(eltype(valtype(ρ)), dims..., L)
 
-#     A, collect(keys(ρ))
-# end
+    A, collect(keys(ρ))
+end
 
-# function flexibleformat(A::AbstractArray, keylist::AbstractVector)
-#     Dict(L=>Matrix(m) for (L,m)=zip(keylist,eachslice(A; dims=3)))
-# end
+function flexibleformat(A::AbstractArray, keylist::AbstractVector)
+    Dict(L=>Matrix(m) for (L,m)=zip(keylist,eachslice(A; dims=3)))
+end
 
-# function flexibleformat!(ρ::AnyHops, A::AbstractArray, keylist::AbstractVector)
-#     for (j_,L)=enumerate(keylist)
-#         # ρ[L][:,:] .= m[:,:]
-#         # copyto!(ρ[L][:,:], A[:,:,j_])
-#         ρ[L][:,:] .= A[:,:,j_]
-#     end
-#     ρ
-# end
+function flexibleformat!(ρ::AnyHops, A::AbstractArray, keylist::AbstractVector)
+    for (j_,L)=enumerate(keylist)
+        # ρ[L][:,:] .= m[:,:]
+        # copyto!(ρ[L][:,:], A[:,:,j_])
+        ρ[L][:,:] .= A[:,:,j_]
+    end
+    ρ
+end

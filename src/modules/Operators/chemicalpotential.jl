@@ -1,12 +1,17 @@
-function setfilling!(H, lat, filling; nk=100, kwargs...)
+function setfilling!(H, filling; nk=100, kwargs...)
     kgrid = regulargrid(nk=nk)
-    setfilling!(H, lat, kgrid, filling; kwargs...)
+    setfilling!(H, kgrid, filling; kwargs...)
 end
 
-function setfilling!(H, lat, kgrid, filling; T=0.0)
+function setfilling!(H, kgrid, filling; T=0.0)
     μ = chemicalpotential(H, kgrid, filling; T=T)
-    addchemicalpotential!(H, lat, -μ)
+    addchemicalpotential!(H, -μ)
     μ
+end
+
+function addchemicalpotential!(hops::AnyHops, μ::Real)
+    hops[zerokey(hops)] += μ * I
+    hops
 end
 
 function addchemicalpotential!(hops, lat::Lattice, μ::T; localdim::Int=-1) where T<:AbstractVector{<:Float64}

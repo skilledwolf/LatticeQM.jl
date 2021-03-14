@@ -1,4 +1,4 @@
-__precompile__(true)
+# __precompile__(true)
 
 """
     LatticeQM 
@@ -56,6 +56,10 @@ module LatticeQM
     export Spectrum
     export getbands
 
+    include("modules/Floquet.jl")
+    using .Floquet
+    export Floquet
+
     include("modules/Green.jl")
     using .Green
     export Green
@@ -78,6 +82,11 @@ module LatticeQM
     export selfconsistent, hartreefock
     export initialguess
     export gethubbard
+
+    include("modules/Superconductivity.jl")
+    using .Superconductivity
+    export Superconductivity
+    export BdGOperator
 
 #     # include("modules/KPM.jl") # was moved to a separate package
 #     # using .KPM

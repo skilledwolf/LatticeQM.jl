@@ -7,11 +7,53 @@ function minsum(x::AbstractVector,y::AbstractVector)
 	end
 end
 
+function cropcircle(lat::Lattice)
+	d = latticedim(lat)
+	D = spacedim(lat)
+	@assert d==2 "Only implemented for 2d at the moment"
 
-circleregion(lat::Lattice, r=30.0) = fillregion(lat, p-> norm(p) < r)
+	points = allpositions(lat)
+	A = getA(lat)
 
-function fillregion(lat::Lattice, f::Function)
+	lconst = minimum(norm, eachcol(A))
+
+	f = p-> norm(p) < lconst/2
+
+	points = points[:,f.(eachcol(points[1:d,:]))]
+	N = size(points, 2)
+
+	return Lattice(Matrix(1.0*I, D, D),
+		0,
+	    points[1:D,:],
+	    points[D+1:end,:], 
+	    extralabels=collect(keys(lat.extralabels)), 
+	    specialpoints=LabeledPoints(
+	        ["γ"],
+	        [zeros(0)],
+	        ["\$\\gamma\$"],
+	        ["γ"]
+	    )
+	)
+end
+
+function circleregion(lat::Lattice, r=30.0)
+	d = latticedim(lat)
+	D = spacedim(lat)
+	@assert d==2 "Only implemented for 2d at the moment"
+	
+	I = ceil(Int,2r/minimum(norm, eachcol(getA(lat))))
+
+	slat = superlattice(lat, [[I, 0] [0, I]])
+	foldPC!(slat)
+
+	cropcircle(slat)
+end
+
+# circleregion(lat::Lattice, r=30.0) = fillregion(lat, p-> norm(p) < r)
+
 """
+	fillregion(lat::Lattice, f::Function)
+
 Takes the d-dimensional lattice and tiles the d-dimensional region defined by function f.
 Returns a 0-dimensional lattice (single unit cell with no periodicities).
 
@@ -19,11 +61,13 @@ f(p)=true if point p belongs to the region and f(p)=false otherwise
 
 Note: f must define a finite region that includes the origin.
 """
-
+function fillregion(lat::Lattice, f::Function)
 	d = latticedim(lat)
+	D = spacedim(lat)
 	@assert d==2 "Only implemented for 2d at the moment"
 
 	unitcell = allpositions(lat)
+
 	A = getA(lat)
 
 	δA = hcat(getneighborcells(lat; halfspace=false, innerpoints=true, excludeorigin=true)...)
@@ -62,9 +106,16 @@ Note: f must define a finite region that includes the origin.
 		confirmed
 	end
 
+	# points = A*hcat(getpoints()...)
+
+	# mysum(M,p) = (M[1:D,:].+p[1:D]; M)
+
+	# points = hcat([mysum(points,p0) for p0 = eachcol(unitcell)]...)
+	# points = points[:,f.(eachcol(points[1:d,:]))]
+	# N = size(points, 2)
+
 	points0 = getpoints()
 	points = Vector{Float64}[]
-
 	for p in points0
 		for p0 = eachcol(unitcell)
 			p1 = minsum(p0, A *p)
@@ -74,19 +125,19 @@ Note: f must define a finite region that includes the origin.
 			end
 		end
 	end
-
 	N = length(points)
-
 	points = hcat(points...)
+
 	# points = vcat(points, hcat(fill(extracoordinates(lat), N)...))
-	extralabels = [["x$i" for i=1:d]; collect(keys(lat.extralabels))[sortperm(collect(values(lat.extralabels)))]]
+	# extralabels = [["x$i" for i=1:d]; collect(keys(lat.extralabels))[sortperm(collect(values(lat.extralabels)))]]
 
 	# Return a zero-dimensional lattice object. The unitcell contains the positions of orbitals in the region
 	# Original orbital labels (such as sublattice or layer-index) are preserved.
-	return Lattice(zeros(0,0), 
-	    zeros(0,N), 
-	    points, 
-	    extralabels=extralabels, 
+	return Lattice(Matrix(1.0*I, D, D),
+		0,
+	    points[1:D,:],
+	    points[D+1:end,:], 
+	    extralabels=collect(keys(lat.extralabels)), 
 	    specialpoints=LabeledPoints(
 	        ["γ"],
 	        [zeros(0)],
