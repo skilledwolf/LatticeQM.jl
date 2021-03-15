@@ -1,6 +1,6 @@
 
 
-using ..Utils: @scalar2vector
+import ..Utils: @scalar2vector
 
 function getneighborhops(lat::Lattice; cellrange::Int=3)
 

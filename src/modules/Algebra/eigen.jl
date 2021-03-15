@@ -27,7 +27,7 @@ eigvecs_sparse(M::AbstractMatrix; num_bands::Int, sigma::Float64=1e-8, which=:LM
 eigvals_dense(h::Function; kwargs...) = k -> eigvals(Matrix(h(k)); kwargs...)
 eigvecs_dense(h::Function; kwargs...) = k -> eigvecs(Matrix(h(k)); kwargs...)
 f(x) = (x.values, x.vectors)
-eigen_dense(h::Function; kwargs...) = k -> f(eigen(Hermitian(h(k)); kwargs...))
+eigen_dense(h::Function; kwargs...) = k -> f(eigen(Hermitian(Matrix(h(k))); kwargs...))
 # function eigen_dense(h::Function; kwargs...)
 #     function atK(k::AbstractVector)
 #         F = eigen(h(k); kwargs...) #Hermitian(h(k))

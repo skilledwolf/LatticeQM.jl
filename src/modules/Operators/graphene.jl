@@ -13,7 +13,6 @@ function graphene(lat::Lattice; mode=:nospin, format=:auto, cellrange=2, kwargs.
     hops
 end
 
-@deprecate valleyoperator valley 
 valley(args...; kwargs...) = addvalley!(Hops(), args...; kwargs...)
 function addvalley!(hops, lat::Lattice, fz::Function=x->sign(x[3]+1e-3); spinhalf=false, kwargs...)
     @assert latticedim(lat) == 2 && countorbitals(lat) > 1

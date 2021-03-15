@@ -28,7 +28,7 @@ end
 
 using JLD
 
-# using ..Operators: addchemicalpotential!
+import ..TightBinding: SharedDenseHops
 
 """
     solveselfconsistent!(ρ0, ρ1, ℋ_op, ℋ_scalar, filling, ks; convergenceerror=false, multimode=:serial, checkpoint::String="", hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)

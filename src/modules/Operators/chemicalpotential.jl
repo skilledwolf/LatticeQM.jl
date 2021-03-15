@@ -1,3 +1,12 @@
+import ..Utils: regulargrid
+import ..Structure.Lattices: Lattice, latticedim, countorbitals, allpositions, positions
+import ..TightBinding: Hops, AnyHops, zerokey, hopdim, addhops!
+
+import LinearAlgebra: Diagonal
+
+import SparseArrays: sparse
+
+
 function setfilling!(H, filling; nk=100, kwargs...)
     kgrid = regulargrid(nk=nk)
     setfilling!(H, kgrid, filling; kwargs...)
@@ -9,7 +18,7 @@ function setfilling!(H, kgrid, filling; T=0.0)
     μ
 end
 
-function addchemicalpotential!(hops::AnyHops, μ::Real)
+function addchemicalpotential!(hops::Hops, μ::Real)
     hops[zerokey(hops)] += μ * I
     hops
 end
@@ -27,7 +36,7 @@ function addchemicalpotential!(hops, lat::Lattice, μ::T; localdim::Int=-1) wher
 
     @assert N == length(μ)
 
-    newhops = Dict( zero0 => sparse( (1.0+0.0im).* Diagonal(kron(μ, ones(d))) ) )
+    newhops = Hops( zero0 => sparse( (1.0+0.0im).* Diagonal(kron(μ, ones(d))) ) )
     addhops!(hops, newhops)
 
     nothing

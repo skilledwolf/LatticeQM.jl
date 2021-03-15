@@ -2,19 +2,6 @@
 
 module Spectrum
 
-    using ElasticArrays, SparseArrays
-    using LinearAlgebra
-    using Arpack
-    using Distributed
-    using SharedArrays
-
-    # using ..KSpace
-
-    using ..Utils
-    using ..Algebra: σ0, σ1, σ2, σ3, σs
-    using ..Structure: Lattice
-    using ..Structure.Paths: kIterable, DiscretePath, eachpoint, points, sumk
-
     export getbands, spectrum, chemicalpotential
 
     include("Spectrum/types.jl")

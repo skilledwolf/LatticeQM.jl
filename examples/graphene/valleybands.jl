@@ -1,18 +1,17 @@
 using LinearAlgebra, Plots
-pyplot()
+# pyplot()
 
 using LatticeQM
-using LatticeQM.Operators: graphene, gethaldane, valleyoperator, addzeeman!
 
 println(":: Create lattice...")
 lat = Geometries2D.honeycomb()
 println(":: Create hop matrix...")
-hops = graphene(lat)#; mode=:spinhalf)
+hops = Operators.graphene(lat; format=:dense)#; mode=:spinhalf)
 # Materials.addhaldane!(hops, lat, 0.1; spinhalf=true, mode=:anti)
 # addzeeman!(hops, lat, 0.3)
 
 println(":: Create valley operator...")
-valley = valleyoperator(lat; spinhalf=false)
+valley = Operators.valley(lat; spinhalf=false)
 
 println(":: Get bands...")
 ks = kpath(lat; num_points=200)

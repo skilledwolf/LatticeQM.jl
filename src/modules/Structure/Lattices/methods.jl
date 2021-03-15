@@ -1,3 +1,5 @@
+import ...Utils: rotation2D
+
 function foldcoordinates!(lat::Lattice)
     d = latticedim(lat)
     lat.spacecoordinates[1:d,:] = mod.(lat.spacecoordinates[1:d,:], 1)

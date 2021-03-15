@@ -2,7 +2,6 @@ using LinearAlgebra
 using Plots
 
 using LatticeQM
-using LatticeQM.Operators: graphene
 
 
 ############################################################
@@ -18,7 +17,7 @@ pos = Operators.positionalong(lat1, Structure.basis(lat1,2))
 ############################################################
 # Bands
 ############################################################
-hops1 = graphene(lat1; cellrange=1, mode=:nospin, tz=0.3, ℓinter=0.08, ℓintra=0.08)
+hops1 = Operators.graphene(lat1; cellrange=1, mode=:nospin, tz=0.3, ℓinter=0.08, ℓintra=0.08)
 Operators.addhaldane!(hops1, lat1, 0.3)
 
 bands1 = getbands(hops1, ks, pos)

@@ -1,3 +1,7 @@
+import ..Structure
+import ..Structure.Lattices: Lattice
+
+import LinearAlgebra: norm, Diagonal
 
 
 function positionalong(lat::Lattice, v::AbstractVector; normalize=true)

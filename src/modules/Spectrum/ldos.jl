@@ -25,7 +25,7 @@ function ldos!(n::AbstractVector, H, ks::AbstractMatrix, ωs::AbstractVector; Γ
 end
 
 
-using ..TightBinding: dim
+import ..TightBinding: dim
 
 ldos(H, ks, frequency::Real; kwargs...) = ldos(H, ks, [frequency]; kwargs...)
 function ldos(H, ks, frequencies::AbstractVector; format=:sparse, kwargs...)

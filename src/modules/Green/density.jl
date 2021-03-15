@@ -9,6 +9,8 @@ function density_at_k!(n::AbstractVector{Float64}, spectrum_k, μ::Float64)
     end
 end
 
+import ..Spectrum: spectrum
+
 function density(hamiltonian::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0; format=:dense, kwargs...)
     Σ = spectrum(hamiltonian; format=format)
 
