@@ -15,21 +15,13 @@ module Structure
 ################################################################################
 ################################################################################
 
-using LinearAlgebra
-using RecursiveArrayTools
+    include("Structure/Paths.jl")
+    using .Paths
 
-using ..Utils
-
-################################################################################
-################################################################################
-
-include("Structure/Paths.jl")
-using .Paths
-
-include("Structure/Lattices.jl")
-using .Lattices
-export Lattice
-export kpath
+    include("Structure/Lattices.jl")
+    using .Lattices
+    export Lattice
+    export kpath
 
 ################################################################################
 ################################################################################

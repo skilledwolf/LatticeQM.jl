@@ -1,4 +1,4 @@
-using ..Utils: regulargrid
+import ..Utils: regulargrid
 
 function bandgap_filling(H, filling::Real; klin=30, kwargs...)
     kgrid = regulargrid(;nk=klin^2)

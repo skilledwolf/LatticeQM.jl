@@ -1,5 +1,12 @@
+import ..Structure
+import ..Structure.Lattices: Lattice
+
+import SparseArrays: spzeros
+import LinearAlgebra: Diagonal
+
+
 function s0(lat::Lattice)
-    N = countorbitals(lat)
+    N = Structure.countorbitals(lat)
 
     # d.σ ⊗ 𝟙_N
     Diagonal(ones(2*N))
@@ -7,7 +14,7 @@ end
 
 @legacyalias Sn S_n
 function Sn(lat::Lattice, n::Vector{Float64})
-    N = countorbitals(lat)
+    N = Structure.countorbitals(lat)
 
     # d.σ ⊗ 𝟙_N
     mat = spzeros(ComplexF64, 2*N, 2*N)

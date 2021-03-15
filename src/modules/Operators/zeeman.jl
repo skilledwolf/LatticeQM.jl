@@ -1,3 +1,9 @@
+import ..Algebra
+import ..TightBinding: Hops, AnyHops, addhops!
+import ..Structure.Lattices: Lattice, latticedim, countorbitals, allpositions, positions
+
+import SparseArrays: spzeros
+
 getzeeman(args...; kwargs...) = addzeeman!(Hops(), args...; kwargs...)
 
 function addzeeman!(hops, lat::Lattice, Mv::Function)
@@ -6,7 +12,7 @@ function addzeeman!(hops, lat::Lattice, Mv::Function)
     N = countorbitals(lat)
     R = allpositions(lat)
 
-    σn(vec) = sum(vec[i] .* σs[i] for i=1:3)
+    σn(vec) = sum(vec[i] .* Algebra.σs[i] for i=1:3)
 
     mat = spzeros(ComplexF64, 2*N, 2*N)
     for i_=1:N
@@ -29,20 +35,10 @@ function addzeeman!(hops, lat::Lattice, Mv::Vector{Float64}; format=:dense)
 
     σn = sum(Mv[i] .* σs[i] for i=1:3)
 
-    newhops = Dict( zero0 => kron(Matrix(1.0I, N, N), σn) )
+    newhops = Hops( zero0 => kron(Matrix(1.0I, N, N), σn) )
     addhops!(hops, newhops)
 
     hops
 end
 addzeeman!(hops, lat::Lattice, M0::Float64; kwargs...) = addzeeman!(hops, lat::Lattice, [0.0,0.0,M0]; kwargs...)
 
-
-
-###################################################################################################
-# Backwards compatibility
-###################################################################################################
-export zeeman_hops
-@legacyalias getzeeman zeeman_hops
-
-export add_zeeman!
-@legacyalias addzeeman! add_zeeman!

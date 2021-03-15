@@ -7,28 +7,28 @@
     using solve_selfconsistent(...).
 """
 
-# function hartreefock(h::Function, v::AnyHops)
+# function hartreefock(h::Function, v::Hops)
 #     mf, E = hartreefock_k(v)
 #     ℋ(ρ) = k -> (h(k) .+ mf(ρ)(k))
 
 #     ℋ, E
 # end
 
-# function hartreefock_k(v::AnyHops)
+# function hartreefock_k(v::Hops)
 #     vMF, ϵMF = hartreefock(v)
 #     getbloch(vMF), ϵMF
 # end
 
-function hartreefock(h::AnyHops, v::AnyHops)
+function hartreefock(h::Hops, v::Hops)
     vMF, ϵMF = hartreefock(v)
 
-    hMF(ρ::AnyHops) = h + vMF(ρ)
+    hMF(ρ::Hops) = h + vMF(ρ)
 
     hMF, ϵMF
 end
 
 
-function hartreefock(v::AnyHops)
+function hartreefock(v::Hops)
     """
         Expects the real space potential {V(L) | L unit cell vector}.
         It returns a functional 𝒱[ρ] that builds the mean field hamiltonian
@@ -39,7 +39,7 @@ function hartreefock(v::AnyHops)
     V0 = sum(v[L] for L in keys(v))
     vmf = empty(v)
 
-    function vMF(ρ::AnyHops)
+    function vMF(ρ::Hops)
         empty!(vmf)
 
         for L in keys(v)
@@ -51,7 +51,7 @@ function hartreefock(v::AnyHops)
         vmf
     end
 
-    function ϵMF(ρs::AnyHops)
+    function ϵMF(ρs::Hops)
         vρ = diag(ρs[[0,0]])
 
         energy = - 1/2 * (transpose(vρ) * V0 * vρ) # Hartree contribution
@@ -66,7 +66,7 @@ function hartreefock(v::AnyHops)
 end
 
 
-function hartreefock_pairing(v::AnyHops)
+function hartreefock_pairing(v::Hops)
     """
         Expects the real space potential {V(L) | L unit cell vector}.
         It returns a functional 𝒱[ρ] that builds the mean field hamiltonian
@@ -78,7 +78,7 @@ function hartreefock_pairing(v::AnyHops)
     vmf = empty(v)
     Δmf = empty(v)
 
-    function vMF(ρ::AnyHops)
+    function vMF(ρ::Hops)
         empty!(vmf)
 
         for L in keys(v)
@@ -90,7 +90,7 @@ function hartreefock_pairing(v::AnyHops)
         vmf
     end
 
-    function ΔMF(ρ::AnyHops)
+    function ΔMF(ρ::Hops)
         empty!(Δmf)
 
         for L in keys(v)
@@ -102,7 +102,7 @@ function hartreefock_pairing(v::AnyHops)
         Δmf
     end
 
-    function ϵMF(ρs::AnyHops, ρΔs::AnyHops)
+    function ϵMF(ρs::Hops, ρΔs::Hops)
         vρ = diag(ρs[[0,0]])
 
         energy = - 1/2 * (transpose(vρ) * V0 * vρ) # Hartree contribution

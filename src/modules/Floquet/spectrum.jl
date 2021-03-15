@@ -11,12 +11,12 @@ function Spectrum.bandmatrix(H, ks, drive, M::Integer; kwargs...)
     return Spectrum.bandmatrix(HFloq, ks; kwargs...)
 end
 
-"""Same as bandmatrix but allows for multithreading."""
-function Spectrum.bandmatrix_multithread(H, ks, drive::periodicDrive, M::Integer; num_bands::Int=0, kwargs...)
+# """Same as bandmatrix but allows for multithreading."""
+# function Spectrum.bandmatrix_multithread(H, ks, drive::periodicDrive, M::Integer; num_bands::Int=0, kwargs...)
     
-    HFloq = getFloquetHamiltonian(M, Spectrum.ensureH(H), drive)
-    return Spectrum.bandmatrix_multithread(HFloq, ks; kwargs...)
-end
+#     HFloq = getFloquetHamiltonian(M, Spectrum.ensureH(H), drive)
+#     return Spectrum.bandmatrix_multithread(HFloq, ks; kwargs...)
+# end
 
 """Version of bandmatrix with observables. Returns stroboscopic expectation values! (not the same as time averaged expectation values!)"""
 function Spectrum.bandmatrix(H, ks, projector, drive::periodicDrive, M::Integer; num_bands::Int=0, kwargs...)
@@ -109,18 +109,18 @@ function Spectrum.getbands_parallel(H, ks::DiscretePath, projector, drive::perio
 end
 
 
-function Spectrum.getbands_multithread(H, ks::DiscretePath, drive, M::Integer; kwargs...)
-    bands = Spectrum.bandmatrix_multithread(H, points(ks), drive, M; kwargs...)
-    bands = reducetoFBZ(bands, M) # reduce the bands to the first Floquet-Brioullin-zone. We choose the result from the middle of the spectrum because they are the most accurate.
-    obs = nothing
-    Spectrum.BandData(bands, obs, ks)
-end
+# function Spectrum.getbands_multithread(H, ks::DiscretePath, drive, M::Integer; kwargs...)
+#     bands = Spectrum.bandmatrix_multithread(H, points(ks), drive, M; kwargs...)
+#     bands = reducetoFBZ(bands, M) # reduce the bands to the first Floquet-Brioullin-zone. We choose the result from the middle of the spectrum because they are the most accurate.
+#     obs = nothing
+#     Spectrum.BandData(bands, obs, ks)
+# end
 
-function Spectrum.getbands_multithread(H, ks::DiscretePath, projector, drive::periodicDrive, M::Integer; kwargs...)
-    bands, obs = Spectrum.bandmatrix_multithread(H, points(ks), projector, drive, M; kwargs...)
-    bands = reducetoFBZ(bands, M) # reduce the bands to the first Floquet-Brioullin-zone.
-    Spectrum.BandData(bands, obs, ks)
-end
+# function Spectrum.getbands_multithread(H, ks::DiscretePath, projector, drive::periodicDrive, M::Integer; kwargs...)
+#     bands, obs = Spectrum.bandmatrix_multithread(H, points(ks), projector, drive, M; kwargs...)
+#     bands = reducetoFBZ(bands, M) # reduce the bands to the first Floquet-Brioullin-zone.
+#     Spectrum.BandData(bands, obs, ks)
+# end
 
 
 """

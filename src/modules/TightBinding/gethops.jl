@@ -1,12 +1,11 @@
-gethamiltonian(args...; mode=:nospin, kwargs...) = getbloch(gethops(args...; kwargs...); mode=mode)
-
 ###############################################################################
 # Wrapper for custom types to gethops(...)
 ###############################################################################
 
-using ..Structure: getneighborcells
+import ..Structure
+import ..Structure.Lattices: Lattice
 
-addhops!(hops::AnyHops, lat::Lattice, t::Function; kwargs...) = addhops!(hops, gethops(lat, t; kwargs...))
+addhops!(hops::Hops, lat::Lattice, t::Function; kwargs...) = addhops!(hops, gethops(lat, t; kwargs...))
 
 """
     gethops(lat::Lattice, t::Function; cellrange=1, format=:auto, vectorized=false)
@@ -25,18 +24,18 @@ Returns the hopping elements in the format
 """
 function gethops(lat::Lattice, t::Function; cellrange=1, format=:auto, precision::Float64=sqrt(eps()), kwargs...)# where {T<:AbstractMatrix{Float64}}
     # Get neighbor cells
-    neighbors = getneighborcells(lat, cellrange; halfspace=true, innerpoints=true, excludeorigin=false)
+    neighbors = Structure.getneighborcells(lat, cellrange; halfspace=true, innerpoints=true, excludeorigin=false)
     # Iterate the hopping function over orbital pairs and neighbors
     gethops(lat, neighbors, t; precision=precision, format=format, kwargs...)
 end
 
-using ..Utils: padvec
+import ..Utils: padvec
 
 function gethops(lat::Lattice, neighbors::Vector{Vector{Int}}, t::Function; kwargs...)
-    R = allpositions(lat)
+    R = Structure.allpositions(lat)
     d = size(R,1)
 
-    A = getA(lat)
+    A = Structure.getA(lat)
     neighbor_dict = Dict(δL => padvec(A*δL,d) for δL in neighbors)
 
     gethops(R, neighbor_dict, t; kwargs...)
@@ -135,6 +134,8 @@ function densehoppingmatrix!(M::Array{ComplexF64}, Ri::Matrix{Float64}, Rj::Matr
     M
 end
 
+
+import SparseArrays: sparse
 
 function sparsehoppingmatrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64}, V::Array{ComplexF64}, Ri::Matrix{Float64}, Rj::Matrix{Float64}, t::Function; precision::Float64)
 

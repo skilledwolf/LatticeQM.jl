@@ -115,7 +115,7 @@ function spinspiraldensitymatrix(lat::Lattice, superperiods; n::Vector=[0,0,1], 
 end
 
 
-function setrandom!(ρ::AnyHops, kind=:local)
+function setrandom!(ρ::Hops, kind=:local)
     N = hopdim(ρ); @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
     n = div(N,2)
 
@@ -132,7 +132,7 @@ function setrandom!(ρ::AnyHops, kind=:local)
     setzero!(ρ, M)
 end
 
-function setferro!(ρ::AnyHops, d=:up) 
+function setferro!(ρ::Hops, d=:up) 
     N = hopdim(ρ); @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
     n = div(N,2)
 
@@ -148,7 +148,7 @@ function setferro!(ρ::AnyHops, d=:up)
     setzero!(ρ, mapspindensitymatrix(d, n))
 end
 
-function setantiferro!(ρ::AnyHops, lat::Lattice, d=:up)
+function setantiferro!(ρ::Hops, lat::Lattice, d=:up)
     N = hopdim(ρ); @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
     n = div(N,2)
 
@@ -158,11 +158,11 @@ function setantiferro!(ρ::AnyHops, lat::Lattice, d=:up)
     setzero!(ρ, kron(sublA, ρup) + kron(sublB, σ0-ρup))
 end
 
-function initialguess(v::AnyHops, mode=:random, args...; lat=:nothing, kwargs...)
+function initialguess(v::Hops, mode=:random, args...; lat=:nothing, kwargs...)
     N = hopdim(v); @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
     n = div(N,2)
 
-    ρs = zerolike(v)
+    ρs = zero(v)
 
     if mode==:random
         setrandom!(ρs, args...)

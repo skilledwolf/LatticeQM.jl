@@ -3,9 +3,9 @@ using Distributed
 using SharedArrays
 using ProgressMeter
 
-using ..Utils: fermidirac
+import ..Utils: fermidirac
+using ..TightBinding: Hops, AnyHops, dim
 
-using ..TightBinding: dim
 function green(H, ks::AbstractMatrix{Float64}, μ::Float64; kwargs...)
     d = dim(H, ks)
     G = zeros(ComplexF64, d, d)
@@ -34,6 +34,8 @@ end
 ###################################################################################################
 ###################################################################################################
 ###################################################################################################
+
+import ..Spectrum: spectrum, groundstate_sumk
 
 function green_parallel!(G::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
     L = size(ks,2)

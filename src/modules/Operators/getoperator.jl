@@ -1,4 +1,4 @@
-using ..TightBinding: expvalf
+import ..TightBinding: expvalf
 
 function getoperator(lat::Lattice, name::String, args...; kwargs...)
 

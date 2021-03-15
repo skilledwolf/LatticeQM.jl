@@ -1,7 +1,5 @@
 module Paths
 
-    using ...Utils
-
     using LinearAlgebra
 
     include("Paths/labeledpoints.jl")

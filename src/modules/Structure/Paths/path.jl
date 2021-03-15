@@ -46,6 +46,8 @@ end
 ################################################################################
 ################################################################################
 
+import ...Utils
+
 # Point iterator
 # Define proper iterators for each input type
 const kIterable = Union{DiscretePath, <:AbstractMatrix{Float64}, <:AbstractVector{T1}} where {T1<:AbstractVector{Float64}}
@@ -70,7 +72,6 @@ end
 ################################################################################
 
 # Manipulators
-@legacyalias scaleticks scaled_ticks
 function scaleticks(kPoints::DiscretePath; start=0.0, length=1.0)
     k_ticks = kPoints.ticks
     start .+ k_ticks/maximum(k_ticks)  * (length-start)

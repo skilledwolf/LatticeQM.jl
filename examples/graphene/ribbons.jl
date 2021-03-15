@@ -2,7 +2,6 @@ using LinearAlgebra
 using Plots
 
 using LatticeQM
-using LatticeQM.Operators: graphene
 
 
 ############################################################
@@ -20,7 +19,7 @@ savefig(p, "output/ribbons_geometry.pdf")
 ############################################################
 # Bands (armchair)
 ############################################################
-hops = graphene(lat_armchair)
+hops = Operators.graphene(lat_armchair)
 ks = kpath(lat_armchair; num_points=800);
 bands1 = getbands(hops, ks)
 p1 = plot(bands1, 0; ylabel="\$\\varepsilon/t\$", size=(330,260))
@@ -28,7 +27,7 @@ p1 = plot(bands1, 0; ylabel="\$\\varepsilon/t\$", size=(330,260))
 ############################################################
 # Bands (zigzag)
 ############################################################
-hops = graphene(lat_zigzag)
+hops = Operators.graphene(lat_zigzag)
 ks = kpath(lat_zigzag; num_points=800);
 bands2 = getbands(hops, ks)
 p2 = plot(bands2, 0; ylabel="\$\\varepsilon/t\$", size=(330,260))

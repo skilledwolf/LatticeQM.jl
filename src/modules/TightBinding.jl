@@ -3,29 +3,13 @@
 module TightBinding
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-using Base
-using LinearAlgebra
-using SparseArrays, SharedArrays
-using ElasticArrays, RecursiveArrayTools
-
-using ..Utils
-import ..Algebra: σ0, σ1, σ2, σ3, σX, σY, σZ, σs
-
-import ..Utils: regulargrid
-import ..Structure.Lattices: Lattice, positions, allpositions, getA, countorbitals, hasdimension, latticedim, assertdimension, extracoordinates
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
 include("TightBinding/types.jl") # todo : move to new module Hops
 export DenseHops, SparseHops, Hops, AnyHops, AbstractHops
-export hopdim, addspin, addhops!, addhops, zerolike, zerokey, getzero, setzero!
-# export decidetype
-
-include("TightBinding/bloch.jl") # todo : move to new module Hops
+export hopdim, addspin, addhops!, addhops, zerokey, getzero, setzero!
 export getbloch
 
-include("TightBinding/hamiltonian.jl") # todo : move to structure
-export gethops, gethamiltonian
+include("TightBinding/gethops.jl") # todo : move to structure
+export gethops
 
 include("TightBinding/operators.jl")
 
@@ -33,18 +17,6 @@ include("TightBinding/superlattice.jl")
 
 include("TightBinding/neighbors.jl")
 export getneighborhops
-
-
-# Legacy definitions:
-@legacymoved get_neighbors "Structure.neighbors"
-@legacymoved find_common_neighbor "Structure.commonneighbor"
-@legacymoved initial_guess "Meanfield.initialguess"
-@legacymoved set_filling! "Operators.setfilling!"
-@legacymoved add_chemicalpotential! "Operators.addchemicalpotential!"
-
-@legacymoved get_operator "Operators.getoperator"
-@legacymoved get_projector "Operators.get_projector"
-export get_operator, get_projector
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 end

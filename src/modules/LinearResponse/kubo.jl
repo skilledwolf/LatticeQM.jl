@@ -1,5 +1,5 @@
 
-using ..Utils: fermidirac
+import ..Utils: fermidirac
 
 function kubo(ω, e1::Float64, e2::Float64, M::Number; T::Float64=0.01) #todo: test
     (fermidirac(e1; T=T)-fermidirac(e2, T=T))/(e1-e2) * M ./ (ω .- (e1 - e2)) # + 1im*Γ

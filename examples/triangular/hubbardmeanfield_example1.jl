@@ -5,34 +5,29 @@ using LatticeQM
 ###################################################################################################
 ###################################################################################################
 
-using LatticeQM.Operators: nearestneighbor!
-using LatticeQM.TightBinding: addspin
-
 # Set up lattice
 lat = Geometries2D.triangular_supercell()
-sz = getoperator(lat, "sz")
-sub1, sub2, sub3 = [getoperator(lat, "sublattice", i, 2) for i=1:3]
+sz = Operators.getoperator(lat, "sz")
+sub1, sub2, sub3 = [Operators.getoperator(lat, "sublattice", i, 2) for i=1:3]
 
 # Get nearest-neighbor hops in the honeycomb lattice
-hops = addspin(nearestneighbor!(Hops(), lat), :spinhalf)
+hops = TightBinding.addspin(Operators.nearestneighbor!(Hops(), lat), :spinhalf)
 
 ###################################################################################################
 ###################################################################################################
 
 using LatticeQM.Meanfield
-using LatticeQM.Operators: magnetization
 
 # Set up interaction
-v = gethubbard(lat; mode=:σx, a=0.5, U=6.0) # interaction potential
-ρ_init = initialguess(v, :random; lat=lat) # initial guess
-hf = hartreefock(hops, v)
+v = Meanfield.gethubbard(lat; mode=:σx, a=0.5, U=6.0) # interaction potential
+ρ_init = Meanfield.initialguess(v, :random; lat=lat) # initial guess
 
-ρ_sol, ϵ_GS, HMF, converged, error = solveselfconsistent( # run the calculation
-    hf, ρ_init, 0.5; klin=30, iterations=800, tol=1e-7,# p_norm=Inf,
+ρ_sol, ϵ_GS, HMF, converged, error = Meanfield.solvehartreefock( # run the calculation
+    hops, v, ρ_init, 0.5; klin=30, iterations=800, tol=1e-7,# p_norm=Inf,
     T=0.01, β=0.9,  show_trace=true, clear_trace=true
 )
 
-m1,m2,m3 = real.(magnetization(ρ_sol, [sub1,sub2,sub3], lat))
+m1,m2,m3 = real.(Operators.magnetization(ρ_sol, [sub1,sub2,sub3], lat))
 m = m1+m2+m3
 Mabs = norm(m)
 dens = Operators.density(ρ_sol)

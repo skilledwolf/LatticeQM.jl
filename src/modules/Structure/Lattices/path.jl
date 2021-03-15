@@ -14,7 +14,6 @@ function Paths.DiscretePath(lat::Lattice, kdict::LabeledPoints, named_path::Vect
     Paths.DiscretePath(kdict, named_path; B=getB(lat), kwargs...)
 end
 
-@legacyalias kpath get_kpath
 function kpath(lat::Lattice, args...; kwargs...)
     """
     alias of DiscretePath(lat).

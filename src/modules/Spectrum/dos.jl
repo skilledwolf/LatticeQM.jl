@@ -1,6 +1,6 @@
 using Distributed
-using SharedArrays
-using ..Utils: regulargrid
+# using SharedArrays
+import ..Utils: regulargrid
 
 
 """
@@ -83,23 +83,23 @@ function dos_parallel!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::Abstract
     DOS
 end
 
-# todo: include into dos!(...)
-function dos_multithread!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; Γ::Number, kwargs...)
-    L = size(ks,2)
-    ϵs = energies(h; kwargs...)
+# # todo: include into dos!(...)
+# function dos_multithread!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; Γ::Number, kwargs...)
+#     L = size(ks,2)
+#     ϵs = energies(h; kwargs...)
 
-    Threads.@threads for k=ProgressBar(eachcol(ks)) # j=1:L
-        tmp = zero(DOS)
-        dos!(tmp, ϵs(k), frequencies; broadening=Γ)
+#     Threads.@threads for k=ProgressBar(eachcol(ks)) # j=1:L
+#         tmp = zero(DOS)
+#         dos!(tmp, ϵs(k), frequencies; broadening=Γ)
 
-        lock(DOS) do 
-            DOS[:] .+= tmp[:]
-        end
-    end
-    DOS ./= L
+#         lock(DOS) do 
+#             DOS[:] .+= tmp[:]
+#         end
+#     end
+#     DOS ./= L
 
-    DOS
-end
+#     DOS
+# end
 
 
 
