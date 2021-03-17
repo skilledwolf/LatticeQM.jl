@@ -40,12 +40,12 @@ magnetization(ρ, A::AbstractVector{String}, lat::Lattice) = [magnetization(ρ, 
 import ..Structure
 import ..Structure.Lattices: Lattice
 
-function localdensity(ρ, lat::Lattice)
+function localdensity(ρ::Hops, lat::Lattice)
 
     N = Structure.countorbitals(lat)
     D = zeros(ComplexF64, N)
 
-    P(i) = kron(Diagonal([float(i==j) for j=1:N]), Diagonal(ones(2)))
+    P(i) = kron(Diagonal([complex(float(i==j)) for j=1:N]), Diagonal(ones(2))) #assuming spinhalf here. fix in future.
 
     for i=1:N
         D[i] = expval(ρ, P(i))
@@ -54,15 +54,29 @@ function localdensity(ρ, lat::Lattice)
     D
 end
 
-function localmagnetization(ρ, lat::Lattice)
+function localmagnetization(ρ::Hops, lat::Lattice)
 
     N = Structure.countorbitals(lat)
     M = zeros(ComplexF64, 3,N)
 
-    P(i) = kron(Diagonal([float(i==j) for j=1:N]), Diagonal(ones(2)))
+    P(i) = kron(Diagonal([complex(float(i==j)) for j=1:N]), Diagonal(ones(2))) #assuming spinhalf here. fix in future.
 
     for i=1:N
-        M[:,i] = real.(magnetization(ρ, P(i), lat))
+        M[:,i] = magnetization(ρ, P(i), lat)
+    end
+
+    M
+end
+
+function localobservables(ρ::Hops, lat::Lattice)
+    N = Structure.countorbitals(lat)
+    M = zeros(ComplexF64, 4,N)
+
+    P(i) = kron(Diagonal([complex(float(i==j)) for j=1:N]), Diagonal(ones(2))) #assuming spinhalf here. fix in future.
+
+    for i=1:N
+        M[1,i] = expval(ρ, P(i))
+        M[2:4,i] = magnetization(ρ, P(i), lat)
     end
 
     M

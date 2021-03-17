@@ -2,15 +2,25 @@ import ..Operators
 using ..Operators: addchemicalpotential!
 
 using ..TightBinding: Hops, zerokey, hopdim
-using SparseArrays: spzeros
+using SparseArrays#: spzeros
 
-function Operators.addchemicalpotential!(H::BdGOperator{<:AnyHops}, μ::Real)
+function Operators.addchemicalpotential!(H::BdGOperator, μ::Real)
     d = hopdim(H)
-    addhops!(H, BdGOperator(Hops(zerokey(H.h)=>spzeros(d,d)+μ*I)))
+    addhops!(H, BdGOperator(Hops(zerokey(H.h)=>complex(spzeros(d,d)+μ*I))))
 end
 
-function electron(H::BdGOperator{<:AnyHops})
+function electron(H::BdGOperator)
     d = hopdim(H)
 
-    BdGOperator(Hops(zerokey(H)=>zero(first(values(TightBinding.getelectronsector(H))))+1.0*I))
+    BdGOperator(Hops(Dict(zerokey(H)=>zero(first(values(TightBinding.getelectronsector(H))))+1.0*I)))
+end
+
+function Operators.localobservables(ρ::BdGOperator, lat)
+    ρ0 = TightBinding.getelectronsector(ρ)
+    M = Operators.localobservables(ρ0, lat)
+
+    Δ= Superconductivity.getpairingsector(ρ) * (1im*Operators.getoperator(lat, "sy"))
+    SC = Operators.localobservables(Δ, lat)
+
+    M, SC
 end

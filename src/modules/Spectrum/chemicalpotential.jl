@@ -3,9 +3,9 @@
 
 using ..TightBinding: getelectronsector
 
-function chemicalpotential(H, ks, filling::Float64; kwargs...)
+function chemicalpotential(H, ks, filling::Float64; multimode=:distributed, kwargs...)
 
-    chemicalpotential(bandmatrix(getelectronsector(H), ks), filling; kwargs...)
+    chemicalpotential(bandmatrix(getelectronsector(H), ks; multimode=multimode), filling; kwargs...)
 end
 
 function chemicalpotential(bands::AbstractMatrix, filling::Float64; kwargs...)

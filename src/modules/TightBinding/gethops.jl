@@ -26,7 +26,9 @@ function gethops(lat::Lattice, t::Function; cellrange=1, format=:auto, precision
     # Get neighbor cells
     neighbors = Structure.getneighborcells(lat, cellrange; halfspace=true, innerpoints=true, excludeorigin=false)
     # Iterate the hopping function over orbital pairs and neighbors
-    gethops(lat, neighbors, t; precision=precision, format=format, kwargs...)
+    hops = gethops(lat, neighbors, t; precision=precision, format=format, kwargs...)
+
+    trim!(hops)
 end
 
 import ..Utils: padvec
