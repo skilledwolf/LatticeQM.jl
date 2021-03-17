@@ -219,9 +219,16 @@ function ensuretype(hops::Hops, format=:auto)
     hops
 end
 
+import LinearAlgebra: norm
 
-
-
+function trim!(ρ::Hops)
+    for δL in keys(ρ)
+        if norm(ρ[δL])≈0.0
+            delete!(ρ.data, δL)
+        end
+    end
+    ρ
+end
 
 function efficientformat(ρ::Hops)
     L = length(ρ)

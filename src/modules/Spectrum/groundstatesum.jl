@@ -1,5 +1,5 @@
 @fastmath function groundstate_sumk(ϵs_k::AbstractVector{T}, μ::T=0.0) where {T<:Number}
-    tmp = 0.0
+    tmp = zero(T)
     for ϵ in ϵs_k
         if ϵ <= μ
             tmp += ϵ

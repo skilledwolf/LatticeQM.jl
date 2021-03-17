@@ -29,6 +29,7 @@ end
 using JLD
 
 import ..TightBinding: SharedDenseHops
+import ..Green: getdensitymatrix!
 
 """
     solveselfconsistent!(ρ0, ρ1, ℋ_op, ℋ_scalar, filling, ks; convergenceerror=false, multimode=:serial, checkpoint::String="", hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
@@ -57,15 +58,15 @@ function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, 
     end
 
     # Turn dense and prepare for distributed computing
-    ρ0 = (multimode==:parallel) ? SharedDenseHops(ρ0) : DenseHops(ρ0)
-    ρ1 = (multimode==:parallel) ? SharedDenseHops(ρ1) : DenseHops(ρ1)
+    ρ0 = (multimode==:distributed) ? SharedDenseHops(ρ0) : DenseHops(ρ0)
+    ρ1 = (multimode==:distributed) ? SharedDenseHops(ρ1) : DenseHops(ρ1)
 
     H = Hamiltonian(ℋ_op(ρ0), 0.0)
 
     function updateH!(H::Hamiltonian, ρ)
         verbose ? @info("Updating chemical potential for given filling.") : nothing
         H.h = ℋ_op(ρ) # get updated Hamiltonian
-        H.μ = chemicalpotential(H.h, ks, filling; T=T)
+        H.μ = chemicalpotential(H.h, ks, filling; T=T, multimode=multimode)
         H
     end
 
@@ -73,9 +74,7 @@ function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, 
         updateH!(H, ρ0)
 
         verbose ? @info("Updating the meanfield density matrix.") : nothing
-        # addchemicalpotential!(H.h, -H.μ)
-        ϵ0 = densitymatrix!(ρ1, H.h, ks, H.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
-        # addchemicalpotential!(H.h, H.μ)
+        ϵ0 = getdensitymatrix!(ρ1, H.h, ks, H.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
 
         if checkpoint != ""
             JLD.save(checkpoint, "mf", ρ1)
@@ -85,7 +84,7 @@ function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, 
     end
 
     # Compute the ground state energy for the mean-field fixed point
-    ϵ_GS, Error, converged = fixedpoint!(update!, ρ1, ρ0; iterations=iterations, tol=tol, kwargs...)
+    ϵ_GS, Error, converged = fixedpoint!(update!, ρ1, ρ0; iterations=iterations, tol=tol, verbose=verbose, kwargs...)
 
     if convergenceerror && !converged
         error("Convergence error.")

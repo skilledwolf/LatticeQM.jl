@@ -8,7 +8,6 @@ module Meanfield
     using ..Algebra
     using ..Spectrum: spectrum, chemicalpotential
     using ..TightBinding
-    using ..Green: densitymatrix!
 
     include("Meanfield/types.jl")
 

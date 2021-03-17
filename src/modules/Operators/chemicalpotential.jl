@@ -12,8 +12,8 @@ function setfilling!(H, filling; nk=100, kwargs...)
     setfilling!(H, kgrid, filling; kwargs...)
 end
 
-function setfilling!(H, kgrid, filling; T=0.0)
-    μ = chemicalpotential(H, kgrid, filling; T=T)
+function setfilling!(H, kgrid, filling; kwargs...)
+    μ = chemicalpotential(H, kgrid, filling; kwargs...)
     addchemicalpotential!(H, -μ)
     μ
 end

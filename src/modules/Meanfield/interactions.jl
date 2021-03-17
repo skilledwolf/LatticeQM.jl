@@ -42,7 +42,7 @@ function getshortrangedpotential(lat, V0, V1=0, V2=0; spin=true)
         hops[zerokey(hops)][diagind(hops[zerokey(hops)])] .= 0
     end
 
-    Dict(R=>complex(M) for (R,M) in hops)
+    Hops(R=>complex(M) for (R,M) in hops)
 end
 
 # function getcappedyukawa(lat; cellrange=1, mode=:nospin, format=:auto, kwargs...)

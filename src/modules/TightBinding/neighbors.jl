@@ -11,6 +11,6 @@ function getneighborhops(lat::Lattice; cellrange::Int=3)
 
     diff = filter(x->x>-0.5, sort(unique(vcat([unique(M) for (δR,M) in diffhops]...))))
     
-    diff, [Dict(δR=>float(M.==D) for (δR,M) in diffhops if norm(M.==D)>0) for D in diff]
+    diff, [Hops(δR=>complex(float(M.==D)) for (δR,M) in diffhops if norm(M.==D)>0) for D in diff]
 
 end
