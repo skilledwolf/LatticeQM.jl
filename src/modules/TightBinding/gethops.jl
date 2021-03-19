@@ -22,25 +22,30 @@ Returns the hopping elements in the format
 `Dict(R => t_R)`
 
 """
-function gethops(lat::Lattice, t::Function; cellrange=1, format=:auto, precision::Float64=sqrt(eps()), kwargs...)# where {T<:AbstractMatrix{Float64}}
+function gethops(lat::Lattice, args...; kwargs...)
+    hops = Hops()
+    hops!(hops, lat, args...; kwargs...)
+end
+
+function hops!(hops::Hops, lat::Lattice, t::Function; cellrange=1, format=:auto, precision::Float64=sqrt(eps()), kwargs...)# where {T<:AbstractMatrix{Float64}}
     # Get neighbor cells
     neighbors = Structure.getneighborcells(lat, cellrange; halfspace=true, innerpoints=true, excludeorigin=false)
     # Iterate the hopping function over orbital pairs and neighbors
-    hops = gethops(lat, neighbors, t; precision=precision, format=format, kwargs...)
+    hops!(hops, lat, neighbors, t; precision=precision, format=format, kwargs...)
 
     trim!(hops)
 end
 
 import ..Utils: padvec
 
-function gethops(lat::Lattice, neighbors::Vector{Vector{Int}}, t::Function; kwargs...)
+function hops!(hops::Hops, lat::Lattice, neighbors::Vector{Vector{Int}}, t::Function; kwargs...)
     R = Structure.allpositions(lat)
     d = size(R,1)
 
     A = Structure.getA(lat)
     neighbor_dict = Dict(δL => padvec(A*δL,d) for δL in neighbors)
 
-    gethops(R, neighbor_dict, t; kwargs...)
+    hops!(hops, R, neighbor_dict, t; kwargs...)
 end
 
 
@@ -51,10 +56,10 @@ end
 asserthopdim(t0::Number) = 1
 asserthopdim(t0::AbstractMatrix) = size(t0,1)
 
-function gethops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; vectorized=false, format=:auto, kwargs...)
+function hops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; vectorized=false, format=:auto, kwargs...)
 
     if vectorized # indicates that the function t accepcts the call signature t(R1::Matrix,R2::Matrix)
-        return getvectorizedhops(R, neighbors, t; format=format, kwargs...)
+        return vectorizedhops!(hops, R, neighbors, t; kwargs...)
     end
 
     if format==:auto
@@ -62,9 +67,9 @@ function gethops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}
     end
 
     if format==:dense
-        getdensehops(R, neighbors, t; kwargs...)
+        return densehops!(hops, R, neighbors, t; kwargs...)
     elseif format==:sparse
-        getsparsehops(R, neighbors, t; kwargs...)
+        return sparsehops(hops, R, neighbors, t; kwargs...)
     else
         error("Format `$format` does not exist. Choose `:auto`, `:dense` or `sparse`.")
     end
@@ -72,9 +77,9 @@ end
 
 using Distributed
 
-function getvectorizedhops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; precision::Float64=1e-6, format=:auto)
+function vectorizedhops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; precision::Float64=1e-6) #, format=:auto
     N = size(R,2)
-    hops = Hops()
+    # hops = Hops()
 
     for (δL,δa) in neighbors
         Ri = R.+δa
@@ -82,17 +87,18 @@ function getvectorizedhops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vecto
         hops[-δL] = hops[δL]' # create the Hermitian conjugates
     end
 
-    ensuretype(hops, format)
+    # ensuretype(hops, format)
+    hops
 end
 
-function getdensehops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; precision::Float64=1e-6)
+function densehops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; precision::Float64=1e-6)
     N = size(R,2)
     d = asserthopdim(t(R[:,1]))::Int
 
     # Preallocate memory: avoid unnecessary allocations
     M  = Matrix{ComplexF64}(undef, (d*N, d*N))
 
-    hops = Hops()
+    # hops = Hops()
     for (δL,δa) in neighbors
         densehoppingmatrix!(M, R.+δa, R, t)
         hops[δL] = copy(M)
@@ -102,7 +108,7 @@ function getdensehops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Flo
     hops
 end
 
-function getsparsehops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; precision::Float64=1e-6)
+function sparsehops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; precision::Float64=1e-6)
     N = size(R,2)
     d = asserthopdim(t(R[:,1]))::Int
 
@@ -113,7 +119,7 @@ function getsparsehops(R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Fl
     VS = similar(IS, ComplexF64)
     V  = Matrix{ComplexF64}(undef, (d, d))
 
-    hops = Hops()
+    # hops = Hops()
     for (δL,δa) in neighbors
         hops[δL] = sparsehoppingmatrix!(IS, JS, VS, V, R.+δa, R, t; precision=precision) # heavy lifting
         hops[-δL] = hops[δL]' # create the Hermitian conjugates
