@@ -19,7 +19,7 @@ hops = Operators.graphene(lat; mode=:spinhalf)
 Us = -LinRange(0,3.5,20)
 Vs = LinRange(0,1.0,20)
 filling = 0.48
-klin = 30
+klin = 50
 
 BANDGAP = zeros(length(Us),length(Vs))
 SWAVEAUP = zeros(length(Us),length(Vs))
@@ -55,13 +55,13 @@ Threads.@threads for (i_,j_)=ProgressBar(IJ)
 
     ρ_sol, ϵ_GS, HMF, converged, error = Meanfield.solvehartreefock( # run the calculation
         hopsBDG, v, ρ_init, filling; klin=klin, iterations=1000, tol=1e-5,# p_norm=Inf,
-        T=0.01, β=0.35,  show_trace=false, clear_trace=false
+        T=0.01, β=0.7,  show_trace=false, clear_trace=false
     )
     Operators.addchemicalpotential!(HMF.h, -HMF.μ)
     
     M, SC = Operators.localobservables(ρ_sol, lat)
-    M = round.(real(M); digits=12)
-    SC = round.(SC; digits=12)
+    M = real(M)#round.(; digits=12)
+    # SC = SC#round.(SC; digits=12)
     
     # save the data of interest
     # println("Writing result in $i_, $j_")

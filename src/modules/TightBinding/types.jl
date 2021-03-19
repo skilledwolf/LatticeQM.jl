@@ -43,6 +43,9 @@ const AnyHops = Hops#{AbstractMatrix{ComplexF64}}
 
 (H::Hops)(k) = fouriersum(H,k) # This will make the type callable
 
+import ..Structure.Lattices: Lattice
+Hops(lat::Lattice, args...; kwargs...) = gethops(lat, args...; kwargs...)
+
 Hops(T=AbstractMatrix{ComplexF64}) = Hops(Dict{Vector{Int},T}())
 Hops(M::AbstractMatrix,d::Int=2) = Hops(Dict(zeros(Int,d)=>M))
 Hops(kv::Pair...) = Hops(Dict(k=>v for (k,v) in kv))
