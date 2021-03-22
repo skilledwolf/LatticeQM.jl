@@ -50,7 +50,7 @@ parallel=true might help if diagonalization per k point is very time consuming
 note that for small problems `parallel=true` may decrease performance (communication overhead)
 """
 function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, ks::AbstractMatrix{Float64};
-    convergenceerror=false, multimode=:serial, checkpoint::String="", hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
+    convergenceerror=false, multimode=:serial, checkpoint::String="", callback=(x->nothing), hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
 
     if checkpoint != "" && isfile(checkpoint) && hotstart
         println("Loading checkpoint file as initial guess: $checkpoint")
@@ -65,6 +65,7 @@ function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, 
 
     function updateH!(H::Hamiltonian, ρ)
         verbose ? @info("Updating chemical potential for given filling.") : nothing
+        callback(ρ)
         H.h = ℋ_op(ρ) # get updated Hamiltonian
         H.μ = chemicalpotential(H.h, ks, filling; T=T, multimode=multimode)
         H
