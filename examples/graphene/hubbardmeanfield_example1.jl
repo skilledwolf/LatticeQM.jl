@@ -3,7 +3,6 @@ using LatticeQM
 
 lat = Geometries2D.honeycomb()
 sx, sy, sz, sublA, sublB = Operators.getoperator(lat, ["SX", "SY", "SZ", "sublatticeAspin", "sublatticeBspin"])
-ks = kpath(lat; num_points=200)
 
 hops = Operators.graphene(lat; mode=:spinhalf)
 Operators.addzeeman!(hops, lat, r->sign(r[4]-0.5).*1.5.*[sin(0.0π),0,cos(0.0π)] )

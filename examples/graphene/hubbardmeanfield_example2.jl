@@ -3,7 +3,6 @@ using LatticeQM
 
 lat = Geometries2D.honeycomb()
 sx, sy, sz, sublA, sublB = Operators.getoperator(lat, ["SX", "SY", "SZ", "sublatticeAspin", "sublatticeBspin"])
-ks = kpath(lat; num_points=200)
 
 H = Operators.graphene(lat; mode=:spinhalf)
 Operators.addsublatticeimbalance!(H, lat, 1.5)
