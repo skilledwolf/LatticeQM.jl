@@ -19,6 +19,8 @@
 #     getbloch(vMF), ϵMF
 # end
 
+import ..TightBinding: zerokey
+
 function hartreefock(h::Hops, v::Hops)
     vMF, ϵMF = hartreefock(v)
 
@@ -46,13 +48,13 @@ function hartreefock(v::Hops)
             vmf[L] = -v[L] .* conj(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
         end
 
-        addhops!(vmf, Hops([0,0] => spdiagm(0 => V0 * diag(ρ[[0,0]])))) # Hartree contribution
+        addhops!(vmf, Hops(zerokey(ρ) => spdiagm(0 => V0 * diag(ρ[zerokey(ρ)])))) # Hartree contribution
 
         vmf
     end
 
     function ϵMF(ρs::Hops)
-        vρ = diag(ρs[[0,0]])
+        vρ = diag(ρs[zerokey(ρs)])
 
         energy = - 1/2 * (transpose(vρ) * V0 * vρ) # Hartree contribution
         energy +=  1/2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L,vL) in v)) # Fock contribution
@@ -82,10 +84,10 @@ function hartreefock_pairing(v::Hops)
         empty!(vmf)
 
         for L in keys(v)
-            vmf[L] = -v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
+            vmf[L] = -v[L] .* transpose(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
         end
 
-        addhops!(vmf, Hops([0,0] => spdiagm(0 => V0 * diag(ρ[[0,0]])))) # Hartree contribution
+        addhops!(vmf, Hops(zerokey(ρ) => spdiagm(0 => V0 * diag(ρ[zerokey(ρ)])))) # Hartree contribution
 
         vmf
     end
@@ -94,7 +96,7 @@ function hartreefock_pairing(v::Hops)
         empty!(Δmf)
 
         for L in keys(v)
-            Δmf[L] = v[L] .* transpose(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
+            Δmf[L] = v[L] .* transpose(ρ[L])/2#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
         end
 
         # addhops!(vmf, Hops([0,0] => spdiagm(0 => V0 * diag(ρ[[0,0]])))) # Hartree contribution

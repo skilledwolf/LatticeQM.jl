@@ -32,7 +32,7 @@ function addpairing!(H::BdGOperator{T}, Δ::Hops) where T<:Hops
     Δ1 = Hops()
 
     for R=keys(Δ)
-        Δ1[R] = [zero(Δ[R]) Δ[R]'; Δ[R] zero(Δ[R])]
+        Δ1[R] = [zero(Δ[R]) Δ[-R]'; Δ[R] zero(Δ[R])]
     end
 
     addhops!(H,Δ1)
