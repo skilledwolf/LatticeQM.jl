@@ -45,7 +45,7 @@ function hartreefock(v::Hops)
         empty!(vmf)
 
         for L in keys(v)
-            vmf[L] = -v[L] .* conj(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
+            vmf[L] = -v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
         end
 
         addhops!(vmf, Hops(zerokey(ρ) => spdiagm(0 => V0 * diag(ρ[zerokey(ρ)])))) # Hartree contribution
@@ -84,7 +84,7 @@ function hartreefock_pairing(v::Hops)
         empty!(vmf)
 
         for L in keys(v)
-            vmf[L] = -v[L] .* transpose(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
+            vmf[L] = -v[-L] .* conj.(ρ[-L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
         end
 
         addhops!(vmf, Hops(zerokey(ρ) => spdiagm(0 => V0 * diag(ρ[zerokey(ρ)])))) # Hartree contribution
@@ -96,11 +96,10 @@ function hartreefock_pairing(v::Hops)
         empty!(Δmf)
 
         for L in keys(v)
-            Δmf[L] = v[L] .* transpose(ρ[L])/2#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
+            Δmf[L] = v[-L] .* conj.(ρ[-L])/2#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
         end
 
         # addhops!(vmf, Hops([0,0] => spdiagm(0 => V0 * diag(ρ[[0,0]])))) # Hartree contribution
-
         Δmf
     end
 
