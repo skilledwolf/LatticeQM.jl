@@ -32,7 +32,7 @@ function addpairing!(H::BdGOperator{T}, Δ::Hops) where T<:Hops
     Δ1 = Hops()
 
     for R=keys(Δ)
-        Δ1[R] = [zero(Δ[R]) Δ[-R]'; Δ[R] zero(Δ[R])]
+        Δ1[R] = [zero(Δ[R]) Δ[R]; Δ[-R]' zero(Δ[R])]
     end
 
     addhops!(H,Δ1)
@@ -76,7 +76,7 @@ function getpairingsector(H::BdGOperator{T}) where T<:Hops
     d = hopdim(H)
 
     for R=keys(H)
-        Δ1[R] = H[R][1:d,d+1:2*d] #select electron part (no pairing, no holes)
+        Δ1[R] = H[R][1:d, d+1:2*d] #select electron part (no pairing, no holes)
     end
 
     Δ1
