@@ -110,6 +110,17 @@ function Base.zero(h::AnyHops; format=:auto)
     ρ
 end
 
+
+function ishermitian(H::Hops)
+    for R=keys(H)
+        if !(haskey(H,-R) && all(H[R].≈H[-R]')) #"H[R] does not have H[-R] partner."
+            return false
+        end
+    end
+
+    return true
+end
+
 getelectronsector(H::Function) = H
 getelectronsector(H::AbstractMatrix) = H
 getelectronsector(H::Hops) = H
