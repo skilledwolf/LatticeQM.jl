@@ -1,4 +1,4 @@
-using ..TightBinding: gethops, addspin, getneighborhops
+using ..TightBinding: Hops, addspin, getneighborhops
 using ..Utils: heaviside, @scalar2vector
 
 using ..TightBinding: zerokey
@@ -18,7 +18,7 @@ function gethubbard(lat, neighbors=[[0;0]]; mode=:nospin, format=:auto, kwargs..
     connect unit cells. The set of δL's (in units of lattice vectors) is specified by 'neighbors'.
     """
     t(args...) = Hubbard(args...; kwargs...)
-    ee_exchange = gethops(lat, neighbors, t; format=format)
+    ee_exchange = Hops(lat, neighbors, t; format=format)
 
     addspin(ee_exchange, mode)
 end
@@ -47,14 +47,14 @@ end
 
 # function getcappedyukawa(lat; cellrange=1, mode=:nospin, format=:auto, kwargs...)
 #     t(args...) = CappedYukawa(args...; kwargs...)
-#     ee_exchange = gethops(lat, neighbors, t; cellrange=cellrange, format=format)
+#     ee_exchange = Hops(lat, neighbors, t; cellrange=cellrange, format=format)
 
 #     addspin(ee_exchange, mode)
 # end
 
 function getcappedyukawa(lat, args...; mode=:nospin, k0=1.0, U=1.0, kwargs...)
     t(args0...) = CappedYukawa(args0...; k0=k0, U=U)
-    ee_exchange = gethops(lat, args..., t; kwargs...)
+    ee_exchange = Hops(lat, args..., t; kwargs...)
 
     addspin(ee_exchange, mode)
 end
