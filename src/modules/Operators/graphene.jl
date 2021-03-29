@@ -1,10 +1,12 @@
 using SparseArrays
 
+import ..TightBinding: Hops
+
 function graphene(lat::Lattice; mode=:nospin, format=:auto, cellrange=2, kwargs...)
 
     t(args...) = t_graphene(args...; kwargs...)
 
-    hops = gethops(lat, t; cellrange=cellrange, format=format, vectorized=true)
+    hops = Hops(lat, t; cellrange=cellrange, format=format, vectorized=true)
 
     if mode==:spinhalf
         hops = addspin(hops, mode)
@@ -159,7 +161,7 @@ function getrashba(lat::Lattice, λ::Function; cellrange=2, format=:auto, tmin=1
         @views sparse(IS[1:count],JS[1:count],complex(VS[1:count]), d*N, d*N)
     end
 
-    gethops(lat, hop; vectorized=true, cellrange=cellrange, format=format)
+    Hops(lat, hop; vectorized=true, cellrange=cellrange, format=format)
 end
 getrashba(lat::Lattice, λ::AbstractFloat; kwargs...) = getrashba(lat, x->λ; kwargs...)
 

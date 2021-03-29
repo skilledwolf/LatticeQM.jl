@@ -7,6 +7,7 @@ using LinearAlgebra: dot
 fourierphase(k,δL) = exp(1.0im * 2π * dot(k, δL))
 
 fouriersum(hoppings, k::AbstractVector) = sum(t .* fourierphase(k, δL) for (δL,t) in hoppings)
+
 function fouriersum(hoppings, k::Real, d::Int)
     N=length(zerokey(hoppings))
 
