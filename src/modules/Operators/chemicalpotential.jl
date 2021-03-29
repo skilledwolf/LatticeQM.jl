@@ -71,7 +71,7 @@ function addinterlayerbias!(hops, lat::Lattice, V::Function; d=3.0, kwargs...)
     Z .= (Z .- min)./(max-min)
     μ = V.(eachcol(R)) .* (Z .- 0.5)
 
-    addchemicalpotential!(hops, lat, vec(μ))
+    addchemicalpotential!(hops, lat, vec(μ); kwargs...)
 
     nothing
 end

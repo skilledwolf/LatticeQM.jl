@@ -3,7 +3,7 @@ const DEFAULT_PRECISION = sqrt(eps())
 import ..Structure
 import ..Structure.Lattices: Lattice
 
-addhops!(hops::Hops, lat::Lattice, t::Function; kwargs...) = addhops!(hops, gethops(lat, t; kwargs...))
+addhops!(hops::Hops, lat::Lattice, t::Function, args...; kwargs...) = addhops!(hops, gethops(lat, t, args...; kwargs...))
 
 """
     gethops(lat::Lattice, t::Function; cellrange=1, format=:auto, vectorized=false)
@@ -23,6 +23,7 @@ Returns the hopping elements in the format
 function gethops(lat::Lattice, args...; kwargs...)
     hops = Hops()
     hops!(hops, lat, args...; kwargs...)
+    return hops
 end
 
 function hops!(hops::Hops, lat::Lattice, t::Function; cellrange=2, kwargs...)# where {T<:AbstractMatrix{Float64}}
@@ -31,8 +32,7 @@ function hops!(hops::Hops, lat::Lattice, t::Function; cellrange=2, kwargs...)# w
     # Iterate the hopping function over orbital pairs and neighbors
     hops!(hops, lat, neighbors, t; kwargs...)
 
-    # trim!(hops)
-    hops
+    trim!(hops)
 end
 
 import ..Utils: padvec
@@ -66,7 +66,7 @@ function hops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vecto
     if format==:dense
         return densehops!(hops, R, neighbors, t; kwargs...)
     elseif format==:sparse
-        return sparsehops(hops, R, neighbors, t; kwargs...)
+        return sparsehops!(hops, R, neighbors, t; kwargs...)
     else
         error("Format `$format` does not exist. Choose `:auto`, `:dense` or `sparse`.")
     end
@@ -79,8 +79,7 @@ function vectorizedhops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{
     # hops = Hops()
 
     for (δL,δa) in neighbors
-        Ri = R.+δa
-        hops[δL] = t(Ri, R)
+        hops[δL] = t(R.+δa, R)
         hops[-δL] = hops[δL]' # create the Hermitian conjugates
     end
 
@@ -98,7 +97,7 @@ function densehops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},
     # hops = Hops()
     for (δL,δa) in neighbors
         densehoppingmatrix!(M, R.+δa, R, t)
-        hops[δL] = copy(M)
+        hops[δL] = deepcopy(M)
         hops[-δL] = hops[δL]' # create the Hermitian conjugates
     end
 
