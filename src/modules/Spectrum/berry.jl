@@ -1,4 +1,4 @@
-import LinearAlgebra: det, norm
+import LinearAlgebra: det, norm, I, svd
 import SharedArrays: SharedArray
 
 function L(State1::T, State2::T) where {T<:AbstractArray{<:Complex,N}} where N
