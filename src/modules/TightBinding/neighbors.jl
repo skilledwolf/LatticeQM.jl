@@ -6,7 +6,7 @@ import ..TightBinding: Hops
 
 function getneighborhops(lat::Lattice; cellrange::Int=3)
 
-    δt(r) = (0-1e-10<r<float(cellrange)/sqrt(3)) ? r : -1
+    δt(r) = (0-DEFAULT_PRECISION<r<float(cellrange)/sqrt(3)) ? r : -1
     @scalar2vector δt
 
     diffhops = Dict(δR=>round.(real(M); digits=9) for (δR,M) in Hops(lat, δt; cellrange=cellrange))

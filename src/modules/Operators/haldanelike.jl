@@ -1,3 +1,5 @@
+import ..TightBinding: Hops
+
 """
     Creates the hops in triangular lattice (possibly tripartite unitcell).
     Used for effective triangular lattice band models when approximating isolated bands
@@ -5,7 +7,7 @@
 """
 
 function gethaldanelike(lat; t1, t2, cellrange=3, kwargs...)
-    hops0 = gethops(lat, (r1,r2=0)->t_haldanelike(r1,r2;t=t1); cellrange=cellrange)
+    hops0 = Hops(lat, (r1,r2=0)->t_haldanelike(r1,r2;t=t1); cellrange=cellrange)
     addhops!(hops0, lat, (r1,r2=0)->t_haldanelike(r1,r2;d0=√3,t=t2); cellrange=cellrange)
 
     hops1 = kron(hops0, [1.0 0.0; 0.0 0.0])
