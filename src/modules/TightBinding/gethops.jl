@@ -23,7 +23,6 @@ Returns the hopping elements in the format
 function gethops(lat::Lattice, args...; kwargs...)
     hops = Hops()
     hops!(hops, lat, args...; kwargs...)
-    return hops
 end
 
 function hops!(hops::Hops, lat::Lattice, t::Function; cellrange=2, kwargs...)# where {T<:AbstractMatrix{Float64}}
@@ -31,7 +30,6 @@ function hops!(hops::Hops, lat::Lattice, t::Function; cellrange=2, kwargs...)# w
     neighbors = Structure.getneighborcells(lat, cellrange; halfspace=true, innerpoints=true, excludeorigin=false)
     # Iterate the hopping function over orbital pairs and neighbors
     hops!(hops, lat, neighbors, t; kwargs...)
-
     trim!(hops)
 end
 
@@ -58,19 +56,23 @@ asserthopdim(t0::AbstractMatrix) = size(t0,1)
 function hops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; vectorized=false, format=:auto, kwargs...)
 
     if vectorized # indicates that the function t accepcts the call signature t(R1::Matrix,R2::Matrix)
-        return vectorizedhops!(hops, R, neighbors, t; kwargs...)
-    end
-
-    format = (format==:auto) ? decidetype(size(R,1)) : format
-
-    if format==:dense
-        return densehops!(hops, R, neighbors, t; kwargs...)
-    elseif format==:sparse
-        return sparsehops!(hops, R, neighbors, t; kwargs...)
+        # println("vectorized")
+        vectorizedhops!(hops, R, neighbors, t; kwargs...)
     else
-        error("Format `$format` does not exist. Choose `:auto`, `:dense` or `sparse`.")
+        format = (format==:auto) ? decidetype(size(R,1)) : format
+
+        if format==:dense
+            densehops!(hops, R, neighbors, t; kwargs...)
+        elseif format==:sparse
+            sparsehops!(hops, R, neighbors, t; kwargs...)
+        else
+            error("Format `$format` does not exist. Choose `:auto`, `:dense` or `sparse`.")
+        end
     end
+
+    hops
 end
+
 
 using Distributed
 
@@ -80,7 +82,7 @@ function vectorizedhops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{
 
     for (δL,δa) in neighbors
         hops[δL] = t(R.+δa, R)
-        hops[-δL] = hops[δL]' # create the Hermitian conjugates
+        hops[-δL] = deepcopy(hops[δL])' # create the Hermitian conjugates
     end
 
     # ensuretype(hops, format)
@@ -98,7 +100,7 @@ function densehops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},
     for (δL,δa) in neighbors
         densehoppingmatrix!(M, R.+δa, R, t)
         hops[δL] = deepcopy(M)
-        hops[-δL] = hops[δL]' # create the Hermitian conjugates
+        hops[-δL] = deepcopy(hops[δL])' # create the Hermitian conjugates
     end
 
     hops
@@ -118,7 +120,7 @@ function sparsehops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int}
     # hops = Hops()
     for (δL,δa) in neighbors
         hops[δL] = sparsehoppingmatrix!(IS, JS, VS, V, R.+δa, R, t; kwargs...) # heavy lifting
-        hops[-δL] = hops[δL]' # create the Hermitian conjugates
+        hops[-δL] = deepcopy(hops[δL])' # create the Hermitian conjugates
     end
 
     hops

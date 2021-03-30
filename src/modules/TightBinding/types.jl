@@ -236,9 +236,9 @@ end
 
 import LinearAlgebra: norm
 
-function trim!(ρ::Hops)
+function trim!(ρ::Hops; kwargs...)
     for δL in keys(ρ)
-        if norm(ρ[δL])≈0.0
+        if all(isapprox.(ρ[δL], 0; kwargs...))
             delete!(ρ.data, δL)
         end
     end
