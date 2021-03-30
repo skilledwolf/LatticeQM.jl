@@ -59,7 +59,7 @@ function fixedpoint!(f!, x1, x0;
         # Convergence acceleration ("damped fixed point iterater")
         # The new x0 for the next step is:
         for δL=keys(x0)
-            @. x0[δL] .= β * x1[δL] + (1-β) * x0[δL]
+            @. x0[δL][:] .= β * x1[δL][:] + (1-β) * x0[δL][:]
         end
     end
 
