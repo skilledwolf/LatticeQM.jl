@@ -77,7 +77,7 @@ function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, 
         verbose ? @info("Updating the meanfield density matrix.") : nothing
         ϵ0 = getdensitymatrix!(ρ1, H.h, ks, H.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
 
-        callback(ρ)
+        callback(ρ1)
 
         if checkpoint != ""
             JLD.save(checkpoint, "mf", ρ1)
