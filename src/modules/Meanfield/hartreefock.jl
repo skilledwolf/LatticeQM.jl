@@ -89,7 +89,7 @@ function hartreefock_pairing(v::Hops)
         empty!(vmf)
 
         for L in keys(v)
-            vmf[L] = -v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
+            vmf[L] = -v[L] .* conj.(ρ[L]) # Fock contribution
         end
 
         vmf[zerokey(ρ)] += spdiagm(0 => V0 * diag(ρ[zerokey(ρ)])) # Hartree contribution
@@ -102,12 +102,9 @@ function hartreefock_pairing(v::Hops)
         empty!(Δmf)
 
         for L in keys(v)
-            Δmf[L] = v[L]/2 .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
-            # the factor 1/2 leads to agreement between mine and Josés code.
-            # However, I don't know where it is supposed to originate from.
+            Δmf[L] = v[L] .* conj.(ρ[L]) # Fock contribution
         end
 
-        # addhops!(vmf, Hops([0,0] => spdiagm(0 => V0 * diag(ρ[[0,0]])))) # Hartree contribution
         Δmf
     end
 

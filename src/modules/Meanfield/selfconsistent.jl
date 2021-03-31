@@ -65,7 +65,7 @@ function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, 
 
     function updateH!(H::Hamiltonian, ρ)
         verbose ? @info("Updating chemical potential for given filling.") : nothing
-        callback(ρ)
+        
         H.h = ℋ_op(ρ) # get updated Hamiltonian
         H.μ = chemicalpotential(H.h, ks, filling; T=T, multimode=multimode)
         H
@@ -76,6 +76,8 @@ function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, 
 
         verbose ? @info("Updating the meanfield density matrix.") : nothing
         ϵ0 = getdensitymatrix!(ρ1, H.h, ks, H.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
+
+        callback(ρ)
 
         if checkpoint != ""
             JLD.save(checkpoint, "mf", ρ1)

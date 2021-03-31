@@ -24,7 +24,7 @@ function addchemicalpotential!(hops::Hops, μ::Real)
 end
 
 function addchemicalpotential!(hops, lat::Lattice, μ::T; localdim::Int=-1) where T<:AbstractVector{<:Float64}
-    zero0 = zeros(Int, latticedim(lat))
+    # zero0 = zeros(Int, latticedim(lat))
     N = countorbitals(lat)
 
     if localdim < 0 # if localdim is not set, we determine it from matrix dimensions
@@ -36,7 +36,7 @@ function addchemicalpotential!(hops, lat::Lattice, μ::T; localdim::Int=-1) wher
 
     @assert N == length(μ)
 
-    newhops = Hops( zero0 => sparse( (1.0+0.0im).* Diagonal(kron(μ, ones(d))) ) )
+    newhops = Hops( zerokey(hops) => sparse( (1.0+0.0im).* Diagonal(kron(μ, ones(d))) ) )
     addhops!(hops, newhops)
 
     nothing
