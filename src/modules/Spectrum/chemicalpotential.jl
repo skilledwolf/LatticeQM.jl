@@ -22,11 +22,11 @@ end
 #     chemicalpotential!(en, nk, filling; kwargs...)
 # end
 
-function chemicalpotential!(energies::AbstractVector{T1}, nk::Int, filling::Float64; T::T1=0.0) where T1<:Real
+function chemicalpotential!(energies::AbstractVector{T1}, nk::Int, filling::Float64; T::T1=0.0, kwargs...) where T1<:Real
     if T==zero(T)
-        return chemicalpotential_0!(energies, filling)
+        return chemicalpotential_0!(energies, filling; kwargs...)
     else
-        return chemicalpotential_T!(energies, nk, filling; T=T)
+        return chemicalpotential_T!(energies, nk, filling; T=T, kwargs...)
     end
 end
 
