@@ -68,7 +68,7 @@ function fixedpoint!(f!, x1, x0;
     end
 
     if !converged
-        @warn("Did not convergence to requested target tolerance.")
+        @warn("Did not convergence to requested target tolerance. Residual: $error")
     end
 
     ϵ0, error, converged
