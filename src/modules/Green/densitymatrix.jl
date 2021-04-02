@@ -170,7 +170,7 @@ end
 
 function getdensitymatrix!(ρs::Hops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; multimode=:serial, kwargs...)
 
-    if multimode==:parallel && nprocs()>1
+    if multimode==:distributed && nprocs()>1
         densitymatrix_parallel!(ρs, H, ks, μ; kwargs...)
     elseif multimode==:multithread && Threads.nthreads()>1
         densitymatrix_multithread!(ρs, H, ks, μ; kwargs...)
