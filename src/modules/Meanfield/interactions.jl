@@ -52,7 +52,7 @@ end
 #     addspin(ee_exchange, mode)
 # end
 
-function getcappedyukawa(lat, args...; ; spin=true, k0=1.0, U=1.0, kwargs...)
+function getcappedyukawa(lat, args...; spin=true, k0=1.0, U=1.0, kwargs...)
     t(args0...) = CappedYukawa(args0...; k0=k0, U=U)
     ee_exchange = Hops(lat, args..., t; kwargs...)
 
