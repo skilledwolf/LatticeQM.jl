@@ -65,7 +65,7 @@ function bandmatrix_serial(H, ks; num_bands::Int=0, kwargs...)
         num_bands = dim(H, ks)
     end
     N = size(ks,2) # no. of k points
-    bands = convert(SharedArray, zeros(Float64, num_bands, N))
+    bands = zeros(Float64, num_bands, N)
 
     energiesf = energies(H; num_bands=num_bands, kwargs...)
 
