@@ -52,11 +52,17 @@ end
 #     addspin(ee_exchange, mode)
 # end
 
-function getcappedyukawa(lat, args...; mode=:nospin, k0=1.0, U=1.0, kwargs...)
+function getcappedyukawa(lat, args...; ; spin=true, k0=1.0, U=1.0, kwargs...)
     t(args0...) = CappedYukawa(args0...; k0=k0, U=U)
     ee_exchange = Hops(lat, args..., t; kwargs...)
 
-    addspin(ee_exchange, mode)
+    if spin
+        ee_exchange = kron(ee_exchange, ones(2,2))
+        ee_exchange[zerokey(ee_exchange)][diagind(ee_exchange[zerokey(ee_exchange)])] .= 0
+    end
+
+    # addspin(ee_exchange, mode)
+    ee_exchange
 end
 
 # todo: implement https://en.wikipedia.org/wiki/Screened_Poisson_equation#Two_dimensions
