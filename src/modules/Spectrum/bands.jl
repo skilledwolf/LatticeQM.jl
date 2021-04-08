@@ -48,14 +48,12 @@ bands, obs = bandmatrix(h, ks.points, valley)
 ```
 """
 function bandmatrix(args...; multimode=:distributed, kwargs...)
-    if multimode == :distributed
+    if multimode == :distributed && nprocs()>1
         bandmatrix_distributed(args...; kwargs...)
-    elseif multimode == :multithread
+    elseif multimode == :multithread && Threads.nthreads()>1
         bandmatrix_multithread(args...; kwargs...)
-    elseif multimode == :serial
-        bandmatrix_serial(args...; kwargs...)
     else
-        error("Requested mode '$multimode' does not exist.")
+        bandmatrix_serial(args...; kwargs...)
     end
 end
 

@@ -82,7 +82,7 @@ function vectorizedhops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{
 
     for (δL,δa) in neighbors
         hops[δL] = t(R.+δa, R)
-        hops[-δL] = deepcopy(hops[δL])' # create the Hermitian conjugates
+        hops[-δL] = deepcopy(hops[δL]') # create the Hermitian conjugates
     end
 
     # ensuretype(hops, format)
@@ -100,7 +100,7 @@ function densehops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},
     for (δL,δa) in neighbors
         densehoppingmatrix!(M, R.+δa, R, t)
         hops[δL] = deepcopy(M)
-        hops[-δL] = deepcopy(hops[δL])' # create the Hermitian conjugates
+        hops[-δL] = deepcopy(hops[δL]') # create the Hermitian conjugates
     end
 
     hops
@@ -120,7 +120,7 @@ function sparsehops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int}
     # hops = Hops()
     for (δL,δa) in neighbors
         hops[δL] = sparsehoppingmatrix!(IS, JS, VS, V, R.+δa, R, t; kwargs...) # heavy lifting
-        hops[-δL] = deepcopy(hops[δL])' # create the Hermitian conjugates
+        hops[-δL] = deepcopy(hops[δL]') # create the Hermitian conjugates
     end
 
     hops

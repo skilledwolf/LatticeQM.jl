@@ -70,6 +70,8 @@ SparseHops(kv::Pair...) = Hops{SparseMatrixCSC{ComplexF64,Int64}}(Dict(k=>sparse
 SparseHops(d::AbstractDict) = SparseHops(d...)
 SparseHops(G::Base.Generator) = SparseHops(Dict(G...))
 
+# Size
+Base.size(H::Hops, args...) = Base.size(first(values(H.data)), args...)
 
 # Interface for iteration and item access
 Base.get(H::Hops, args...) = Base.get(H.data, args...)
@@ -129,7 +131,7 @@ zerokey(h::Hops) = zero(first(keys(h)))
 getzero(h::Hops) = h[zerokey(h)]
 setzero!(h::Hops, M::AbstractMatrix) = (h[zerokey(h)].=M; h)
 
-hopdim(hops::Hops) = size(first(values(hops)),1)
+hopdim(hops::Hops) = size(hops,1)
 
 Base.:+(h1::Hops, h2::Hops) = addhops(h1,h2)
 addhops!(hops::Hops, newhops::Hops...) = (merge!(+, hops.data, map(x->x.data,newhops)...); hops)
