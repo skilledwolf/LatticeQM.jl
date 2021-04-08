@@ -52,7 +52,13 @@ The only upside to it is that it uses methods that I already implemented and
 that it is fairly general.
 """
 addhaldane!(hops, lat::Lattice, t2::Number; kwargs...) = addhaldane!(hops, lat, x->t2; kwargs...)
-addhaldane!(hops, lat::Lattice, t2::Function; mode=:fast, kwargs...) = (mode==:naive) ? addhaldane_naive!(hops, lat, t2; kwargs...) : addhaldane_fast!(hops, lat, t2; kwargs...)
+function addhaldane!(hops, lat::Lattice, t2::Function; mode=:auto, kwargs...)
+    if mode==:fast || (mode==:auto && Structure.countorbitals(lat)>200)
+        addhaldane_fast!(hops, lat, t2; kwargs...)
+    else
+        addhaldane_naive!(hops, lat, t2; kwargs...)
+    end
+end
 
 function addhaldane_naive!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=false, cellrange=1, mode=:none, zmode=:none)
 
