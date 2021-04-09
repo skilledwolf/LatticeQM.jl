@@ -1,4 +1,4 @@
-# LatticeQM for Julia
+# LatticeQM.jl
 
 This is a development repository for julia package that deals with lattice structures and tight-binding models.
 
