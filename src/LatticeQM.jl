@@ -48,8 +48,6 @@ module LatticeQM
     using .TightBinding
     export TightBinding
     export DenseHops, SparseHops, Hops, AbstractHops, hopdim, addhops!, addhops
-    export getoperator, getprojector
-    export gethops, getbloch
 
     include("modules/Spectrum.jl")
     using .Spectrum

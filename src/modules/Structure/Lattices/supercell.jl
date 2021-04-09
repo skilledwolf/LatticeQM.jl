@@ -1,7 +1,8 @@
-using ..Utils: padvec
+import ...Utils: padvec
+
+import LinearAlgebra: Diagonal
 
 # Interface to Supercell module
-@legacyalias superlattice build_superlattice
 superlattice(lat::Lattice, superperiods::Vector{Int}, args...) = superlattice(lat, Matrix(Diagonal(superperiods)), args...)
 """
     superlattice(lat::Lattice, superperiods; kwargs...)
@@ -54,7 +55,6 @@ function repeat!(lat::Lattice, repeat::UnitRange=0:0)
     end
 end
 
-@legacyalias repeat! repeat_atoms!
 function repeat!(lat::Lattice, repeat::AbstractVector{<:AbstractRange})
     Λsuper = Vector{Int64}[]
     for I in Iterators.product(repeat...) #Iterators.repeated(1:5,3)
@@ -64,7 +64,7 @@ function repeat!(lat::Lattice, repeat::AbstractVector{<:AbstractRange})
     repeat!(lat, Λsuper)
 end
 
-using ..Utils: padvec
+import ...Utils: padvec
 
 function repeat!(lat::Lattice, intvectors::Vector{Vector{Int64}})
     lat.spacecoordinates = hcat([lat.spacecoordinates.+padvec(v,spacedim(lat)) for v in intvectors]...)
@@ -72,8 +72,8 @@ function repeat!(lat::Lattice, intvectors::Vector{Vector{Int64}})
     lat
 end
 
-@legacyalias repeat repeat_atoms
-repeat(lat::Lattice, repeat=[0:0,0:0]) = repeat!(deepcopy(lat), repeat)
+import Base
+Base.repeat(lat::Lattice, repeat=[0:0,0:0]) = repeat!(deepcopy(lat), repeat)
 
 function repeat(spacecoordinates::AbstractMatrix, Λ=Matrix{Float64}(I, 2, 2), repeat=[0:0,0:0])
 """
@@ -113,8 +113,6 @@ This is useful for example when plotting, such that layers get plotted one on to
 end
 
 
-@legacyalias crop2unitcell! crop_to_unitcell!
-@legacyalias crop2unitcell crop_to_unitcell
 function crop2unitcell!(lat::Lattice)#, lat1::Lattice)
     indices = [i for (i,a) in enumerate(eachcol(lat.spacecoordinates[1:latticedim(lat),:])) if inunitrange(a;offset=1e-3)]
     lat.spacecoordinates = lat.spacecoordinates[:,indices]
@@ -124,11 +122,10 @@ end
 crop2unitcell(positions::AbstractMatrix, Λ::AbstractMatrix) = crop2unitcell(inv(Λ)*positions)
 function crop2unitcell(coordinates::Matrix{<:AbstractFloat})
     offset = 1e-5 * (1+0.3*rand())
-    crop_iterator = Iterators.filter(x->inunitrange(x; offset=offset), eachcol(coordinates))
+    crop_iterator = filter(x->inunitrange(x; offset=offset), eachcol(coordinates))
     convert(Array, VectorOfArray(collect(crop_iterator)))
 end
 
-@legacyalias bistack build_bistack
 function bistack(lat::Lattice, δz::Float64; fracshift=[0.0; 0.0])
     """
     Take lattice "lat", shift the copy down by δz.
@@ -158,12 +155,14 @@ end
 
 #### Utility functions
 
+import Base.Iterators
+import RecursiveArrayTools: VectorOfArray
+
 UnitCubeCornerIterator(dim::Int64=3) = Iterators.product(Iterators.repeated(0:1, dim)...)
 UnitCubeCorners(dim::Int64=3) = convert(Array, VectorOfArray([[y...] for y=[UnitCubeCornerIterator(dim)...]]))
 BoundIterator(bounds) = Iterators.product(map(x->x[1]:x[2], bounds)...)
 inunitrange(u; offset=1e-6) = all( (u .< 1 - offset) .& (u .>= 0 - offset) ) #all(y -> 0.0 - offset < y  < 1.0 - offset, u)
 
-@legacyalias supercellpoints points_within_supercell
 """
     supercellpoints(M::AbstractMatrix{Int}; offset::Float64=1e-2)
 

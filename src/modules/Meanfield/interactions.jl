@@ -1,4 +1,4 @@
-using ..TightBinding: gethops, addspin, getneighborhops
+using ..TightBinding: Hops, addspin, getneighborhops
 using ..Utils: heaviside, @scalar2vector
 
 using ..TightBinding: zerokey
@@ -18,7 +18,7 @@ function gethubbard(lat, neighbors=[[0;0]]; mode=:nospin, format=:auto, kwargs..
     connect unit cells. The set of δL's (in units of lattice vectors) is specified by 'neighbors'.
     """
     t(args...) = Hubbard(args...; kwargs...)
-    ee_exchange = gethops(lat, neighbors, t; format=format)
+    ee_exchange = Hops(lat, neighbors, t; format=format)
 
     addspin(ee_exchange, mode)
 end
@@ -42,21 +42,27 @@ function getshortrangedpotential(lat, V0, V1=0, V2=0; spin=true)
         hops[zerokey(hops)][diagind(hops[zerokey(hops)])] .= 0
     end
 
-    Dict(R=>complex(M) for (R,M) in hops)
+    Hops(R=>complex(M) for (R,M) in hops)
 end
 
 # function getcappedyukawa(lat; cellrange=1, mode=:nospin, format=:auto, kwargs...)
 #     t(args...) = CappedYukawa(args...; kwargs...)
-#     ee_exchange = gethops(lat, neighbors, t; cellrange=cellrange, format=format)
+#     ee_exchange = Hops(lat, neighbors, t; cellrange=cellrange, format=format)
 
 #     addspin(ee_exchange, mode)
 # end
 
-function getcappedyukawa(lat, args...; mode=:nospin, k0=1.0, U=1.0, kwargs...)
+function getcappedyukawa(lat, args...; spin=true, k0=1.0, U=1.0, kwargs...)
     t(args0...) = CappedYukawa(args0...; k0=k0, U=U)
-    ee_exchange = gethops(lat, args..., t; kwargs...)
+    ee_exchange = Hops(lat, args..., t; kwargs...)
 
-    addspin(ee_exchange, mode)
+    if spin
+        ee_exchange = kron(ee_exchange, ones(2,2))
+        ee_exchange[zerokey(ee_exchange)][diagind(ee_exchange[zerokey(ee_exchange)])] .= 0
+    end
+
+    # addspin(ee_exchange, mode)
+    ee_exchange
 end
 
 # todo: implement https://en.wikipedia.org/wiki/Screened_Poisson_equation#Two_dimensions

@@ -1,31 +1,99 @@
+######################################################################################
+# Bloch construction
+######################################################################################
 
-# const Hop  = Pair{Vector{Int}, T} where T<:AbstractMatrix
-# const Hops = Dict{Vector{Int}, AbstractMatrix}
-# const AnyHops = Dict{Vector{Int}, T} where T<:AbstractMatrix
+using LinearAlgebra: dot
 
-const HopVector = Vector{Int}
+fourierphase(k,δL) = exp(1.0im * 2π * dot(k, δL))
 
-const Hop{T<:AbstractMatrix}  = Pair{HopVector, T}
-const AnyHop    = Hop{T} where {T<:AbstractMatrix}
-const DenseHop  = Hop{Matrix}
-const SparseHop = Hop{SparseMatrixCSC}
+fouriersum(hoppings, k::AbstractVector) = sum(t .* fourierphase(k, δL) for (δL,t) in hoppings)
 
-const Hops{T<:AbstractMatrix} = Dict{HopVector, T}
-const AnyHops = Hops{T} where {T<:AbstractMatrix}
-const DenseHops = Hops{Matrix}
-const SparseHops = Hops{SparseMatrixCSC}
+function fouriersum(hoppings, k::Real, d::Int)
+    N=length(zerokey(hoppings))
+
+    K = unique(collect(key[(1:N).!=d] for key=keys(hoppings)))
+    newhops = Dict(key => zero(getzero(hoppings)) for key in K)
+
+    for (key,h)=hoppings
+        newhops[key[(1:N).!=d]] .+= h .* fourierphase([k],[key[d]])
+    end
+
+    newhops
+end
+
+function getbloch(hoppings,args...)
+    function h(k)
+        fouriersum(hoppings, k,args...)
+    end
+    h
+end
+
+######################################################################################
+# Tight binding operator definitions
+######################################################################################
+
+import Base
+import SharedArrays: SharedArray
+import SparseArrays: SparseMatrixCSC, sparse, spzeros
+
+mutable struct Hops{T<:AbstractMatrix{ComplexF64}}
+    data::Dict{Vector{Int}, T}
+end
+
+const AnyHops = Hops#{AbstractMatrix{ComplexF64}}
+
+(H::Hops)(k) = fouriersum(H,k) # This will make the type callable
+
+import ..Structure.Lattices: Lattice
+Hops(lat::Lattice, args...; kwargs...) = gethops(lat, args...; kwargs...)
+
+Hops(T=AbstractMatrix{ComplexF64}) = Hops(Dict{Vector{Int},T}())
+Hops(M::AbstractMatrix,d::Int=2) = Hops(Dict(zeros(Int,d)=>M))
+Hops(kv::Pair...) = Hops(Dict(k=>v for (k,v) in kv))
+Hops(d::AbstractDict) = Hops(Dict(d...))
+Hops(G::Base.Generator) = Hops(Dict(G...))
+
+DenseHops() = Hops(Matrix{ComplexF64})
+DenseHops(H::Hops) = DenseHops(H.data)
+DenseHops(kv::Pair...) = Hops{Matrix{ComplexF64}}(Dict(k=>complex(Matrix(v)) for (k,v) in kv))
+DenseHops(d::AbstractDict) = DenseHops(d...)
+DenseHops(G::Base.Generator) = DenseHops(Dict(G...))
+
+SharedDenseHops(H::Hops) = SharedDenseHops(H.data)
+SharedDenseHops(kv::Pair...) = Hops{Matrix{ComplexF64}}(Dict(k=>SharedArray(Matrix(complex(v))) for (k,v) in kv))
+SharedDenseHops(d::AbstractDict) = SharedDenseHops(d...)
+SharedDenseHops(G::Base.Generator) = SharedDenseHops(Dict(G...))
+
+SparseHops() = Hops(SparseMatrixCSC{Complex{Float64},Int64})
+SparseHops(H::Hops) = SparseHops(H.data)
+SparseHops(kv::Pair...) = Hops{SparseMatrixCSC{ComplexF64,Int64}}(Dict(k=>sparse(complex(v)) for (k,v) in kv))
+SparseHops(d::AbstractDict) = SparseHops(d...)
+SparseHops(G::Base.Generator) = SparseHops(Dict(G...))
+
+# Size
+Base.size(H::Hops, args...) = Base.size(first(values(H.data)), args...)
+
+# Interface for iteration and item access
+Base.get(H::Hops, args...) = Base.get(H.data, args...)
+Base.haskey(H::Hops, args...) = Base.haskey(H.data, args...)
+Base.iterate(H::Hops) = Base.iterate(H.data)
+Base.iterate(H::Hops, state) = Base.iterate(H.data, state)
+Base.length(H::Hops) = Base.length(H.data)
+Base.eltype(H::Hops) = Base.eltype(H.data)
+
+Base.values(H::Hops) = Base.values(H.data)
+Base.keys(H::Hops) = Base.keys(H.data)
+Base.firstindex(H::Hops) = Base.firstindex(H.data)
+Base.lastindex(H::Hops) = Base.lastindex(H.data)
+Base.getindex(H::Hops,i) = Base.getindex(H.data,i)
+Base.setindex!(H::Hops,v,i) = Base.setindex!(H.data,v,i)
+
+Base.empty!(H::Hops) = (Base.empty!(H.data); H)
+Base.empty(H::Hops) = (H2=Base.empty!(deepcopy(H)); H2)
 
 
-# abstract type AbstractHops{T<:AbstractMatrix} end
-# abstract type AbstractHamiltonian{T} end
-
-# struct Hamiltonian{T} <: AbstractHamiltonian{T}
-#     H::T 
-#     mu::Float64
-# end
-
-function zerolike(h::AnyHops; format=:auto)
-    ρ = Hops{AbstractMatrix}()
+function Base.zero(h::AnyHops; format=:auto)
+    ρ = Hops()
 
     if format==:dense 
         for δL=keys(h)
@@ -44,49 +112,46 @@ function zerolike(h::AnyHops; format=:auto)
     ρ
 end
 
+
+function ishermitian(H::Hops)
+    for R=keys(H)
+        if !(haskey(H,-R) && all(H[R].≈H[-R]')) #"H[R] does not have H[-R] partner."
+            return false
+        end
+    end
+
+    return true
+end
+
 getelectronsector(H::Function) = H
 getelectronsector(H::AbstractMatrix) = H
-getelectronsector(H::T) where T<:AnyHops = H
+getelectronsector(H::Hops) = H
 
-DenseHops(kv::Hop...) = Hops{Matrix{ComplexF64}}(k=>Matrix(complex(v)) for (k,v) in kv)
-DenseHops(d::AnyHops) = DenseHops(d...)
+zerokey(h::Hops) = zero(first(keys(h)))
+getzero(h::Hops) = h[zerokey(h)]
+setzero!(h::Hops, M::AbstractMatrix) = (h[zerokey(h)].=M; h)
 
-SharedDenseHops(kv::Hop...) = Hops{Matrix{ComplexF64}}(k=>SharedArray(Matrix(complex(v))) for (k,v) in kv)
-SharedDenseHops(d::AnyHops) = SharedDenseHops(d...)
+hopdim(hops::Hops) = size(hops,1)
 
-SparseHops(kv::Hop...) = Hops{SparseMatrixCSC{Complex{Float64},Int64}}(k=>sparse(v) for (k,v) in kv)
-SparseHops(d::AnyHops) = SparseHops(d...)
+Base.:+(h1::Hops, h2::Hops) = addhops(h1,h2)
+addhops!(hops::Hops, newhops::Hops...) = (merge!(+, hops.data, map(x->x.data,newhops)...); hops)
+addhops(hops::Hops, newhops::Hops...) = (H=deepcopy(hops); addhops!(H,newhops...)) #merge(+, hops, newhops...)
 
-Hops() = Hops{AbstractMatrix}()
-Hops(kv::Hop...) = Hops{AbstractMatrix}(k=>v for (k,v) in kv)
-Hops(d::AnyHops) = Hops(d...)
-Hops(M::AbstractMatrix,d::Int=2) = Hops(zeros(Int,d)=>M)
-
-zerokey(h::AnyHops) = zero(first(keys(h)))
-getzero(h::AnyHops) = h[zerokey(h)]
-setzero!(h::AnyHops, M::AbstractMatrix) = (h[zerokey(h)].=M; h)
-
-hopdim(hops::AnyHops) = size(first(values(hops)),1)
-
-Base.:+(h1::AnyHops, h2::AnyHops) = addhops(h1,h2)
-addhops!(hops::AnyHops, newhops::AnyHops...) = merge!(+, hops, newhops...)
-addhops(hops::AnyHops, newhops::AnyHops...) = merge(+, hops, newhops...)
-
-Base.:*(h::AnyHops, s::Number) = multiplyhops(h,s)
-Base.:*(s::Number, h::AnyHops) = multiplyhops(h,s)
-Base.:*(h1::AnyHops, h2::AnyHops) = multiplyhops(h1,h2)
-Base.:*(h1::AnyHops, h2::AbstractMatrix) = multiplyhops(h1,h2)
-Base.:*(h1::AbstractMatrix, h2::AnyHops) = multiplyhops(h1,h2)
-multiplyhops(h1::AbstractMatrix, h2::AnyHops) = multiplyhops(Hops(h1),h2)
-multiplyhops(h1::AnyHops, h2::AbstractMatrix) = multiplyhops(h1,Hops(h2))
-multiplyhops(h1::AnyHops, h2::AnyHops) = Dict(k=>h1[k]*h2[k] for k=intersect(keys(h1),keys(h2)))
-multiplyhops(h::AnyHops, s::Number) = Dict(k=>h[k]*s for k=keys(h))
-multiplyhops(s::Number, h::AnyHops) = Dict(k=>h[k]*s for k=keys(h))
+Base.:*(h::Hops, s::Number) = multiplyhops(h,s)
+Base.:*(s::Number, h::Hops) = multiplyhops(h,s)
+Base.:*(h1::Hops, h2::Hops) = multiplyhops(h1,h2)
+Base.:*(h1::Hops, h2::AbstractMatrix) = multiplyhops(h1,h2)
+Base.:*(h1::AbstractMatrix, h2::Hops) = multiplyhops(h1,h2)
+multiplyhops(h1::AbstractMatrix, h2::Hops) = multiplyhops(Hops(h1),h2)
+multiplyhops(h1::Hops, h2::AbstractMatrix) = multiplyhops(h1,Hops(h2))
+multiplyhops(h1::Hops, h2::Hops) = Hops(k=>h1[k]*h2[k] for k=intersect(keys(h1),keys(h2)))
+multiplyhops(h::Hops, s::Number) = Hops(k=>h[k]*s for k=keys(h))
+multiplyhops(s::Number, h::Hops) = Hops(k=>h[k]*s for k=keys(h))
 
 """
 Naive implementation of combining the linear spaces of two hopping models.
 """
-function addhopspace(h1::AnyHops, h2::AnyHops)
+function directsum(h1::Hops, h2::Hops)
     d1 = hopdim(h1)
     d2 = hopdim(h2)
     D = d1+d2
@@ -105,7 +170,7 @@ function addhopspace(h1::AnyHops, h2::AnyHops)
     addhops(h1,h2)
 end
 
-function Base.kron(a, b::AnyHops)
+function Base.kron(a, b::Hops)
     b2 = deepcopy(b)
 
     for (δL, t) in b
@@ -115,7 +180,7 @@ function Base.kron(a, b::AnyHops)
     b2
 end
 
-function Base.kron(a::AnyHops, b)
+function Base.kron(a::Hops, b)
     a2 = deepcopy(a)
 
     for (δL, t) in a
@@ -125,13 +190,16 @@ function Base.kron(a::AnyHops, b)
     a2
 end
 
+
+import ..Algebra
+
 function addspin(hoppings, mode=:nospin) #::AbstractHops
     if mode==:nospin || mode==:id
         return hoppings
     elseif mode==:spinhalf || mode==:σ0
-        hoppings = kron(hoppings, σ0)
+        hoppings = kron(hoppings, Algebra.σ0)
     elseif mode==:σx
-        hoppings = kron(hoppings, σX)
+        hoppings = kron(hoppings, Algebra.σX)
     else
         error("Do not recognize mode '$mode' in addspin(...).")
     end
@@ -142,7 +210,7 @@ end
 const MAX_DENSE = 500
 const MAX_DIAGS = 100
 
-decidetype(hops::AnyHops) = decidetype(hopdim(hops))
+decidetype(hops::Hops) = decidetype(hopdim(hops))
 
 function decidetype(N::Int)
     if N < MAX_DENSE + 1
@@ -153,7 +221,7 @@ function decidetype(N::Int)
 end
 
 
-function ensuretype(hops::AnyHops, format=:auto)
+function ensuretype(hops::Hops, format=:auto)
     if format==:auto
         # format = decidetype(hops) # old behaviour
         return hops
@@ -168,17 +236,24 @@ function ensuretype(hops::AnyHops, format=:auto)
     hops
 end
 
+import LinearAlgebra: norm
 
+function trim!(ρ::Hops; kwargs...)
+    for δL in keys(ρ)
+        if all(isapprox.(ρ[δL], 0; kwargs...))
+            delete!(ρ.data, δL)
+        end
+    end
+    ρ
+end
 
-
-
-function efficientformat(ρ::AnyHops)
+function efficientformat(ρ::Hops)
     L = length(ρ)
     @assert L > 0 "Must have at least one hopping element."
 
     dims = size(first(values(ρ)))
     
-    A = Array{eltype(valtype(ρ))}(undef, dims..., L)
+    A = Array{ComplexF64}(undef, dims..., L) #Array{eltype(valtype(ρ))}(undef, dims..., L)
     
     keylist = []
     for (i,δL) in enumerate(keys(ρ))
@@ -189,13 +264,13 @@ function efficientformat(ρ::AnyHops)
     A, keylist
 end
 
-function efficientzero(ρ::AnyHops)
+function efficientzero(ρ::Hops)
     L = length(ρ)
     @assert L > 0 "Must have at least one hopping element."
 
     dims = size(first(values(ρ)))
     
-    A = zeros(eltype(valtype(ρ)), dims..., L)
+    A = zeros(ComplexF64, dims..., L) #zeros(eltype(valtype(ρ)), dims..., L)
 
     A, collect(keys(ρ))
 end
@@ -204,7 +279,7 @@ function flexibleformat(A::AbstractArray, keylist::AbstractVector)
     Dict(L=>Matrix(m) for (L,m)=zip(keylist,eachslice(A; dims=3)))
 end
 
-function flexibleformat!(ρ::AnyHops, A::AbstractArray, keylist::AbstractVector)
+function flexibleformat!(ρ::Hops, A::AbstractArray, keylist::AbstractVector)
     for (j_,L)=enumerate(keylist)
         # ρ[L][:,:] .= m[:,:]
         # copyto!(ρ[L][:,:], A[:,:,j_])

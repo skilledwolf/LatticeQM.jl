@@ -17,7 +17,8 @@ function fixedpoint!(f!, x1, x0;
     tol=1e-7, β=1.0,
     p_norm::Real=2,
     show_trace=false,
-    clear_trace=false
+    clear_trace=false,
+    verbose=true
     )
 
     converged = false
@@ -58,12 +59,16 @@ function fixedpoint!(f!, x1, x0;
         # Convergence acceleration ("damped fixed point iterater")
         # The new x0 for the next step is:
         for δL=keys(x0)
-            @. x0[δL] .= β * x1[δL] + (1-β) * x0[δL]
+            @. x0[δL][:] .= β * x1[δL][:] + (1-β) * x0[δL][:]
         end
     end
 
+    if verbose
+        @info("Total #iterations: $iter   Residual error: $error")
+    end
+
     if !converged
-        @warn("Did not convergence to requested target tolerance.")
+        @warn("Did not convergence to requested target tolerance. Residual: $error")
     end
 
     ϵ0, error, converged

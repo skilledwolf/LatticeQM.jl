@@ -1,3 +1,4 @@
+import ..TightBinding: Hops
 
 """
     Returns current operators [J_α,...] for each spatial coordinate α=1,...,D
@@ -7,7 +8,7 @@ function getcurrentoperators(lat::Lattice, t::Function; mode=:nospin, kwargs...)
     D = latticedim(lat)
     ts = [(r1::AbstractVector,r2::AbstractVector -> (-1im)*(r1-r2)[i]* t(r1,r2; kwargs...)) for i=1:D]
 
-    [gethops(lat, ts[i]; kwargs...) for i=1:D]
+    [Hops(lat, ts[i]; kwargs...) for i=1:D]
 end
 
 """

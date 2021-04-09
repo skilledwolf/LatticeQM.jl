@@ -1,6 +1,8 @@
 using LinearAlgebra, Plots
 using LatticeQM
 
+println("Number of threads available: ", Threads.nthreads())
+
 println("Generate lattice...")
 lat = Geometries2D.honeycomb_twisted(6)
 Structure.foldPC!(lat)
@@ -22,7 +24,7 @@ println("Run selfconsistent solver...")
 @time begin
     ρ_sol, ϵ_GS, HMF, converged, error = Meanfield.solvehartreefock( # run the calculation
         hops, v, ρ_init, filling; klin=2, iterations=100, tol=1e-6,# p_norm=Inf,
-        T=0.002, β=0.93, show_trace=true, clear_trace=true, verbose=true, multimode=:distributed
+        T=0.002, β=0.93, show_trace=true, clear_trace=true, verbose=true, multimode=:multithread
     )
 end
 
@@ -35,23 +37,22 @@ dens = Operators.density(ρ_sol)
 @info("Magnetization", Mabs, δMabs, M, δM)
 @info("Density", dens)
 
-println("Create band plot...")
-# Get the bands without mean-field terms
+println("Calculate band data (non-interacting)...")
 ks = kpath(lat; num_points=150)
-Operators.setfilling!(hops, filling; nk=9, multimode=:distributed)
-bands = getbands(hops, ks, sz; format=:sparse, num_bands=36, multimode=:distributed)
-p1 = plot(bands; markersize=2, size=(600,200))
+Operators.setfilling!(hops, filling; nk=9, multimode=:multithread)
+bands = getbands(hops, ks, sz; format=:sparse, num_bands=36, multimode=:multithread)
 
-# Get the bands with mean-field terms
+println("Calculate band data (mean field)...")
 hmf = HMF.h
-Operators.setfilling!(hmf, filling; nk=9, multimode=:distributed)
-bands_mf = getbands(hmf, ks, sz; format=:sparse, num_bands=36, multimode=:distributed)
+Operators.setfilling!(hmf, filling; nk=9, multimode=:multithread)
+bands_mf = getbands(hmf, ks, sz; format=:sparse, num_bands=36, multimode=:multithread)
 # bands_mf.bands .-= HMF.μ # shift chemical potential to zero
-p2 = plot(bands_mf; markersize=2, size=(600,200))
 
-# Show the band structure side-by-side
+println("Call plotting routines...")
+p1 = plot(bands; markersize=2, size=(600,200))
+p2 = plot(bands_mf; markersize=2, size=(600,200))
 plot!(p1, title="noninteracting")
 plot!(p2, title="Hubbard meanfield")
 plot(p1,p2, titlefont=font(8))
-
-mkpath("output"); savefig("output/hubbardmeanfield_example1_distributed.pdf")
+mkpath("output")
+savefig("output/hubbardmeanfield_example1.pdf")

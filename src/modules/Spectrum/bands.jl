@@ -1,14 +1,14 @@
 using Distributed
 using ProgressMeter
-using ProgressBars
+# using ProgressBars
 
-using ..Structure.Paths: DiscretePath, points
-using ..TightBinding: expvalf, AnyHops, dim
+import ..Structure.Paths: DiscretePath, points
+import ..TightBinding: expvalf, Hops, Hops, dim
 
 handleprojector(projector::Nothing) = nothing
 handleprojector(projector::Function) = [projector]
 handleprojector(projector::AbstractMatrix) = handleprojector([projector])
-handleprojector(projector::AnyHops) = handleprojector([projector])
+handleprojector(projector::Hops) = handleprojector([projector])
 function handleprojector(projector::AbstractVector)
     if length(projector) == 0
         return nothing
@@ -16,7 +16,7 @@ function handleprojector(projector::AbstractVector)
 
     handle(p::Function) = p
     handle(p::AbstractMatrix) =  expvalf(p)
-    handle(p::AnyHops) =  expvalf(p)
+    handle(p::Hops) =  expvalf(p)
 
     return [handle(p) for p in projector]
 end
@@ -47,7 +47,34 @@ bands, obs = bandmatrix(h, ks.points, valley)
 
 ```
 """
-function bandmatrix(H, ks; num_bands::Int=0, kwargs...)
+function bandmatrix(args...; multimode=:distributed, kwargs...)
+    if multimode == :distributed && nprocs()>1
+        bandmatrix_distributed(args...; kwargs...)
+    elseif multimode == :multithread && Threads.nthreads()>1
+        bandmatrix_multithread(args...; kwargs...)
+    else
+        bandmatrix_serial(args...; kwargs...)
+    end
+end
+
+function bandmatrix_serial(H, ks; num_bands::Int=0, kwargs...)
+    ks = points(ks)
+    if !(num_bands>0)
+        num_bands = dim(H, ks)
+    end
+    N = size(ks,2) # no. of k points
+    bands = zeros(Float64, num_bands, N)
+
+    energiesf = energies(H; num_bands=num_bands, kwargs...)
+
+    @showprogress 20 "Computing bands... " for j_=1:N
+        bands[:,j_] .= real.(energiesf(ks[:,j_]))
+    end
+
+    convert(Array, bands)
+end
+
+function bandmatrix_distributed(H, ks; num_bands::Int=0, kwargs...)
     ks = points(ks)
     if !(num_bands>0)
         num_bands = dim(H, ks)
@@ -57,7 +84,7 @@ function bandmatrix(H, ks; num_bands::Int=0, kwargs...)
 
     energiesf = energies(H; num_bands=num_bands, kwargs...)
 
-    @sync @showprogress 1 "Computing bands... "  @distributed for j_=1:N
+    @sync @showprogress 20 "Computing bands... "  @distributed for j_=1:N
         bands[:,j_] .= real.(energiesf(ks[:,j_]))
     end
 
@@ -75,16 +102,20 @@ function bandmatrix_multithread(H, ks; num_bands::Int=0, kwargs...)
 
     energiesf = energies(H; num_bands=num_bands, kwargs...)
 
+    # lk = Threads.ReentrantLock()
     Threads.@threads for j_=1:N
 
+        # en = real.(energiesf(ks[:,j_]))
+
+        # lock(lk) do 
         bands[:,j_] .= real.(energiesf(ks[:,j_]))
+        # end
     end
 
     bands
 end
 
-
-function bandmatrix(H, ks, projector; num_bands::Int=0, kwargs...)
+function bandmatrix_serial(H, ks, projector; num_bands::Int=0, kwargs...)
     projector = handleprojector(projector)
     ks = points(ks)
     if !(num_bands>0)
@@ -98,7 +129,34 @@ function bandmatrix(H, ks, projector; num_bands::Int=0, kwargs...)
 
     spectrumf = spectrum(H; num_bands=num_bands, kwargs...)
 
-    @sync @showprogress 1 "Computing bands... " @distributed for j_=1:N
+    @showprogress 20 "Computing bands... " for j_=1:N
+#     @showprogress 1 "Computing bands..." for j_=1:N
+        ϵs, U = spectrumf(ks[:,j_])
+        bands[:,j_] .= real.(ϵs)
+
+        for i_=1:size(U,2), n_=1:L
+            obs[i_,j_,n_] = projector[n_](ks[:,j_],U[:,i_],ϵs[i_])
+        end
+    end
+
+    Array(bands), Array(obs)
+end
+
+function bandmatrix_distributed(H, ks, projector; num_bands::Int=0, kwargs...)
+    projector = handleprojector(projector)
+    ks = points(ks)
+    if !(num_bands>0)
+        num_bands = dim(H, ks)
+    end
+
+    N = size(ks, 2) # number of k points
+    L = length(projector)
+    bands = convert(SharedArray, zeros(Float64, num_bands, N))
+    obs   = convert(SharedArray, zeros(Float64, num_bands, N, L))
+
+    spectrumf = spectrum(H; num_bands=num_bands, kwargs...)
+
+    @sync @showprogress 20 "Computing bands... " @distributed for j_=1:N
 #     @showprogress 1 "Computing bands..." for j_=1:N
         ϵs, U = spectrumf(ks[:,j_])
         bands[:,j_] .= real.(ϵs)
@@ -126,13 +184,16 @@ function bandmatrix_multithread(H, ks, projector; num_bands::Int=0, kwargs...)
 
     spectrumf = spectrum(H; num_bands=num_bands, kwargs...)
 
+    lk = Threads.ReentrantLock()
     Threads.@threads for j_=1:N
         ϵs, U = spectrumf(ks[:,j_])
         
-        bands[:,j_] .= real.(ϵs)
+        lock(lk) do 
+            bands[:,j_] .= real.(ϵs)
 
-        for i_=1:size(U,2), n_=1:L
-            obs[i_,j_,n_] = projector[n_](ks[:,j_],U[:,i_],ϵs[i_])
+            for i_=1:size(U,2), n_=1:L
+                obs[i_,j_,n_] = projector[n_](ks[:,j_],U[:,i_],ϵs[i_])
+            end
         end
     end
 
@@ -169,31 +230,17 @@ using Plots
 plot(bands)
 ```
 """
-getbands(args...; multithread=false, kwargs...) = multithread ? getbands_multithread(args...; kwargs...) : getbands_parallel(args...; kwargs...)
 
-
-function getbands_parallel(H, ks::DiscretePath; kwargs...)
+function getbands(H, ks::DiscretePath; kwargs...)
     bands = bandmatrix(H, points(ks); kwargs...)
     obs = nothing
     BandData(bands, obs, ks)
 end
 
-function getbands_parallel(H, ks::DiscretePath, projector; kwargs...)
+function getbands(H, ks::DiscretePath, projector; kwargs...)
     bands, obs = bandmatrix(H, points(ks), projector; kwargs...)
     BandData(bands, obs, ks)
 end
-
-function getbands_multithread(H, ks::DiscretePath; kwargs...)
-    bands = bandmatrix_multithread(H, points(ks); kwargs...)
-    obs = nothing
-    BandData(bands, obs, ks)
-end
-
-function getbands_multithread(H, ks::DiscretePath, projector; kwargs...)
-    bands, obs = bandmatrix_multithread(H, points(ks), projector; kwargs...)
-    BandData(bands, obs, ks)
-end
-
 
 
 ## The following code snippet might come in handy some day:

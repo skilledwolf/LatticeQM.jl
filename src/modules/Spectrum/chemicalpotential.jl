@@ -3,9 +3,9 @@
 
 using ..TightBinding: getelectronsector
 
-function chemicalpotential(H, ks, filling::Float64; kwargs...)
+function chemicalpotential(H, ks, filling::Float64; multimode=:distributed, kwargs...)
 
-    chemicalpotential(bandmatrix(getelectronsector(H), ks), filling; kwargs...)
+    chemicalpotential(bandmatrix(getelectronsector(H), ks; multimode=multimode), filling; kwargs...)
 end
 
 function chemicalpotential(bands::AbstractMatrix, filling::Float64; kwargs...)
@@ -22,11 +22,11 @@ end
 #     chemicalpotential!(en, nk, filling; kwargs...)
 # end
 
-function chemicalpotential!(energies::AbstractVector{T1}, nk::Int, filling::Float64; T::T1=0.0) where T1<:Real
+function chemicalpotential!(energies::AbstractVector{T1}, nk::Int, filling::Float64; T::T1=0.0, kwargs...) where T1<:Real
     if T==zero(T)
-        return chemicalpotential_0!(energies, filling)
+        return chemicalpotential_0!(energies, filling; kwargs...)
     else
-        return chemicalpotential_T!(energies, nk, filling; T=T)
+        return chemicalpotential_T!(energies, nk, filling; T=T, kwargs...)
     end
 end
 
@@ -38,9 +38,9 @@ function chemicalpotential_0!(energies::AbstractVector{T1}, filling::T1) where T
     (e1+e2)/2
 end
 
-using NLsolve # add 2-3 seconds of load time to the package :(
 
-using ..Utils: fermidirac
+import NLsolve: nlsolve, converged # add 2-3 seconds of load time to the package :(
+import ..Utils: fermidirac
 
 function chemicalpotential_T!(energies::AbstractVector{T1}, nk::Int, filling::T1; T::T1=0.01) where T1<:Real
 
@@ -72,9 +72,3 @@ function chemicalpotential_T!(energies::AbstractVector{T1}, nk::Int, filling::T1
     
     μ
 end
-
-###################################################################################################
-# Backwards compatibility
-###################################################################################################
-@legacyalias chemicalpotential chemical_potential
-

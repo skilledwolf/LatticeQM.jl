@@ -9,11 +9,6 @@ Provides the type `Lattice` and methods that act on this struct, see `?Structure
 """
 module Lattices
 
-    using LinearAlgebra
-    using RecursiveArrayTools
-
-    using ...Utils
-
     include("Lattices/type.jl")
     export Lattice
 
@@ -31,7 +26,7 @@ module Lattices
     export newdimension!, mergelattices, mergelattices!
 
     include("Lattices/supercell.jl")
-    export superlattice, repeat!, repeat, crop2unitcell, crop2unitcell!, bistack
+    export superlattice, crop2unitcell, crop2unitcell!, bistack
 
     include("Lattices/reducedim.jl")
     export reduceto0D, reduceto1D

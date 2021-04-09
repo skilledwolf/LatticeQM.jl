@@ -1,3 +1,7 @@
+using SparseArrays: spzeros
+
+using LinearAlgebra: Diagonal
+
 """
     blockmatrix(mat, I, J, V)
     blockmatrix!(mat, I, J, V)
@@ -43,9 +47,7 @@ end
 ####################################################################################################
 ####################################################################################################
 
-import ..Structure
-using ..Structure: Lattice
-using ..Structure.Lattices: supercellpoints#, superlattice
+import ..Structure.Lattices: Lattice, supercellpoints #, superlattice
 
 """
     superlattice(hops, periods)
@@ -65,7 +67,7 @@ function superlattice(hops::AnyHops, M::Matrix{Int}, phasefunc::Function) where 
 
     sneighbors = hcat([[i;j] for i=-2:2 for j=-2:2]...)
 
-    shops = Dict(Vector(L) => spzeros(ComplexF64, D,D) for L=eachcol(sneighbors))
+    shops = Hops(Vector(L) => spzeros(ComplexF64, D,D) for L=eachcol(sneighbors))
 
     basislookup = Dict(L => i for (L, i) in zip(eachcol(coordinates), 1:count))
 
@@ -93,12 +95,12 @@ function superlattice(lat::Lattice, hops::AnyHops, M::Matrix{Int}, phasefunc::Fu
     count = size(coordinates, 2)
     D = count  * hopdim(hops) # size of superlattice hopping matrices
 
-    slat = Structure.superlattice(lat, M, coordinates)
+    slat = Structure.Lattices.superlattice(lat, M, coordinates)
 
     sneighbors = hcat(getneighborcells(lat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)...)
     # sneighbors = hcat([[i;j] for i=-2:2 for j=-2:2]...)
 
-    shops = Dict(Vector(L) => spzeros(ComplexF64, D,D) for L=eachcol(sneighbors))
+    shops = Hops(Vector(L) => spzeros(ComplexF64, D,D) for L=eachcol(sneighbors))
 
     basislookup = Dict(L => i for (L, i) in zip(eachcol(coordinates), 1:count))
 

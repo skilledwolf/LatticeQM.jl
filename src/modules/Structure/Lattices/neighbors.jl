@@ -35,7 +35,7 @@ function getneighbors(lat, d=1.0; cellrange::Int=1)
     return pairs
 end
 
-
+import LinearAlgebra
 
 """
     getneighborcells(A, k=1; halfspace=true, innerpoints=false, excludeorigin=true)
@@ -53,37 +53,32 @@ function getneighborcells(A::AbstractMatrix, k::Int=1; halfspace=true, innerpoin
     end
 
     n = ceil(Int,sqrt(3)*(k+1))
-    IJ  = collect(Iterators.product(Iterators.repeated(-n:n, ldim)...))
-    IJ = map(x->[x...], IJ)
+    IJ  = hcat([[x...] for x = Iterators.product(Iterators.repeated(-n:n, ldim)...)]...)
 
-    D = map(x->round.(norm(A*[x...]); digits=7), IJ) # cell distances
-
+    D = map(x->round(LinearAlgebra.norm(x); digits=9), eachcol(A*IJ))
     d = sort(unique(D)) # unique distances from origin unit cell
 
-    if innerpoints
-        result = IJ[D .<= d[k+1]]
-    else
-        result = IJ[D .== d[k+1]]
-    end
+    IJ = innerpoints ? IJ[:,D .<= d[k+1]] : IJ[:,D .== d[k+1]]
 
     # naive iteration to make sure [I,J] and [-I,-J] do not both appear
+    IJ = [Vector(v) for v=eachcol(IJ)]
     if halfspace
         if excludeorigin
-            for el=result
-                filter!(x->x != -1 .* el, result)
+            for el=IJ
+                filter!(x->x != -1 .* el, IJ)
             end
         else
-            for el=result
-                filter!(x->(x==zeros(eltype(el), length(el))) || (x != -1 .* el), result)
+            for el=IJ
+                filter!(x->(x==zero(el)) || (x != -1 .* el), IJ)
             end
         end
     else 
         if excludeorigin
-            filter!(x->x != -1 .* x, result) # remove the origin
+            filter!(x->x != -1 .* x, IJ) # remove the origin
         end
     end
 
-    return result
+    return IJ
 end
 
 
@@ -144,5 +139,40 @@ function commonneighbor(i,j,NN)
     end
 
     return k, R0
+end
+
+
+function commonneighbor(i, j, R, NN)
+
+    matches1 = empty(NN)
+    matches2 = empty(NN)
+
+    k=-1
+
+    for R0 in [zero(R), R]
+        matches1[R0] = []
+        matches2[R0] = []
+    end
+
+    for R0 in [zero(R), R]
+        for pair in NN[R0]
+            if pair[2]==j
+                append!(matches1[R0], [pair])
+            end
+        end
+    end
+    filter!(x->length(x[2])>0, matches1)
+
+    for R0 in [zero(R), R]
+        for pair in NN[R0]
+            if pair[1]==i && any(any(x->x[1]==pair[2], pairs) for (R1,pairs)=matches1)
+                append!(matches2[R0], [pair])
+            end
+        end
+    end
+    filter!(x->length(x[2])>0, matches2)
+
+    println(matches1)
+    println(matches2)
 
 end

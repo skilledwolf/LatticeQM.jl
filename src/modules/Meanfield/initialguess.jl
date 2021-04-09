@@ -115,24 +115,28 @@ function spinspiraldensitymatrix(lat::Lattice, superperiods; n::Vector=[0,0,1], 
 end
 
 
-function setrandom!(ρ::AnyHops, kind=:local)
+function setrandom!(ρ::Hops, kind=:nonlocal)
     N = hopdim(ρ); @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
     n = div(N,2)
 
     if kind==:local 
         M = mapspindensitymatrix(:random, n)
+        setzero!(ρ, M)
     elseif kind==:nonlocal
-        M = rand(ComplexF64, N, N); M = (M+M')/2
+        for L in keys(ρ)
+            M = rand(ComplexF64, N, N); M = (M+M')/2
+            ρ[L][:] .= M[:]
+        end
     elseif kind==:XY || kind==:xy
         M = mapspindensitymatrix(:randomXY, n)
+        setzero!(ρ, M)
     else
         error("Unrecognized request for mode '$kind'.")
     end
 
-    setzero!(ρ, M)
 end
 
-function setferro!(ρ::AnyHops, d=:up) 
+function setferro!(ρ::Hops, d=:up) 
     N = hopdim(ρ); @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
     n = div(N,2)
 
@@ -148,7 +152,7 @@ function setferro!(ρ::AnyHops, d=:up)
     setzero!(ρ, mapspindensitymatrix(d, n))
 end
 
-function setantiferro!(ρ::AnyHops, lat::Lattice, d=:up)
+function setantiferro!(ρ::Hops, lat::Lattice, d=:up)
     N = hopdim(ρ); @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
     n = div(N,2)
 
@@ -158,18 +162,18 @@ function setantiferro!(ρ::AnyHops, lat::Lattice, d=:up)
     setzero!(ρ, kron(sublA, ρup) + kron(sublB, σ0-ρup))
 end
 
-function initialguess(v::AnyHops, mode=:random, args...; lat=:nothing, kwargs...)
+function initialguess(v::Hops, mode=:random, args...; lat=:nothing, kwargs...)
     N = hopdim(v); @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
     n = div(N,2)
 
-    ρs = zerolike(v)
+    ρs = zero(v)
 
     if mode==:random
-        setrandom!(ρs, args...)
+        setrandom!(ρs, args...; kwargs...)
     elseif mode==:ferro
-        setferro!(ρs, args...)
+        setferro!(ρs, args...; kwargs...)
     elseif mode==:antiferro
-        setantiferro!(ρs, lat, args...)
+        setantiferro!(ρs, lat, args...; kwargs...)
     elseif mode==:spiral        
         setzero!(ρs, spinspiraldensitymatrix(lat, args...; kwargs...))
     else

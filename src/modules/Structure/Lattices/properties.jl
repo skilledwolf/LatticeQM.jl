@@ -8,7 +8,7 @@ extraspacedim(lat::Lattice) = length(lat.extralabels) #size(lat.extracoordinates
 spacedim(lat::Lattice) = size(getA(lat), 1) # used to be latticedim(lat) + extraspacedim(lat)
 
 hasdimension(lat::Lattice, name::String) = haskey(lat.extralabels, name)
-assertdimension(lat::Lattice, name::String) = !hasdimension(lat, name) ? error("No $name coordinates specified.") : Nothing
+assertdimension(lat::Lattice, name::String) = !hasdimension(lat, name) ? error("No $name coordinates specified.") : nothing
 
 basis(lat::Lattice, rselector=(:), cselector=(:)) = lat.basis[rselector,cselector]
 getA(lat::Lattice, rselector=(:), cselector=(:)) = basis(lat)[:,1:latticedim(lat)][rselector,cselector]

@@ -1,8 +1,7 @@
-@legacyalias twistangle α
+import LinearAlgebra: dot, norm
+
 twistangle(n::Int; m::Int=1) = acos((3.0*n^2 + 3*n*m + m^2/2.0)/(3.0*n^2 + 3*n*m + m^2))
 
-
-@legacyalias twist twist_triangular_2D
 twist(lat::Lattice, n::Int; kwargs...) = twist(lat,lat,n; kwargs...)
 function twist(lat1::Lattice, lat2::Lattice, n::Int; z::Float64=3, m::Int=1, verbose::Bool=true)
     @assert latticedim(lat1) == 2 && latticedim(lat2) == 2 "twist(...) is only defined for 2D lattices."

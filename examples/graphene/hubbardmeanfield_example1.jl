@@ -1,31 +1,26 @@
 using LinearAlgebra, Plots
 using LatticeQM
-using LatticeQM.Operators: graphene, gethaldane, valleyoperator, addsublatticeimbalance!, addzeeman!
-using LatticeQM.Operators: magnetization, density
-using LatticeQM.Meanfield
 
 lat = Geometries2D.honeycomb()
-sx, sy, sz, sublA, sublB = getoperator(lat, ["SX", "SY", "SZ", "sublatticeAspin", "sublatticeBspin"])
-ks = kpath(lat; num_points=200)
+sx, sy, sz, sublA, sublB = Operators.getoperator(lat, ["SX", "SY", "SZ", "sublatticeAspin", "sublatticeBspin"])
 
-hops = graphene(lat; mode=:spinhalf)
-addzeeman!(hops, lat, r->sign(r[4]-0.5).*1.5.*[sin(0.0π),0,cos(0.0π)] )
+hops = Operators.graphene(lat; mode=:spinhalf)
+Operators.addzeeman!(hops, lat, r->sign(r[4]-0.5).*1.5.*[sin(0.0π),0,cos(0.0π)] )
 
 # Set up interaction
-v = gethubbard(lat; mode=:σx, a=0.5, U=5.0) # interaction potential
-ρ_init = initialguess(v, :random; lat=lat) # initial guess
-hf = hartreefock(hops, v)
+v = Meanfield.gethubbard(lat; mode=:σx, a=0.5, U=5.0) # interaction potential
+ρ_init = Meanfield.initialguess(v, :random; lat=lat) # initial guess
 
-ρ_sol, ϵ_GS, HMF, converged, error = solveselfconsistent( # run the calculation
-    hf, ρ_init, 0.75; klin=30, iterations=800, tol=1e-7,# p_norm=Inf,
+ρ_sol, ϵ_GS, HMF, converged, error = Meanfield.solvehartreefock( # run the calculation
+    hops, v, ρ_init, 0.75; klin=30, iterations=800, tol=1e-7,# p_norm=Inf,
     T=0.01, β=0.25,  show_trace=true, clear_trace=true
 )
 
 # Get magnetization
-mA, mB = real.(magnetization(ρ_sol, [sublA,sublB], lat))
+mA, mB = real.(Operators.magnetization(ρ_sol, [sublA,sublB], lat))
 δM = mA - mB; M = mA+mB
 Mabs = norm(M); δMabs = norm(δM)
-dens = density(ρ_sol)
+dens = Operators.density(ρ_sol)
 @info("Groundstate energy", ϵ_GS)
 @info("Magnetization", Mabs, δMabs, M, δM)
 @info("Density", dens)

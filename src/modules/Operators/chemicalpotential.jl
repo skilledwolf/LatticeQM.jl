@@ -1,21 +1,30 @@
+import ..Utils: regulargrid
+import ..Structure.Lattices: Lattice, latticedim, countorbitals, allpositions, positions
+import ..TightBinding: Hops, AnyHops, zerokey, hopdim, addhops!
+
+import LinearAlgebra: Diagonal
+
+import SparseArrays: sparse
+
+
 function setfilling!(H, filling; nk=100, kwargs...)
     kgrid = regulargrid(nk=nk)
     setfilling!(H, kgrid, filling; kwargs...)
 end
 
-function setfilling!(H, kgrid, filling; T=0.0)
-    μ = chemicalpotential(H, kgrid, filling; T=T)
+function setfilling!(H, kgrid, filling; kwargs...)
+    μ = chemicalpotential(H, kgrid, filling; kwargs...)
     addchemicalpotential!(H, -μ)
     μ
 end
 
-function addchemicalpotential!(hops::AnyHops, μ::Real)
+function addchemicalpotential!(hops::Hops, μ::Real)
     hops[zerokey(hops)] += μ * I
     hops
 end
 
 function addchemicalpotential!(hops, lat::Lattice, μ::T; localdim::Int=-1) where T<:AbstractVector{<:Float64}
-    zero0 = zeros(Int, latticedim(lat))
+    # zero0 = zeros(Int, latticedim(lat))
     N = countorbitals(lat)
 
     if localdim < 0 # if localdim is not set, we determine it from matrix dimensions
@@ -27,7 +36,7 @@ function addchemicalpotential!(hops, lat::Lattice, μ::T; localdim::Int=-1) wher
 
     @assert N == length(μ)
 
-    newhops = Dict( zero0 => sparse( (1.0+0.0im).* Diagonal(kron(μ, ones(d))) ) )
+    newhops = Hops( zerokey(hops) => sparse( (1.0+0.0im).* Diagonal(kron(μ, ones(d))) ) )
     addhops!(hops, newhops)
 
     nothing
@@ -62,7 +71,7 @@ function addinterlayerbias!(hops, lat::Lattice, V::Function; d=3.0, kwargs...)
     Z .= (Z .- min)./(max-min)
     μ = V.(eachcol(R)) .* (Z .- 0.5)
 
-    addchemicalpotential!(hops, lat, vec(μ))
+    addchemicalpotential!(hops, lat, vec(μ); kwargs...)
 
     nothing
 end

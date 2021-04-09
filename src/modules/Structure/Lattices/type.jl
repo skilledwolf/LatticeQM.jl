@@ -75,6 +75,8 @@ function Lattice(basis::Matrix{Float64}, spacecoordinates::Matrix{Float64}; extr
     Lattice(basis, spacecoordinates, extracoordinates; extralabels=extralabels, specialpoints=specialpoints)
 end
 
+import LinearAlgebra: I
+
 function Lattice(basis::Matrix{Float64}, spacecoordinates::Matrix{Float64}, extracoordinates::Matrix{Float64}; extralabels::Vector{String}=Vector{String}(), specialpoints=kdict)
     d = size(basis,2)
     D = size(basis,1)
@@ -88,6 +90,8 @@ function Lattice(basis::Matrix{Float64}, spacecoordinates::Matrix{Float64}, extr
       Lattice(basis, D, spacecoordinates, extracoordinates; extralabels=extralabels, specialpoints=specialpoints)
     end
 end
+
+import LinearAlgebra: det
 
 function Lattice(basis::Matrix{Float64}, latticedim::Int, spacecoordinates::Matrix{Float64}, extracoordinates::Matrix{Float64}; extralabels::Vector{String}=Vector{String}(), specialpoints=kdict)
     D1 = size(basis,1); D2 = size(basis,2)

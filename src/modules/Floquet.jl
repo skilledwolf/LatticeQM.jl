@@ -7,7 +7,7 @@ using Base
 using LinearAlgebra
 using Distributed
 using SparseArrays, SharedArrays
-using ElasticArrays, RecursiveArrayTools
+# using ElasticArrays, RecursiveArrayTools
 using ProgressMeter
 
 using ..Structure.Paths:DiscretePath, points

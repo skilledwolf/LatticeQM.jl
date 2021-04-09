@@ -1,6 +1,6 @@
 using Distributed
-using SharedArrays
-using ..Utils: regulargrid
+# using SharedArrays
+import ..Utils: regulargrid
 
 
 """
@@ -34,11 +34,11 @@ getdos_sparse(h, args...; kwargs...) = getdos(h, args...; format=:sparse, kwargs
 Computes the density of states of operator h(k) using the points ks=(k1,k2,...)
 and for the frequencies ω=(ω1, ω2, ...). The paremter \$\\Gamma\$ is the energy broadening.
 
-Mode can be :parallel or :serial, format can be :auto, :sparse or :dense.
+Mode can be :distributed or :serial, format can be :auto, :sparse or :dense.
 """
 getdos(h, ks, ωs; kwargs...) = (DOS=zero(ωs); getdos!(DOS, h, ks, ωs; kwargs...))
-function getdos!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; parallel=true, mode=:parallel, kwargs...)
-    if nprocs()<2 || mode!=:parallel
+function getdos!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; parallel=true, mode=:distributed, kwargs...)
+    if nprocs()<2 || mode!=:distributed
         parallel=false
     end
     
@@ -83,23 +83,23 @@ function dos_parallel!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::Abstract
     DOS
 end
 
-# todo: include into dos!(...)
-function dos_multithread!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; Γ::Number, kwargs...)
-    L = size(ks,2)
-    ϵs = energies(h; kwargs...)
+# # todo: include into dos!(...)
+# function dos_multithread!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; Γ::Number, kwargs...)
+#     L = size(ks,2)
+#     ϵs = energies(h; kwargs...)
 
-    Threads.@threads for k=ProgressBar(eachcol(ks)) # j=1:L
-        tmp = zero(DOS)
-        dos!(tmp, ϵs(k), frequencies; broadening=Γ)
+#     Threads.@threads for k=ProgressBar(eachcol(ks)) # j=1:L
+#         tmp = zero(DOS)
+#         dos!(tmp, ϵs(k), frequencies; broadening=Γ)
 
-        lock(DOS) do 
-            DOS[:] .+= tmp[:]
-        end
-    end
-    DOS ./= L
+#         lock(DOS) do 
+#             DOS[:] .+= tmp[:]
+#         end
+#     end
+#     DOS ./= L
 
-    DOS
-end
+#     DOS
+# end
 
 
 

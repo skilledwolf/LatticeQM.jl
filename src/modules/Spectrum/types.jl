@@ -1,10 +1,10 @@
 # using Plots
 # using HDF5
 using DelimitedFiles
-using Statistics
-using ..Structure.Paths: scaleticks
+import ..Structure.Paths: scaleticks
+import ..DummySave
 
-using ..DummySave
+import ..Structure.Paths: DiscretePath
 
 # This file is meant to contain "result types", i.e.,
 # containers for data, methods to store them and to visualize them.

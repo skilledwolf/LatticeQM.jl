@@ -1,16 +1,18 @@
 
 
-using ..Utils: @scalar2vector
+import ..Utils: @scalar2vector
+
+import ..TightBinding: Hops
 
 function getneighborhops(lat::Lattice; cellrange::Int=3)
 
-    δt(r) = (0-1e-10<r<float(cellrange)/sqrt(3)) ? r : -1
+    δt(r) = (0-DEFAULT_PRECISION<r<float(cellrange)/sqrt(3)) ? r : -1
     @scalar2vector δt
 
-    diffhops = Dict(δR=>round.(real(M); digits=9) for (δR,M) in gethops(lat, δt; cellrange=cellrange))
+    diffhops = Dict(δR=>round.(real(M); digits=9) for (δR,M) in Hops(lat, δt; cellrange=cellrange))
 
     diff = filter(x->x>-0.5, sort(unique(vcat([unique(M) for (δR,M) in diffhops]...))))
     
-    diff, [Dict(δR=>float(M.==D) for (δR,M) in diffhops if norm(M.==D)>0) for D in diff]
+    diff, [Hops(δR=>complex(float(M.==D)) for (δR,M) in diffhops if norm(M.==D)>0) for D in diff]
 
 end

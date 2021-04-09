@@ -1,9 +1,11 @@
+import LinearAlgebra: det, norm, I, svd
+import SharedArrays: SharedArray
+
 function L(State1::T, State2::T) where {T<:AbstractArray{<:Complex,N}} where N
     res = det(State1' * State2)
     return res/abs(res)
 end
 
-@legacyalias plaquettephase PlaquettePhase
 function plaquettephase(S00::T, S10::T, S01::T, S11::T) where {T<:AbstractArray{<:Complex, N}} where N
     real(1.0/(2π*1.0im) * log( L(S00, S10) * L(S10, S11) * L(S01, S11)^(-1) * L(S00,S01)^(-1) ))
 end
@@ -47,14 +49,12 @@ function statesgrid(wavefunctions::Function, NX::Int, NY::Int=0, bandindices::Ab
     kgrid, midkgrid, statesgrid0
 end
 
-@legacyalias berry BerryF
 function berry(wavefunctions::Function, NX::Int, NY::Int=0, bandindices::AbstractArray=[1])
     # wavefunctions(k::Vector) -> Matrix{Complex}
     kgrid, midkgrid, statesgrid0 = statesgrid(wavefunctions, NX, NY, bandindices)
     midkgrid, berry(statesgrid0)
 end
 
-@legacyalias berryalongpath BerryCurvature
 function berryalongpath(wavefunctions::Function, kpoints::AbstractMatrix{<:Float64})
 """
     Calculate the abelian Berry Curvature for each band along a path of discrete k points
@@ -97,7 +97,6 @@ function berryalongpath(wavefunctions::Function, kpoints::AbstractMatrix{<:Float
     berryc
 end
 
-@legacyalias getberry! get_berry!
 getberry!(bands::BandData, h, ks) = getberry_wf!(bands, wavefunctions(h), ks)
 
 function getberry_wf!(bands::BandData, wavefunctions, ks)
