@@ -101,78 +101,42 @@ nearest neighbor cells in reciprocal space.
 """
 getneighborBZ(lat, args...; kwargs...) = getneighborcells(getB(lat), args...; kwargs...)
 
+### THE FOLLOWING IS NOT WOKRING CORRECTLY. BEST DELETE IT...
+# """
+#     commonneighbor(i,j,NN)
 
-"""
-    commonneighbor(i,j,NN)
+# Given a dictionary `NN` that contains lists of nearest neighbors, we search for the
+# common nearest neighbor of site index i and site index j.
 
-Given a dictionary `NN` that contains lists of nearest neighbors, we search for the
-common nearest neighbor of site index i and site index j.
+# This method is primarily used in the construction of Haldane type models, where the common nearest
+# neighbor determines the chirality of the next-nearest neighbor bond.
+# """
+# function commonneighbor(i,j,NN)
 
-This method is primarily used in the construction of Haldane type models, where the common nearest
-neighbor determines the chirality of the next-nearest neighbor bond.
-"""
-function commonneighbor(i,j,NN)
+#     k = -1; R0 = zero(first(keys(NN)))
+#     for (δR0, NN_pairs) = NN
+#         ind1 = findall(pair->pair[1]==i, NN_pairs)
+#         ind2 = findall(pair->pair[2]==j, NN_pairs)
 
-    k = -1; R0 = zero(first(keys(NN)))
-    for (δR0, NN_pairs) = NN
-        ind1 = findall(pair->pair[1]==i, NN_pairs)
-        ind2 = findall(pair->pair[2]==j, NN_pairs)
+#         if isempty(ind1) || isempty(ind2)
+#             continue
+#         else
+#             pairs1 = NN_pairs[ind1]
+#             pairs2 = NN_pairs[ind2]
+#         end
 
-        if isempty(ind1) || isempty(ind2)
-            continue
-        else
-            pairs1 = NN_pairs[ind1]
-            pairs2 = NN_pairs[ind2]
-        end
+#         for pair1=pairs1, pair2=pairs2
+#             if pair1[2]==pair2[1]
+#                 k = pair1[2]
+#                 break
+#             end
+#         end
 
-        for pair1=pairs1, pair2=pairs2
-            if pair1[2]==pair2[1]
-                k = pair1[2]
-                break
-            end
-        end
+#         if k > -1
+#             R0 = δR0
+#             break
+#         end
+#     end
 
-        if k > -1
-            R0 = δR0
-            break
-        end
-    end
-
-    return k, R0
-end
-
-
-function commonneighbor(i, j, R, NN)
-
-    matches1 = empty(NN)
-    matches2 = empty(NN)
-
-    k=-1
-
-    for R0 in [zero(R), R]
-        matches1[R0] = []
-        matches2[R0] = []
-    end
-
-    for R0 in [zero(R), R]
-        for pair in NN[R0]
-            if pair[2]==j
-                append!(matches1[R0], [pair])
-            end
-        end
-    end
-    filter!(x->length(x[2])>0, matches1)
-
-    for R0 in [zero(R), R]
-        for pair in NN[R0]
-            if pair[1]==i && any(any(x->x[1]==pair[2], pairs) for (R1,pairs)=matches1)
-                append!(matches2[R0], [pair])
-            end
-        end
-    end
-    filter!(x->length(x[2])>0, matches2)
-
-    println(matches1)
-    println(matches2)
-
-end
+#     return k, R0
+# end

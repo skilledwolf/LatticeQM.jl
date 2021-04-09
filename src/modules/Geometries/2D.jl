@@ -14,26 +14,26 @@ module Geometries2D
 
     using Base, LinearAlgebra
 
-    using ..Structure: twist
-    using ..Structure.Paths
-    using ..Structure.Lattices
+    import ..Structure: Paths
+    import ..Structure.Lattices
+    import ..Structure.Lattices: Lattice
 
     # Dictionary to construct Paths in k space
-    kdict_sq = LabeledPoints(
+    kdict_sq = Paths.LabeledPoints(
         ["Γ", "X", "Y", "M"],
         [[0.0;  0.0], [1/2;  0.0], [0.0;  1/2], [1/2;  1/2]],
         ["\$\\Gamma\$", "X", "Y", "M"],
         ["Y", "Γ", "M", "X", "Γ"]
     )
 
-    kdict_tri = LabeledPoints(
+    kdict_tri = Paths.LabeledPoints(
         ["Γ", "K", "M", "K'", "M2", "M3", "Γ1"],
         [[0.0;  0.0], [1/3;  2/3], [1/2;  1/2], [2/3;  1/3], [0, 1/2], [1/2,0], [1.0,-1.0]],
         ["\$\\Gamma\$", "K", "M", "K'", "M\$_2\$", "M\$_3\$", "\$\\Gamma\$"],
         ["Γ", "K", "M", "K'", "Γ", "M"]
     )
 
-    kdict_tri_mini = LabeledPoints(
+    kdict_tri_mini = Paths.LabeledPoints(
         ["γ", "κ", "μ", "κ'", "μ2", "μ3", "γ1"],
         [[0.0;  0.0], [1/3;  2/3], [1/2;  1/2], [2/3;  1/3], [0, 1/2], [1/2,0], [1.0,-1.0]],
         ["\$\\gamma\$", "\$\\kappa\$", "\$\\mu\$", "\$\\kappa'\$", "\$\\mu_2\$", "\$\\mu_3\$", "\$\\gamma\$"],
@@ -125,53 +125,49 @@ module Geometries2D
     #     specialpoints=kdict_tri
     # )
 
-    import ..Structure
 
     function honeycomb_twisted(N::Int, a::Float64=1.0, z::Float64=3.0; fold=true)
         lat = honeycomb(a)
-        slat = twist(lat, lat, N; z=z, m=1)
+        slat = Lattices.twist(lat, lat, N; z=z, m=1)
         slat.specialpoints = kdict_tri_mini
         if fold 
-            Structure.Lattices.foldPC!(slat; shift=[1/3,1/3,0])
+            Lattices.foldPC!(slat; shift=[1/3,1/3,0])
         end
         return slat
     end
 
     function honeycomb_twisted_ABBA(N::Int, a::Float64=1.0, z::Float64=3.0; fold=true)
         lat1 = honeycomb_AB(a, z)
-        translate!(lat1, 3, z/2)
+        Lattices.translate!(lat1, 3, z/2)
         lat2 = honeycomb_AB(a, z)
-        translate!(lat2, 3, z/2)
-        slat = twist(lat1, lat2, N; z=z, m=1)
+        Lattices.translate!(lat2, 3, z/2)
+        slat = Lattices.twist(lat1, lat2, N; z=z, m=1)
         slat.specialpoints = kdict_tri_mini
         if fold 
-            Structure.Lattices.foldPC!(slat; shift=[1/3,1/3,0])
+            Lattices.foldPC!(slat; shift=[1/3,1/3,0])
         end
         return slat
     end
 
     function honeycomb_twisted_ABAB(N::Int, a::Float64=1.0, z::Float64=3.0; fold=true)
         lat1 = honeycomb_AB(a, z)
-        translate!(lat1, 3, z/2)
+        Lattices.translate!(lat1, 3, z/2)
         lat2 = honeycomb_BA(a, z)
-        translate!(lat2, 3, z/2)
-        slat = twist(lat1, lat2, N; z=z, m=1)
+        Lattices.translate!(lat2, 3, z/2)
+        slat = Lattices.twist(lat1, lat2, N; z=z, m=1)
         slat.specialpoints = kdict_tri_mini
         if fold 
-            Structure.Lattices.foldPC!(slat; shift=[1/3,1/3,0])
+            Lattices.foldPC!(slat; shift=[1/3,1/3,0])
         end
         return slat
     end
 
-
-    using ..Structure.Lattices: displaceZ!, getneighborBZ
-
     function smoothdisplaceZ!(lat, δz_even=0.055, δz_odd=0.0; sharp::Real=1)
         @assert latticedim(lat) == 2 "Lattice must be two-dimensional."
-        @assert abs(dot(getA(lat,:,1), getA(lat,:,2))/(norm(getA(lat,:,1))*norm(getA(lat,:,2)))) ≈ 0.5
+        @assert abs(dot(Lattices.getA(lat,:,1), Lattices.getA(lat,:,2))/(norm(Lattices.getA(lat,:,1))*norm(Lattices.getA(lat,:,2)))) ≈ 0.5
 
         # Define smooth (super)lattice functions
-        Gs = [getB(lat)*v for v = getneighborBZ(lat,1; halfspace=false, innerpoints=true)]
+        Gs = [Lattices.getB(lat)*v for v = Lattices.getneighborBZ(lat,1; halfspace=false, innerpoints=true)]
 
         anglef(b1,b2) = acos(dot(b1,b2)/norm(b1)/norm(b2))
         angles = [anglef(Gs[1], G) for G=Gs]
@@ -184,9 +180,9 @@ module Geometries2D
         fevensharp(x::AbstractVector) = tanh(sharp * feven(x))/2
 
         if sharp > 1
-            displaceZ!(lat, p -> sign(p[3]) * (δz_even * (fevensharp(p)-0.5) + δz_odd * foddsharp(p)))
+            Lattices.displaceZ!(lat, p -> sign(p[3]) * (δz_even * (fevensharp(p)-0.5) + δz_odd * foddsharp(p)))
         else
-            displaceZ!(lat, p -> sign(p[3]) * (δz_even * (feven(p)-0.5) + δz_odd * fodd(p)))
+            Lattices.displaceZ!(lat, p -> sign(p[3]) * (δz_even * (feven(p)-0.5) + δz_odd * fodd(p)))
         end
     end
 

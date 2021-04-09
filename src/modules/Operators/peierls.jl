@@ -100,7 +100,7 @@ function peierlsoutplane(hops, lat::Lattice, p::Int, q::Int; verbose=true)
     mhops = deepcopy(hops)
     peierlsoutplane!(mhops, lat, phase) # add the cell-position independent phases first
 
-    mlat  = Structure.superlattice(lat, [1,q]) # make correct supercell
+    mlat  = Structure.Lattices.superlattice(lat, [1,q]) # make correct supercell
     mhops = TightBinding.superlattice(mhops, [1,q], (r,R)->exp(-1im*2π*(r[2]*R[1])*(p/q)) ) # make correct supercell hamiltonian
 
     mhops, mlat
@@ -310,7 +310,7 @@ end
 #     @assert gcd(p,q)<2 "Integers p,q for flux Φ=p/q should be coprime. (here p=$p, q=$q)"
 #     verbose ? print("Building magnetic supercell for Φ=p/q=$p/$q.") : nothing
 
-#     mlat  = Structure.superlattice(lat, [1,q])
+#     mlat  = Structure.Lattices.superlattice(lat, [1,q])
 #     mhops = TightBinding.superlattice(hops, [1,q])
 
 #     phasefunc(r1,r2) = uniformfieldphase(r1, r2; B=[0,0,p/q])
@@ -322,7 +322,7 @@ end
 
 # function hofstadter2(hops, lat::Lattice, Q::Int)
 
-#     lat0  = Structure.superlattice(lat, [1,1])
+#     lat0  = Structure.Lattices.superlattice(lat, [1,1])
 #     hops0 = TightBinding.superlattice(hops, [1,-1])
 
 #     fluxes = [(p,q) for q=1:Q for p=1:q-1 if gcd(p,q)<2]

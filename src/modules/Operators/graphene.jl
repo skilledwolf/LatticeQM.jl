@@ -66,7 +66,7 @@ function addhaldane_naive!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=f
     cross2D(x, y) = x[1] * y[2] - x[2] * y[1] # needed later on in this scope
 
     # NN  = find_neighbors(lat, 1.0)
-    NNN = Structure.getneighbors(lat, √3; cellrange=cellrange)
+    NNN = Structure.Lattices.getneighbors(lat, √3; cellrange=cellrange)
 
     N = countorbitals(lat)
     D = spacedim(lat)
@@ -75,7 +75,7 @@ function addhaldane_naive!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=f
 
     A = getA(lat)[:,1:ldim]
 
-    neighbors = Structure.getneighborcells(lat, 1; halfspace=false, innerpoints=true, excludeorigin=false) #[[i;j] for i=-1:1 for j=-1:1]
+    neighbors = Structure.Lattices.getneighborcells(lat, 1; halfspace=false, innerpoints=true, excludeorigin=false) #[[i;j] for i=-1:1 for j=-1:1]
     δAs = [A * v for v in neighbors]
 
     # hops = Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}()
@@ -111,18 +111,24 @@ function addhaldane_naive!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=f
     hops
 end
 
-import SciPy
+# import SciPy
+import PyCall
+function __init__()
+    global cKDTree = PyCall.pyimport("scipy.spatial").cKDTree
+end
 # const cKDTree = SciPy.spatial.cKDTree
 import SparseArrays: spzeros
 import ..TightBinding
 import ..Structure
+
+
 
 function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=false, cellrange=1, mode=:none, zmode=:none)
 
     cross2D(x, y) = x[1] * y[2] - x[2] * y[1] # needed later on in this scope
 
     # Lattice references 
-    neighbors = Structure.getneighborcells(lat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)
+    neighbors = Structure.Lattices.getneighborcells(lat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)
     D=Structure.spacedim(lat)
     N = Structure.countorbitals(lat)
     A = Structure.basis(lat,:, 1:Structure.latticedim(lat))
@@ -131,9 +137,9 @@ function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=fa
     poinst2 = deepcopy(points)
 
     # Build lookup
-    trees = Dict(R => SciPy.spatial.cKDTree(transpose(points[1:D,:].+A*R)) for R=neighbors)
+    trees = Dict(R => cKDTree(transpose(points[1:D,:].+A*R)) for R=neighbors)
     allpoints = hcat((points[1:D,:].+A*R for R in neighbors)...)
-    largetree = SciPy.spatial.cKDTree(transpose(allpoints[1:D,:]))
+    largetree = cKDTree(transpose(allpoints[1:D,:]))
 
     # Construction
     # hops = Hops()

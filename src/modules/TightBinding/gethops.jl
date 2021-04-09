@@ -27,7 +27,7 @@ end
 
 function hops!(hops::Hops, lat::Lattice, t::Function; cellrange=2, kwargs...)# where {T<:AbstractMatrix{Float64}}
     # Get neighbor cells
-    neighbors = Structure.getneighborcells(lat, cellrange; halfspace=true, innerpoints=true, excludeorigin=false)
+    neighbors = Structure.Lattices.getneighborcells(lat, cellrange; halfspace=true, innerpoints=true, excludeorigin=false)
     # Iterate the hopping function over orbital pairs and neighbors
     hops!(hops, lat, neighbors, t; kwargs...)
     trim!(hops)

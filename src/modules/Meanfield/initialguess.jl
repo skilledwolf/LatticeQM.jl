@@ -89,7 +89,7 @@ using ..Structure
 function spinspiralangles(lat::Lattice, superperiods)
 
     R = eachcol(Structure.positions(lat))
-    slat = Structure.superlattice(lat, superperiods)
+    slat = Structure.Lattices.superlattice(lat, superperiods)
     B = Structure.getB(slat)
 
     2π * vec(sum(transpose(B)*R; dims=1))

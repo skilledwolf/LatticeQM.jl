@@ -8,7 +8,7 @@ using LatticeQM
 # Build geometry
 ############################################################
 N=30
-lat1 = Structure.reduceto1D(Geometries2D.honeycomb(), [[1, 0] [0, N]])
+lat1 = Structure.Lattices.reduceto1D(Geometries2D.honeycomb(), [[1, 0] [0, N]])
 ks = kpath(lat1; num_points=500)
 
 pos = Operators.positionalong(lat1, Structure.basis(lat1,2))
