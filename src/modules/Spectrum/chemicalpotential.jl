@@ -1,7 +1,7 @@
 # TODO: implement chemicalpotential!(bands::AbstractMatrix, ...)
 # the repeated allocation of bands is problematic for large systems!
 
-using ..TightBinding: getelectronsector
+getelectronsector(H::Function) = H
 
 function chemicalpotential(H, ks, filling::Float64; multimode=:distributed, kwargs...)
 

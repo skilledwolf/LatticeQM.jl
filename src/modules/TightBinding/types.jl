@@ -70,6 +70,10 @@ SparseHops(kv::Pair...) = Hops{SparseMatrixCSC{ComplexF64,Int64}}(Dict(k=>sparse
 SparseHops(d::AbstractDict) = SparseHops(d...)
 SparseHops(G::Base.Generator) = SparseHops(Dict(G...))
 
+# Interface to spectrum
+import ..Spectrum
+Spectrum.getelectronsector(H::Hops) = H
+
 # Size
 Base.size(H::Hops, args...) = Base.size(first(values(H.data)), args...)
 

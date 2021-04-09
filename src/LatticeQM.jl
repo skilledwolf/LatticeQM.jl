@@ -44,19 +44,19 @@ module LatticeQM
     export Structure
     export kpath
 
-    include("modules/TightBinding.jl")
-    using .TightBinding
-    export TightBinding
-    export DenseHops, SparseHops, Hops, AbstractHops, hopdim, addhops!, addhops
-
     include("modules/Spectrum.jl")
     using .Spectrum
     export Spectrum
     export getbands
 
-    include("modules/Floquet.jl")
-    using .Floquet
-    export Floquet
+    include("modules/TightBinding.jl")
+    using .TightBinding
+    export TightBinding
+    export DenseHops, SparseHops, Hops, AbstractHops, hopdim, addhops!, addhops
+
+    # include("modules/Floquet.jl")
+    # using .Floquet
+    # export Floquet
 
     include("modules/Green.jl")
     using .Green

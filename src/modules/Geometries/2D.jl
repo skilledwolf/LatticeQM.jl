@@ -125,30 +125,41 @@ module Geometries2D
     #     specialpoints=kdict_tri
     # )
 
-    function honeycomb_twisted(N::Int, a::Float64=1.0, z::Float64=3.0)
+    import ..Structure
+
+    function honeycomb_twisted(N::Int, a::Float64=1.0, z::Float64=3.0; fold=true)
         lat = honeycomb(a)
         slat = twist(lat, lat, N; z=z, m=1)
         slat.specialpoints = kdict_tri_mini
+        if fold 
+            Structure.Lattices.foldPC!(slat; shift=[1/3,1/3,0])
+        end
         return slat
     end
 
-    function honeycomb_twisted_ABBA(N::Int, a::Float64=1.0, z::Float64=3.0)
+    function honeycomb_twisted_ABBA(N::Int, a::Float64=1.0, z::Float64=3.0; fold=true)
         lat1 = honeycomb_AB(a, z)
         translate!(lat1, 3, z/2)
         lat2 = honeycomb_AB(a, z)
         translate!(lat2, 3, z/2)
         slat = twist(lat1, lat2, N; z=z, m=1)
         slat.specialpoints = kdict_tri_mini
+        if fold 
+            Structure.Lattices.foldPC!(slat; shift=[1/3,1/3,0])
+        end
         return slat
     end
 
-    function honeycomb_twisted_ABAB(N::Int, a::Float64=1.0, z::Float64=3.0)
+    function honeycomb_twisted_ABAB(N::Int, a::Float64=1.0, z::Float64=3.0; fold=true)
         lat1 = honeycomb_AB(a, z)
         translate!(lat1, 3, z/2)
         lat2 = honeycomb_BA(a, z)
         translate!(lat2, 3, z/2)
         slat = twist(lat1, lat2, N; z=z, m=1)
         slat.specialpoints = kdict_tri_mini
+        if fold 
+            Structure.Lattices.foldPC!(slat; shift=[1/3,1/3,0])
+        end
         return slat
     end
 

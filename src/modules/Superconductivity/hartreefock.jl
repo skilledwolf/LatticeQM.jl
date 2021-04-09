@@ -1,6 +1,5 @@
 import ..Meanfield
 using ..Meanfield: hartreefock, hartreefock_pairing
-using ..TightBinding: getelectronsector
 
 function Meanfield.hartreefock(H::BdGOperator{T}, v::AnyHops) where T<:AnyHops
 

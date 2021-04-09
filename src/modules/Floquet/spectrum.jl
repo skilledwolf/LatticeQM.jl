@@ -118,12 +118,13 @@ M denotes the frequency cutoff and therefore also the length of the eigenvectors
 For a d-dimensional Hamiltonian, the Fourier-space eigenvectors will have length d*(2*M+1).
 If timespace=true, these eigenvectors are converted back to time space and will have length dim.
 """
-function Spectrum.wavefunctions(H::AbstractMatrix, drive::periodicDrive, M::Integer; timespace=false)
-    HFloq = getFloquetHamiltonian(M, Spectrum.ensureH(H), drive)
+function Spectrum.wavefunctions(HF::FloquetOperator; timespace=false)
+
+    HFloq = getFloquetHamiltonian(HF)
     U = Spectrum.wavefunctions(HFloq)
 
     if timespace
-        U = transformeigvecs(U, M, 0)
+        U = transformeigvecs(U, HF.M, 0)
     end
 
     return U

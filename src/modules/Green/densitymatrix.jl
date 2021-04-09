@@ -66,7 +66,9 @@ function densitymatrix_multithread!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}
     L = size(ks,2)
 
     energies = SharedArray(zeros(Float64, L))
-    spectrumf = spectrum(H; kwargs...)
+    function spectrumf(k)
+        spectrum(H(k); kwargs...)
+    end
 
     for (δL,ρ0)=ρs
         ρs[δL][:] .= 0 #convert(SharedArray, zero(ρ0))[:]
@@ -109,7 +111,9 @@ function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, �
     L = size(ks,2)
 
     energies = SharedArray(zeros(Float64, L))
-    spectrumf = spectrum(H; kwargs...)
+    function spectrumf(k)
+        spectrum(H(k); kwargs...)
+    end
 
     zeromat, δLs = efficientzero(ρs)
 
@@ -140,7 +144,9 @@ function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ:
     L = size(ks,2)
 
     energies = zeros(Float64, L)
-    spectrumf = spectrum(H; kwargs...)
+    function spectrumf(k)
+        spectrum(H(k); kwargs...)
+    end
 
     for (δL,ρ0)=ρs
         ρs[δL][:] .= 0.0 #convert(SharedArray, zero(ρ0))[:]

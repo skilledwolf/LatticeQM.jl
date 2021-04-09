@@ -59,7 +59,9 @@ end
 
 function dos_serial!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; Γ::Number, kwargs...)
     L = size(ks,2)
-    ϵs = energies(h; kwargs...)
+    function ϵs(k)
+        energies(h(k); kwargs...)
+    end
 
     @showprogress 6 "Computing DOS... " for k=eachcol(ks) # j=1:L
         dos!(DOS, ϵs(k), frequencies; broadening=Γ)
@@ -70,7 +72,10 @@ end
 
 function dos_parallel!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; Γ::Number, kwargs...)
     L = size(ks,2)
-    ϵs = energies(h; kwargs...)
+    function ϵs(k)
+        energies(h(k); kwargs...)
+    end
+
 
     DOS0 = @sync @showprogress 6 "Computing DOS... " @distributed (+) for j=1:L # over ks
         tmp = zero(DOS)

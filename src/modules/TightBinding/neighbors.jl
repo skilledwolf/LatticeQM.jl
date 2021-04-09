@@ -2,8 +2,6 @@
 
 import ..Utils: @scalar2vector
 
-import ..TightBinding: Hops
-
 function getneighborhops(lat::Lattice; cellrange::Int=3)
 
     δt(r) = (0-DEFAULT_PRECISION<r<float(cellrange)/sqrt(3)) ? r : -1

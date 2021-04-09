@@ -43,7 +43,7 @@ end
 
 lat, h = getSSH2D(0.5,1.0,0.5,1.0)
 
-pol1, U1, pol2, U2 = Spectrum.NestedWilson2D(Spectrum.wavefunctions(h), 100, 100,1:2)
+pol1, U1, pol2, U2 = Spectrum.NestedWilson2D(h, 100, 100,1:2)
 
 # en1 = mod.(en1, 1.0)
 p = scatter(pol1[:,1])

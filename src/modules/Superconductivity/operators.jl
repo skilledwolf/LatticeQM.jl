@@ -16,7 +16,7 @@ function electron(H::BdGOperator)
 end
 
 function Operators.localobservables(ρ::BdGOperator, lat)
-    ρ0 = TightBinding.getelectronsector(ρ)
+    ρ0 = getelectronsector(ρ)
     M = Operators.localobservables(ρ0, lat)
 
     Δ= Superconductivity.getpairingsector(ρ) * (1im*Operators.getoperator(lat, "sy"))

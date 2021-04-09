@@ -13,7 +13,9 @@ end
 function ldos!(n::AbstractVector, H, ks::AbstractMatrix, ωs::AbstractVector; Γ::Real=0.1, kwargs...)
     L = size(ks,2)
 
-    spectrumf = spectrum(H; kwargs...)
+    function spectrumf(k)
+        spectrum(H(k); kwargs...)
+    end
 
     n[:] = @sync @showprogress 1 "Computing LDOS..." @distributed (+) for j=1:L
         n0 = zero(n)
@@ -24,8 +26,6 @@ function ldos!(n::AbstractVector, H, ks::AbstractMatrix, ωs::AbstractVector; Γ
     n[:] .= -n ./ L ./ π
 end
 
-
-import ..TightBinding: dim
 
 ldos(H, ks, frequency::Real; kwargs...) = ldos(H, ks, [frequency]; kwargs...)
 function ldos(H, ks, frequencies::AbstractVector; format=:sparse, kwargs...)

@@ -39,7 +39,14 @@ function getFloquetHamiltonian(M::Integer, H0::AbstractMatrix, drive::periodicDr
     return dropzeros!(H) #get rid of 0 entries which werre introduced through H0 and operators
 end
 
-
 getFloquetHamiltonian(M::Number, H0::Function, drive::periodicDrive) = k -> getFloquetHamiltonian(M, H0(k), drive)
 getFloquetHamiltonian(M::Number, H0::Function, drive::Function) = k -> getFloquetHamiltonian(M, H0(k), drive(k))
 
+
+mutable struct FloquetOperator
+    H0
+    drive
+    M::Integer
+end
+
+getFloquetHamiltonian(HF::FloquetOperator; kwargs...) = getFloquetHamiltonian(HF.M, HF.H0, HF.drive; kwargs...)

@@ -6,6 +6,7 @@ module Spectrum
 
     include("Spectrum/types.jl")
 
+    include("Spectrum/expval.jl")
     include("Spectrum/spectrum.jl")
     include("Spectrum/bands.jl")
     include("Spectrum/chemicalpotential.jl")

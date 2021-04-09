@@ -60,7 +60,10 @@ function addholesector!(H::BdGOperator{T}, h::Hops) where T<:Hops
     addhops!(H,H2)
 end
 
-function TightBinding.getelectronsector(H::BdGOperator{T}) where T<:Hops
+# Interface to Spectrum
+import ..Spectrum
+
+function Spectrum.getelectronsector(H::BdGOperator{T}) where T<:Hops
     hops = Hops()
     d = hopdim(H)
 
@@ -84,7 +87,6 @@ end
 
 
 # Indexing interface
-
 Base.values(H::BdGOperator) = Base.values(H.h)
 Base.keys(H::BdGOperator) = Base.keys(H.h)
 Base.getindex(H::BdGOperator,i) = Base.getindex(H.h,i)

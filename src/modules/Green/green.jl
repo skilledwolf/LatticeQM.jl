@@ -41,7 +41,9 @@ function green_parallel!(G::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64
     L = size(ks,2)
 
     energies0_k = zeros(Float64, L) #convert(SharedArray, zeros(Float64, L))
-    spectrumf = spectrum(H; kwargs...)
+    function spectrumf(k)
+        spectrum(H(k); kwargs...)
+    end
 
     for δL = keys(G)
         G[δL][:] .= 0.0 #convert(SharedArray, zero(ρ0))[:]
@@ -79,7 +81,9 @@ function green_serial!(G::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0
     L = size(ks,2)
 
     energies0_k = zeros(Float64, L)
-    spectrumf = spectrum(H; kwargs...)
+    function spectrumf(k)
+        spectrum(H(k); kwargs...)
+    end
 
     for δL = keys(G)
         G[δL][:] .= 0.0 #convert(SharedArray, zero(ρ0))[:]

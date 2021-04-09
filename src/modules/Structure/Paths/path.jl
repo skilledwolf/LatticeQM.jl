@@ -43,6 +43,23 @@ function DiscretePath(kDict0::LabeledPoints; kwargs...)
     DiscretePath(kDict0, named_path; kwargs...)
 end
 
+# Interface for iteration and item access
+import Base
+Base.eachcol(ks::DiscretePath) = Base.eachcol(points(ks))
+
+Base.size(ks::DiscretePath, args...) = Base.size(ks.points, args...)
+
+Base.iterate(ks::DiscretePath) = length(ks)>0 ? (first(eachcol(ks.points)),Base.firstindex(ks)) : nothing
+Base.iterate(ks::DiscretePath, state) = (state+=1; state>lastindex(ks) ? nothing : (ks[state],state))
+Base.length(ks::DiscretePath) = Base.size(ks,2)
+# Base.eltype(ks::DiscretePath) = typeof(ks[firstindex(ks)])
+
+Base.values(ks::DiscretePath) = Base.eachcol(ks.points)
+Base.firstindex(ks::DiscretePath) = first(CartesianIndices(ks.points))[2]
+Base.lastindex(ks::DiscretePath) = last(CartesianIndices(ks.points))[2]
+Base.getindex(ks::DiscretePath, args...) = Base.getindex(ks.points, args...)
+Base.setindex!(ks::DiscretePath,v,args...) = Base.setindex!(ks.points,v,args...)
+
 ################################################################################
 ################################################################################
 
@@ -54,7 +71,7 @@ const kIterable = Union{DiscretePath, <:AbstractMatrix{Float64}, <:AbstractVecto
 eachpoint(kPoints::DiscretePath) = eachcol(kPoints.points)
 eachpoint(ks::T) where {T<:AbstractMatrix{Float64}} = eachcol(ks)
 eachpoint(ks::T2) where {T1<:AbstractVector{Float64},T2<:AbstractVector{T1}} = ks
-points(kPoints::DiscretePath) = kPoints.points
+points(ks::DiscretePath) = ks.points
 points(ks::T) where {T<:AbstractMatrix{Float64}} = ks
 points(ks::T2) where {T2<:AbstractVector{<:AbstractVector{Float64}}} = hcat(ks...)
 

@@ -41,7 +41,9 @@ function opticalconductivity(frequencies::AbstractVector, H, J1::Function, J2::F
 
 #     ks = points(ks)
     N = size(ks, 2)
-    spectrumf = spectrum(H; kwargs...)
+    function spectrumf(k)
+        spectrum(H(k); kwargs...)
+    end
 
 #     OC = SharedArray(complex(zero(frequencies)))
     OC = complex(zero(frequencies))
