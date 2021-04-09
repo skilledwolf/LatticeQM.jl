@@ -65,3 +65,6 @@ If you want to help develop the package, I recommend
 ```julia
 using Pkg; Pkg.remove("LatticeQM")
 ```
+
+## Credits
+I want to thank Tobias Kästli (@vigoleis) for developing the Floquet module and for providing the corresponding Tutorial notebook.
