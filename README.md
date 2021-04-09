@@ -1,8 +1,9 @@
 # LatticeQM.jl
 
+**Not intended for public use yet. Much of the documentation is still missing.**
+
 This is a development repository for julia package that deals with lattice structures and tight-binding models.
 
-Not intended for public use yet. Much of the documentation is still missing.  
 To get started, check out the notebooks in the folder `tutorial`.  
 If you want to know more, get in touch with me.
 
