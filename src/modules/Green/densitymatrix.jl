@@ -78,7 +78,7 @@ function densitymatrix_multithread!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}
     Mtype = eltype(first(values(ρs)))
 
     lk = Threads.ReentrantLock()
-    Threads.@threads for i_=1:L#i_=ProgressBar(1:L)
+    Threads.@threads for i_=ProgressBar(1:L)#i_=1:L
         k = ks[:,i_]
         ϵs, U = spectrumf(k) #@time
 
