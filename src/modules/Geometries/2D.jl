@@ -163,7 +163,7 @@ module Geometries2D
     end
 
     function smoothdisplaceZ!(lat, δz_even=0.055, δz_odd=0.0; sharp::Real=1)
-        @assert latticedim(lat) == 2 "Lattice must be two-dimensional."
+        @assert Lattices.latticedim(lat) == 2 "Lattice must be two-dimensional."
         @assert abs(dot(Lattices.getA(lat,:,1), Lattices.getA(lat,:,2))/(norm(Lattices.getA(lat,:,1))*norm(Lattices.getA(lat,:,2)))) ≈ 0.5
 
         # Define smooth (super)lattice functions
