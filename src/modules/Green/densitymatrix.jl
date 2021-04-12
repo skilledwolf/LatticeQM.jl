@@ -65,7 +65,7 @@ import ..TightBinding: efficientzero, flexibleformat!, fourierphase
 function densitymatrix_multithread!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
     L = size(ks,2)
 
-    energies = SharedArray(zeros(Float64, L))
+    energies = zeros(Float64, L)
     function spectrumf(k)
         spectrum(H(k); kwargs...)
     end
