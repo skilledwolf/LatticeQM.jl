@@ -75,8 +75,8 @@ function foldPC!(lat::Lattice; shift=0.0)
         lat.basis[1:2,1:2] = A[1:2,1:2] * T
         lat.spacecoordinates[1:2,:] = inv(T) * lat.spacecoordinates[1:2,:]
 
-        for (k,v) in lat.specialpoints.coord # update high-symmetry points
-            specialpoints.coord[k] = transpose(T) * v
+        for (k,v) in lat.specialpoints.points # update high-symmetry points
+            specialpoints.points[k] = transpose(T) * v
         end
         lat.specialpoints = specialpoints
     end

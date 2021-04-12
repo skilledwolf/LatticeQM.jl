@@ -1,14 +1,24 @@
-import ..Structure
+import ..Structure.Lattices
 import ..Structure.Lattices: Lattice
 
 import LinearAlgebra: norm, Diagonal
 
+function positionalong(lat::Lattice, i::Integer; kwargs...)
+    positionalong(lat, Lattices.basis(lat,i); kwargs...)
+end
 
-function positionalong(lat::Lattice, v::AbstractVector; normalize=true)
+
+function positionalong(lat::Lattice, v::AbstractVector; rescale=false, normalize=true)
 
     if normalize
         v = v/norm(v)
     end
 
-    Diagonal(vec(transpose(v)*Structure.positions(lat)))
+    M = Diagonal(vec(transpose(v)*Lattices.positions(lat)))
+
+    if rescale
+        M = 2 .*(M-minimum(M)*I)./(maximum(M)-minimum(M)) - 1.0*I
+    end
+
+    M
 end

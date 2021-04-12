@@ -1,52 +1,41 @@
-struct DiscretePath
-    ticks::Vector{Float64}
-    ticklabels::Vector{String}
-    positions::Vector{Float64} # linear positions along path
-    points::Matrix{Float64}
-end
-
 using LaTeXStrings: latexstring
 
+using OrderedCollections: OrderedDict
+
+struct DiscretePath
+    points::Matrix{Float64}
+    ticks::OrderedDict{Float64,String}
+    positions::Vector{Float64} # linear positions along path
+end
+
+# tickindices(ks::DiscretePath) = keys(ks.ticks)
+ticks(ks::DiscretePath) = collect(keys(ks.ticks))
+ticklabels(ks::DiscretePath) = collect(values(ks.ticks))
+
 function Base.show(io::IO, ks::DiscretePath)
-    println(io, "Discrete Path: ", join(latexstring.(ks.ticklabels), "→"), "  (",size(ks.points,2)," points)")
+    println(io, "Discrete Path: ", join(latexstring.(ticklabels(ks)), "→"), "  (",size(ks.points,2)," points)")
 end
-
-using HDF5
-using ...DummySave
-function DummySave.save!(file, ks::DiscretePath) # file should be hdf5 output stream
-    g = g_create(file, "path")
-
-    g["ticks"] = ks.ticks
-    g["ticklabels"] = ks.ticklabels
-    g["positions"] = ks.positions
-    g["points"] = ks.points
-end
-
-DummySave.save(data::DiscretePath, filename::String="kpath.h5") = DummySave.save_wrapper(data, filename)
-
-################################################################################
-################################################################################
 
 # Initialization
-function DiscretePath(kDict0::LabeledPoints, named_path::Vector{String}; B::AbstractMatrix=1.0I, num_points::Int=60)
+DiscretePath(ks::Matrix, ticks::Vector, ticklabels::Vector{String}, pos::Vector) = DiscretePath(ks, OrderedDict(f=>s for (f,s)=zip(ticks,ticklabels)),pos)
 
-    ticklabels = [kDict0.label[key] for key in named_path]
+function DiscretePath(kdict::LabeledPoints, named_path::Vector{String}; B::AbstractMatrix=1.0I, num_points::Int=60)
+    
+    ticklabels, points = kdict(named_path)
+    points, ticks, positions = getpath(B * points; num=num_points, B=B)
 
-    ticks, positions, points = names2path(named_path, kDict0.coord, num_points; B=B)
-
-    DiscretePath(ticks, ticklabels, positions, points)
+    DiscretePath(points, ticks, ticklabels, positions)
 end
 
-function DiscretePath(kDict0::LabeledPoints; kwargs...)
+function DiscretePath(kdict::LabeledPoints; kwargs...)
 
-    named_path = kDict0.defaultpath
-    DiscretePath(kDict0, named_path; kwargs...)
+    named_path = kdict.defaultpath
+    DiscretePath(kdict, named_path; kwargs...)
 end
 
 # Interface for iteration and item access
 import Base
-Base.eachcol(ks::DiscretePath) = Base.eachcol(points(ks))
-
+Base.eachcol(ks::DiscretePath) = Base.eachcol(ks.points)
 Base.size(ks::DiscretePath, args...) = Base.size(ks.points, args...)
 
 Base.iterate(ks::DiscretePath) = length(ks)>0 ? (first(eachcol(ks.points)),Base.firstindex(ks)) : nothing
@@ -57,6 +46,7 @@ Base.length(ks::DiscretePath) = Base.size(ks,2)
 Base.values(ks::DiscretePath) = Base.eachcol(ks.points)
 Base.firstindex(ks::DiscretePath) = first(CartesianIndices(ks.points))[2]
 Base.lastindex(ks::DiscretePath) = last(CartesianIndices(ks.points))[2]
+Base.get(ks::DiscretePath, args...) = Base.get(ks.points, args...)
 Base.getindex(ks::DiscretePath, args...) = Base.getindex(ks.points, args...)
 Base.setindex!(ks::DiscretePath,v,args...) = Base.setindex!(ks.points,v,args...)
 
@@ -67,29 +57,39 @@ import ...Utils
 
 # Point iterator
 # Define proper iterators for each input type
-const kIterable = Union{DiscretePath, <:AbstractMatrix{Float64}, <:AbstractVector{T1}} where {T1<:AbstractVector{Float64}}
-eachpoint(kPoints::DiscretePath) = eachcol(kPoints.points)
-eachpoint(ks::T) where {T<:AbstractMatrix{Float64}} = eachcol(ks)
-eachpoint(ks::T2) where {T1<:AbstractVector{Float64},T2<:AbstractVector{T1}} = ks
 points(ks::DiscretePath) = ks.points
-points(ks::T) where {T<:AbstractMatrix{Float64}} = ks
-points(ks::T2) where {T2<:AbstractVector{<:AbstractVector{Float64}}} = hcat(ks...)
+points(ks::T) where {T<:AbstractMatrix} = ks
+points(ks::T2) where {T2<:AbstractVector{<:AbstractVector}} = hcat(ks...)
 
-function sumk(f_k::Function, ks::kIterable)
-    ks = points(ks)
+function sumk(f_k::Function, ks)
     sum(f_k(k) for k=eachcol(ks))/size(ks,2)
 end
 
-function sumk(f_k::Function; klin::Int)
-    ks = Utils.regulargrid(;nk=klin^2)
-    sum(f_k(k) for k=eachcol(ks))/size(ks,2)
-end
+sumk(f_k::Function; klin::Int) = sumk(f_k, Utils.regulargrid(;nk=klin^2))
+
 
 ################################################################################
 ################################################################################
 
 # Manipulators
 function scaleticks(kPoints::DiscretePath; start=0.0, length=1.0)
-    k_ticks = kPoints.ticks
+    k_ticks = ticks(kPoints)
     start .+ k_ticks/maximum(k_ticks)  * (length-start)
 end
+
+
+################################################################################
+################################################################################
+
+using HDF5
+using ...DummySave
+function DummySave.save!(file, ks::DiscretePath) # file should be hdf5 output stream
+    g = g_create(file, "path")
+
+    g["ticks"] = ticks(ks)
+    g["ticklabels"] = ticklabels(ks)
+    g["positions"] = ks.positions
+    g["points"] = ks.points
+end
+
+DummySave.save(data::DiscretePath, filename::String="kpath.h5") = DummySave.save_wrapper(data, filename)

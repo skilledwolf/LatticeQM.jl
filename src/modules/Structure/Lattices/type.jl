@@ -1,4 +1,4 @@
-using ..Paths
+import ..Paths
 
 """
     Lattice
@@ -38,6 +38,10 @@ Type that contains all information about a lattice.
     filterindices(lat::Lattice, name::String, condition::Function)
 
 ### Method functions
+    addbasis!
+    addorbital!
+    addorbitals!
+    addextra!
     setextracoordinates!
     fractionalize!
     foldfractional
@@ -60,14 +64,11 @@ mutable struct Lattice
     spacecoordinates::Matrix{Float64} # d × N # fractional coordinates w.r.t. A
     extracoordinates::Matrix{Float64} # D × N
     extralabels::Dict{String,Int}
-    specialpoints::LabeledPoints
+    specialpoints::Paths.LabeledPoints
 end
 
-kdict = LabeledPoints(Dict{String,AbstractVector{Float64}}(), Dict{String,String}(), Vector{String}([]))
 
-# Lattice(basis::Matrix{Float64}) = Lattice(basis, zeros(Float64, size(basis,1), 1))
-
-function Lattice(basis::Matrix{Float64}, spacecoordinates::Matrix{Float64}; extralabels::Vector{String}=Vector{String}(), specialpoints=kdict)
+function Lattice(basis::Matrix{Float64}, spacecoordinates::Matrix{Float64}; extralabels::Vector{String}=Vector{String}(), specialpoints=Paths.LabeledPoints())
     # @assert size(spacecoordinates,1) == size(basis,2)
     # @assert size(basis,1) == size(basis,2)
 
@@ -77,7 +78,7 @@ end
 
 import LinearAlgebra: I
 
-function Lattice(basis::Matrix{Float64}, spacecoordinates::Matrix{Float64}, extracoordinates::Matrix{Float64}; extralabels::Vector{String}=Vector{String}(), specialpoints=kdict)
+function Lattice(basis::Matrix{Float64}, spacecoordinates::Matrix{Float64}, extracoordinates::Matrix{Float64}; extralabels::Vector{String}=Vector{String}(), specialpoints=Paths.LabeledPoints())
     d = size(basis,2)
     D = size(basis,1)
     @assert D >= d "Cannot have more basis vectors (here $d) than space dimensions (here $D)."
@@ -93,7 +94,7 @@ end
 
 import LinearAlgebra: det
 
-function Lattice(basis::Matrix{Float64}, latticedim::Int, spacecoordinates::Matrix{Float64}, extracoordinates::Matrix{Float64}; extralabels::Vector{String}=Vector{String}(), specialpoints=kdict)
+function Lattice(basis::Matrix{Float64}, latticedim::Int, spacecoordinates::Matrix{Float64}, extracoordinates::Matrix{Float64}; extralabels::Vector{String}=Vector{String}(), specialpoints=Paths.LabeledPoints())
     D1 = size(basis,1); D2 = size(basis,2)
     D3 = size(spacecoordinates,1)
     @assert D3 == D2 "Number of coordinates (here $D3) must have same length as number of basis vectors (here $D2)."
@@ -108,9 +109,7 @@ end
 
 
 function Lattice(basis::Matrix; periodic::Int=0, extra::Vector{String}=String[])
-
-    Lattice(float(basis), periodic, zeros(Float64, size(basis,1), 0), zeros(Float64, size(extra,1), 0); extralabels=extra, specialpoints=kdict)
-    
+    Lattice(float(basis), periodic, zeros(Float64, size(basis,1), 0), zeros(Float64, size(extra,1), 0); extralabels=extra, specialpoints=Paths.LabeledPoints())
 end
 
 function Lattice()

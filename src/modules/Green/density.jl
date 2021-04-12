@@ -11,8 +11,11 @@ end
 
 import ..Spectrum: spectrum
 
-function density(hamiltonian::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0; format=:dense, kwargs...)
-    Σ = spectrum(hamiltonian; format=format)
+function density(H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; format=:dense, kwargs...)
+
+    function Σ(k)
+        spectrum(H(k); format=format)
+    end
 
     n = zeros(Float64, size(hamiltonian(ks[:,1]))[1])
     density!(n, Σ, ks, μ; kwargs...)

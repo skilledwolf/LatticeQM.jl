@@ -58,7 +58,7 @@ function getneighborcells(A::AbstractMatrix, k::Int=1; halfspace=true, innerpoin
     D = map(x->round(LinearAlgebra.norm(x); digits=9), eachcol(A*IJ))
     d = sort(unique(D)) # unique distances from origin unit cell
 
-    IJ = innerpoints ? IJ[:,D .<= d[k+1]] : IJ[:,D .== d[k+1]]
+    IJ = innerpoints ? IJ[:, D .<= d[k+1]] : IJ[:, D .== d[k+1]]
 
     # naive iteration to make sure [I,J] and [-I,-J] do not both appear
     IJ = [Vector(v) for v=eachcol(IJ)]

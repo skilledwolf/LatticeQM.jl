@@ -1,7 +1,6 @@
 # using Plots
 # using HDF5
 using DelimitedFiles
-import ..Structure.Paths: scaleticks
 import ..DummySave
 
 import ..Structure.Paths: DiscretePath
@@ -41,10 +40,12 @@ function Base.show(io::IO, bands::BandData)
     show(io, bands.path)
 end
 
+using ..Structure.Paths: ticks, ticklabels, scaleticks
+
 function DummySave.savedlm(bands::BandData; path="data", suffix="")
     mkpath(path)
     writedlm(joinpath(path, "kticks$suffix.out"), scaleticks(bands.path; start=1.0, length=float(size(bands.bands)[2])))
-    writedlm(joinpath(path, "kticklabels$suffix.out"), bands.path.ticklabels)
+    writedlm(joinpath(path, "kticklabels$suffix.out"), ticklabels(bands.path))
     writedlm(joinpath(path, "bands$suffix.out"), bands.bands)
     if bands.obs != nothing
         for k=1:size(bands.obs, 3)

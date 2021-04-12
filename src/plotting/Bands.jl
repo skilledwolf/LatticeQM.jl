@@ -1,6 +1,6 @@
 import Statistics: quantile
 import LatticeQM.Spectrum: BandData
-import LatticeQM.Structure.Paths: scaleticks
+import LatticeQM.Structure.Paths: scaleticks, ticklabels
 
 @recipe function f(data::BandData, n::Integer = 1; sharpen=0.0, clims=nothing, csymmetric=true, cquantile=0.97)
     if data.obs == nothing || n == 0
@@ -50,7 +50,7 @@ import LatticeQM.Structure.Paths: scaleticks
     markersize --> 1.5
     markerstrokewidth := 0
     size --> (320,300)
-    xticks --> (scaleticks(data.path; start=1.0, length=float(size(data.bands)[2])), data.path.ticklabels)
+    xticks --> (scaleticks(data.path; start=1.0, length=float(size(data.bands)[2])), ticklabels(data.path))
 
     transpose(data.bands)
 end

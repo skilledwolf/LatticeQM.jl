@@ -60,7 +60,9 @@ function berry(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[1])
     midkgrid, berry(statesgrid0)
 end
 
-function berryalongpath(H, kpoints::AbstractMatrix{<:Float64})
+import ..Utils: rotation2D
+
+function berryalongpath(H, kpoints)
 """
     Calculate the abelian Berry Curvature for each band along a path of discrete k points
 """
@@ -74,7 +76,7 @@ function berryalongpath(H, kpoints::AbstractMatrix{<:Float64})
     # add some "dummy" points to build the grid
     k0 = kpoints[:,1] - (kpoints[:,2]-kpoints[:,1])
     kNp1 = kpoints[:,N] + (kpoints[:,N]-kpoints[:,N-1])
-    kpoints = hcat(k0,kpoints,kNp1)
+    kpoints = hcat(k0,kpoints[:,:],kNp1)
 
     kpoints .+= 0.10*norm(kpoints[:,2]-kpoints[:,1])*rand(2)
 
@@ -108,11 +110,8 @@ end
 getberry!(bands::BandData, h, ks) = getberry_wf!(bands, h, ks)
 
 function getberry_wf!(bands::BandData, h, ks)
-    function wavefunctionsf(k)
-        wavefunctions(h(k))
-    end
     
-    obs = Array(berryalongpath(wavefunctionsf, ks.points))
+    obs = Array(berryalongpath(h, ks))
     obs = reshape(obs, (size(obs)...,1))
 
     if bands.obs == nothing
@@ -266,7 +265,7 @@ For bands=[] it returns all chern numbers.
 """
 function getcherns(H, NX::Int, NY::Int=0, bands::AbstractArray=[])
     _, _, grid = statesgrid(H, NX, NY, bands)
-    cherns = [sum(Spectrum.berry(grid[:,:,:,i:i])) for i=1:size(grid,4)]
+    cherns = [sum(Spectrum.berry(grid[:,:,:,i:i])[2]) for i=1:size(grid,4)]
 
 end
 

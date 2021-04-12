@@ -1,8 +1,27 @@
 mutable struct LabeledPoints
-    coord::Dict{String, AbstractVector{Float64}}
-    label::Dict{String, String}
+    points::Dict{String,Vector{Float64}}
+    labels::Dict{String, String}
     defaultpath::Vector{String}
 end
+
+labels(lpoints::LabeledPoints, S::AbstractVector{String}) = collect(lpoints.labels[s] for s=S)
+points(lpoints::LabeledPoints, S::AbstractVector{String}) = hcat((lpoints.points[s] for s=S)...)
+
+(lpoints::LabeledPoints)(s::String) = lpoints[s]
+(lpoints::LabeledPoints)(S::AbstractVector{String}) = (labels(lpoints, S), points(lpoints, S))#?
+
+# Interface for iteration and item access
+import Base
+# Base.get(lpoints::LabeledPoints, args...) = (Base.get(lpoints.labels, args...), Base.get(lpoints.points, args...))
+Base.haskey(lpoints::LabeledPoints, args...) = Base.haskey(lpoints.points, args...)
+Base.length(lpoints::LabeledPoints) = Base.length(lpoints.points)
+# Base.eltype(lpoints::LabeledPoints) = Base.eltype(lpoints.points)
+
+Base.values(lpoints::LabeledPoints) = Base.values(lpoints.points)
+Base.keys(lpoints::LabeledPoints) = Base.keys(lpoints.points)
+Base.getindex(lpoints::LabeledPoints, args...) = Base.getindex(lpoints.points, args...)
+Base.setindex!(lpoints::LabeledPoints, v, args...) = Base.setindex!(lpoints.points, v, args...)
+
 
 # Initialization
 function LabeledPoints(names::Vector{String}, coord::Vector{T}, label::Vector{String}, default::Vector{String}) where {T<:AbstractVector{Float64}}

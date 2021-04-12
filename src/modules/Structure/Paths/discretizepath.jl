@@ -1,22 +1,14 @@
-function names2coordinates(names, dict)
-    [dict[name] for name in names]
-end
+using LinearAlgebra: norm, I, transpose
 
-function coordinates2points(B, coords)
-    [Vector(B * c) for c in coords]
-end
-
-function names2path(names, dict, N; B=I)
-    path(coordinates2points(B, names2coordinates(names, dict)), N; B=B)
-end
-
-function path(points::AbstractVector, N; B=I)
-
-    if length(points)==1 # if there's only one point there is no use in discretizing anything ;-)
-        return [0.0], [0.0], transpose(B * inv(transpose(B) * B)) * hcat(points...)
-    end
+getpath(points::AbstractMatrix; kwargs...) = getpath(collect(eachcol(points)); kwargs...)
+function getpath(points::AbstractVector; num::Int=100, B=I)
 
     num_points = length(points)
+
+    if num_points==1 # if there's only one point there is no use in discretizing anything ;-)
+        return transpose(B * inv(transpose(B) * B)) * hcat(points...), [0.0], [0.0]
+    end
+    
     differences = [points[i]-points[i-1] for i=2:num_points]
     differences_len = [norm(diff) for diff in differences]
     differences = differences ./ differences_len
@@ -24,9 +16,8 @@ function path(points::AbstractVector, N; B=I)
     pushfirst!(cumtotal, 0.0)
 
     path_array = []
-
-    parametric_path = collect(range(0; length=N, stop=cumtotal[end]))
-    for s in range(0; length=N, stop=cumtotal[end])
+    parametric_path = collect(range(0; length=num, stop=cumtotal[end]))
+    for s in range(0; length=num, stop=cumtotal[end])
         del_s = s .- cumtotal
 
         for i=2:num_points
@@ -38,6 +29,5 @@ function path(points::AbstractVector, N; B=I)
     end
 
     tick_coordinates = cumtotal
-
-    return tick_coordinates, parametric_path,  transpose(B * inv(transpose(B) * B)) * hcat(path_array...)
+    return transpose(B * inv(transpose(B) * B)) * hcat(path_array...), tick_coordinates, parametric_path
 end

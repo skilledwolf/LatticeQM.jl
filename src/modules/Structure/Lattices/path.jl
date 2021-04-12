@@ -1,4 +1,4 @@
-using ..Paths
+import ..Paths
 
 function Paths.DiscretePath(lat::Lattice; kwargs...)
     named_path = lat.specialpoints.defaultpath
@@ -10,7 +10,7 @@ function Paths.DiscretePath(lat::Lattice, named_path::Vector{String}; kwargs...)
     Paths.DiscretePath(lat.specialpoints, named_path; B=getB(lat), kwargs...)
 end
 
-function Paths.DiscretePath(lat::Lattice, kdict::LabeledPoints, named_path::Vector{String}; kwargs...)
+function Paths.DiscretePath(lat::Lattice, kdict::Paths.LabeledPoints, named_path::Vector{String}; kwargs...)
     Paths.DiscretePath(kdict, named_path; B=getB(lat), kwargs...)
 end
 

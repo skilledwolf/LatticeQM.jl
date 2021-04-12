@@ -51,8 +51,11 @@ function plt.plot(bands::LatticeQM.Spectrum.BandData, n::Integer=1; cmap=cm_BBR,
         fig.colorbar(last(ims); ax=ax)
     end
 
-    ax.set_xticks(bands.path.ticks)
-    ax.set_xticklabels(bands.path.ticklabels)
+    ticks = Structure.Paths.ticks(bands.path)
+    ticklabels = Structure.Paths.tickslabels(bands.path)
+
+    ax.set_xticks(ticks)
+    ax.set_xticklabels(ticklabels)
     ax.set_ylabel("Energy")
     
     ax

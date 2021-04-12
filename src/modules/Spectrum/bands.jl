@@ -60,7 +60,7 @@ function bandmatrix_serial(H, ks; hidebar=false, num_bands::Int=0, kwargs...)
         bands[:,j_] .= real.(energiesf(ks[:,j_]))
     end
 
-    convert(Array, bands)
+    bands
 end
 
 function bandmatrix_distributed(H, ks; hidebar=false, num_bands::Int=0, kwargs...)
@@ -128,7 +128,7 @@ function bandmatrix_serial(H, ks, projector; hidebar=false, num_bands::Int=0, kw
         end
     end
 
-    Array(bands), Array(obs)
+    bands, obs
 end
 
 function bandmatrix_distributed(H, ks, projector; hidebar=false, num_bands::Int=0, kwargs...)
