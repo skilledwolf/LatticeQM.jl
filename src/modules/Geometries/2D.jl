@@ -135,6 +135,7 @@ module Geometries2D
         end
         return slat
     end
+    precompile(honeycomb_twisted, (Int, Float64, Float64))
 
     function honeycomb_twisted_ABBA(N::Int, a::Float64=1.0, z::Float64=3.0; fold=true)
         lat1 = honeycomb_AB(a, z)
@@ -148,6 +149,7 @@ module Geometries2D
         end
         return slat
     end
+    precompile(honeycomb_twisted_ABBA, (Int, Float64, Float64))
 
     function honeycomb_twisted_ABAB(N::Int, a::Float64=1.0, z::Float64=3.0; fold=true)
         lat1 = honeycomb_AB(a, z)
@@ -161,6 +163,7 @@ module Geometries2D
         end
         return slat
     end
+    precompile(honeycomb_twisted_ABAB, (Int, Float64, Float64))
 
     function smoothdisplaceZ!(lat, δz_even=0.055, δz_odd=0.0; sharp::Real=1)
         @assert Lattices.latticedim(lat) == 2 "Lattice must be two-dimensional."
