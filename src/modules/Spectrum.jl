@@ -8,7 +8,6 @@ module Spectrum
 
     include("Spectrum/expval.jl")
     include("Spectrum/spectrum.jl")
-    include("Spectrum/bands.jl")
     include("Spectrum/chemicalpotential.jl")
     include("Spectrum/bandgap.jl")
     include("Spectrum/groundstatesum.jl")

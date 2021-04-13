@@ -62,7 +62,7 @@ using ProgressBars
 import ..Spectrum: spectrum, groundstate_sumk
 import ..TightBinding: efficientzero, flexibleformat!, fourierphase
 
-function densitymatrix_multithread!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
+function densitymatrix_multithread!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, progressmin::Int=20, kwargs...)
     L = size(ks,2)
 
     energies = zeros(Float64, L)
@@ -107,7 +107,7 @@ using ..TightBinding: Hops, AnyHops
 import ..Spectrum: spectrum, groundstate_sumk
 import ..TightBinding: efficientzero, flexibleformat!, fourierphase
 
-function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
+function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, progressmin::Int=20, kwargs...)
     L = size(ks,2)
 
     energies = SharedArray(zeros(Float64, L))
@@ -117,7 +117,7 @@ function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, �
 
     zeromat, δLs = efficientzero(ρs)
 
-    ρsMat = @sync @showprogress 20 "Eigensolver... " @distributed (+) for i_=1:L
+    ρsMat = @sync @showprogress progressmin "Eigensolver... " @distributed (+) for i_=1:L
         k = ks[:,i_]
         ϵs, U = spectrumf(k) #@time
 
@@ -140,7 +140,7 @@ function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, �
     sum(energies)/L # return the groundstate energy
 end
 
-function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
+function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, progressmin::Int=20, kwargs...)
     L = size(ks,2)
 
     energies = zeros(Float64, L)
@@ -152,7 +152,7 @@ function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ:
         ρs[δL][:] .= 0.0 #convert(SharedArray, zero(ρ0))[:]
     end
 
-    @showprogress 20 "Eigensolver... " for i_=1:L
+    @showprogress progressmin "Eigensolver... " for i_=1:L
         k = ks[:,i_]
         ϵs, U = spectrumf(k) #@time
 

@@ -83,7 +83,7 @@ function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, 
 
         if checkpoint != ""
             verbose ? @info("Saving intermediate mean field...") : nothing
-            JLD.save(checkpoint, "mf", ρ1)
+            JLD.save(checkpoint, "mf", DenseHops(ρ1))
         end
 
         ϵ0 + ℋ_scalar(ρ1) # proper ground state energy
