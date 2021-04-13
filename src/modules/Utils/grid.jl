@@ -1,4 +1,3 @@
-using RecursiveArrayTools
 
 function regulargrid(;nk::Int=100, dim::Int=2)
     nk = floor(Int, nk^(1/dim))
@@ -6,7 +5,7 @@ function regulargrid(;nk::Int=100, dim::Int=2)
     it1d = range(0.0, 1.0; length=nk+1)[1:end-1]
     itNd = Iterators.product(Iterators.repeated(it1d, dim)...)
 
-    out = convert(Array, VectorOfArray([[y...] for y=[itNd...]]))
+    out = hcat(([v...] for y=itNd)...)
 
     out
 end

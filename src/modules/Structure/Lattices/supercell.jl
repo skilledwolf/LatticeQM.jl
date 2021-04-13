@@ -11,6 +11,10 @@ Build superlattice geometry, i.e., build a larger supercell at it's new lattice 
 """
 function superlattice(lat::Lattice, superperiods::Matrix{Int}; kwargs...)
 
+    if superperiods==[[1,0],[0,1]] # nothing to do!
+        return lat
+    end
+
     D = spacedim(lat)
     d = latticedim(lat)
     Λ = basis(lat)
@@ -155,36 +159,32 @@ end
 
 #### Utility functions
 
-import Base.Iterators
-import RecursiveArrayTools: VectorOfArray
-
 UnitCubeCornerIterator(dim::Int64=3) = Iterators.product(Iterators.repeated(0:1, dim)...)
-UnitCubeCorners(dim::Int64=3) = convert(Array, VectorOfArray([[y...] for y=[UnitCubeCornerIterator(dim)...]]))
+UnitCubeCorners(dim::Int64=3) = hcat(([v...] for v=UnitCubeCornerIterator(dim))...)
 BoundIterator(bounds) = Iterators.product(map(x->x[1]:x[2], bounds)...)
-inunitrange(u; offset=1e-6) = all( (u .< 1 - offset) .& (u .>= 0 - offset) ) #all(y -> 0.0 - offset < y  < 1.0 - offset, u)
+inunitrange(u; offset=sqrt(eps())) = all( (u .< 1 - offset) .& (u .>= 0 - offset) ) #all(y -> 0.0 - offset < y  < 1.0 - offset, u)
 
 """
-    supercellpoints(M::AbstractMatrix{Int}; offset::Float64=1e-2)
+    supercellpoints(M::AbstractMatrix{Int}; offset::Float64=sqrt(eps()))
 
 Consider an integer lattice of dimension D=size(M,1). Matrix M describes a (non-orthogonal) superlattice
 of this integer lattice. We want to find all lattice points that lie inside a unit cell of this
 new superlattice.
 """
-function supercellpoints(M::AbstractMatrix{Int}; offset::Float64=1e-7)#, check=false) # offset is a dummy variable, should be removed
+function supercellpoints(M::AbstractMatrix{Int}; offset::Float64=sqrt(eps()))#, check=false) # offset is a dummy variable, should be removed
     d = size(M)[1]
     Φ = inv(M) # transformation from integer lattice into unit cube coordinates of the
                 # superlattice unit cell
-#     offset = 1e-5 + rand() * offset
 
     # Get all corner points of the (non-orthogonal) parallepiped described by M
     # then get limits for an enclosing box region
     corners = M * UnitCubeCorners(d)
     bounds = extrema(corners; dims=2)
 
-    innerpoints = Φ * hcat([[x...] for x in BoundIterator(bounds)]...)
-    innerpoints = M * hcat([p for p in eachcol(innerpoints) if all((p .< 1-offset) .& (p .> 0-offset))]...)
+    innerpoints = Φ * hcat(([x...] for x in BoundIterator(bounds))...)
+    innerpoints = M * hcat((p for p in eachcol(innerpoints) if inunitrange(p; offset=offset))...)
 
     return round.(Int, innerpoints)  # M' * points
 end
-
+precompile(supercellpoints, (Matrix{Int},))
 
