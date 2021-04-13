@@ -5,7 +5,7 @@ function regulargrid(;nk::Int=100, dim::Int=2)
     it1d = range(0.0, 1.0; length=nk+1)[1:end-1]
     itNd = Iterators.product(Iterators.repeated(it1d, dim)...)
 
-    out = hcat(([v...] for y=itNd)...)
+    out = hcat(([v...] for v=itNd)...)
 
     out
 end
