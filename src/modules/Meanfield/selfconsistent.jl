@@ -5,6 +5,8 @@ function solvehartreefock(h, v, ρ_init, filling::Number, args...; kwargs...)
 
     solveselfconsistent(ρ_init, ℋ_op, ℋ_scalar, filling, args...; kwargs...)
 end
+precompile(solvehartreefock, (Hops, Hops, Hops, Float64))
+precompile(solvehartreefock, (Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Float64))
 
 solveselfconsistent(hf, ρ_init, filling::Number, ks::AbstractMatrix; kwargs...) = solveselfconsistent(ρ_init, hf..., filling, ks; kwargs...)
 solveselfconsistent(hf, ρ_init, filling::Number; klin, kwargs...) = solveselfconsistent(ρ_init, hf..., filling; klin=klin, kwargs...)

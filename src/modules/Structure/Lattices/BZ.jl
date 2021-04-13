@@ -23,3 +23,4 @@ Base.eltype(BZ::BrillouinZone) = Base.eltype(BZ.points)
 Base.values(BZ::BrillouinZone) = Base.values(BZ.points)
 Base.keys(BZ::BrillouinZone) = Base.keys(BZ.points)
 Base.setindex!(BZ::BrillouinZone, v, args...) = Base.setindex!(BZ.points, v, args...)
+

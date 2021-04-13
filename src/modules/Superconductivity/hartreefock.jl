@@ -27,3 +27,5 @@ function Meanfield.hartreefock(H::BdGOperator{T}, v::AnyHops) where T<:AnyHops
 
     H_op, E_scalar
 end
+
+precompile(Meanfield.solvehartreefock, (BdGOperator{Hops{Matrix{ComplexF64}}}, BdGOperator{Hops{Matrix{ComplexF64}}}, BdGOperator{Hops{Matrix{ComplexF64}}}, Float64))

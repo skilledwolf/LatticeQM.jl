@@ -14,6 +14,7 @@ function graphene(lat::Lattice; vectorized=true, mode=:nospin, format=:auto, cel
 
     hops
 end
+precompile(graphene, (Lattice,))
 
 valley(args...; kwargs...) = addvalley!(Hops(), args...; kwargs...)
 function addvalley!(hops, lat::Lattice, fz::Function=x->sign(x[3]+1e-3); spinhalf=false, kwargs...)
@@ -143,14 +144,18 @@ graphene_intralayer(δz, Δ; a, ℓintra, ℓz) = (1 - δz^2 /(Δ^2)) * exp(-(Δ
     end
     result
 end
+precompile(t_graphene, (Vector{Float64}, Float64))
+precompile(t_graphene, (Vector{Float64}, Vector{Float64}))
 
 using ..TightBinding: MAX_DENSE, MAX_DIAGS
 
 switchlin(x::AbstractFloat) =  ifelse(x < 0, zero(x), x)
 ## @polly 
+
+
 function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-5, tz::Float64=0.46, t0::Float64=1.0,
     ℓinter::Float64=0.125, ℓintra::Float64=0.08, ℓz::Float64=0.001,z::Float64=3.0, a::Float64=1.0,
-    Δmin::Float64=0.1, Δmax::Float64=5.0, kwargs...)
+    Δmin::Float64=0.1, Δmax::Float64=5.0)
 
     N = size(R1,2)
 
@@ -194,6 +199,7 @@ function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-5, tz::Flo
 
     @views sparse(IS[1:count],JS[1:count],complex(VS[1:count]), N, N)
 end
+precompile(t_graphene, (Matrix{Float64}, Matrix{Float64}))
 
 # ####
 # # This version is more natural but 4x slower than the fastest implementation

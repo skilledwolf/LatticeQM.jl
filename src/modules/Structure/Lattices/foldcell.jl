@@ -54,7 +54,7 @@ end
 
 Fold all latticecoordinates into the first primitive unit cell.
 """
-function foldPC!(lat::Lattice; shift=0.0)
+function foldPC!(lat::Lattice; shift::Vector{Float64}=[0.0,0.0,0.0])
     d = latticedim(lat)
     @assert d == 2 "Cell folding is (currently) only supported for d=2 lattices."
 
@@ -86,4 +86,4 @@ function foldPC!(lat::Lattice; shift=0.0)
 
     lat
 end
-
+precompile(foldPC!, (Lattice,))

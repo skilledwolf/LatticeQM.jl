@@ -53,4 +53,5 @@ function twist(lat1::Lattice, lat2::Lattice, n::Int; z::Float64=3, m::Int=1, ver
 
     superlat1
 end
+precompile(twist, (Lattice, Int))
 precompile(twist, (Lattice, Lattice, Int))
