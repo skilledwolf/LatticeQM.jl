@@ -32,7 +32,7 @@ function hops!(hops::Hops, lat::Lattice, t::Function; cellrange=2, kwargs...)# w
     hops!(hops, lat, neighbors, t; kwargs...)
     trim!(hops)
 end
-precompile(hops!, (Hops, Lattice, Function))
+# precompile(hops!, (Hops, Lattice, Function))
 
 import ..Utils: padvec
 
@@ -140,7 +140,7 @@ function densehoppingmatrix!(M::Array{ComplexF64}, Ri::Matrix{Float64}, Rj::Matr
 
     M
 end
-precompile(densehoppingmatrix!, (Array{ComplexF64}, Matrix{Float64}, Matrix{Float64}, Function))
+# precompile(densehoppingmatrix!, (Array{ComplexF64}, Matrix{Float64}, Matrix{Float64}, Function))
 
 
 import SparseArrays: sparse
@@ -153,8 +153,14 @@ function sparsehoppingmatrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{Comple
 
     count = 0 # counter for added matrix elements
 
+    function f!(M, i::Int,j::Int)
+        M[:,:] .= t(Ri[:,i], Rj[:,j])
+        M
+    end
+
     for i=1:N,j=1:N
-        @views V[1:d, 1:d] .= t(Ri[:,i], Rj[:,j])
+        # @views V[1:d, 1:d] .= t(Ri[:,i], Rj[:,j])
+        f!(V[1:d, 1:d],i,j)
 
         for i0=1:d, j0=1:d
             if abs(V[i0, j0]) < precision
@@ -175,4 +181,4 @@ function sparsehoppingmatrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{Comple
 
     sparse(IS[1:count], JS[1:count], VS[1:count], N*d, N*d)
 end
-precompile(sparsehoppingmatrix!, (Vector{Int}, Vector{Int}, Array{ComplexF64}, Array{ComplexF64}, Matrix{Float64}, Matrix{Float64}, Function))
+# precompile(sparsehoppingmatrix!, (Vector{Int}, Vector{Int}, Array{ComplexF64}, Array{ComplexF64}, Matrix{Float64}, Matrix{Float64}, Function))

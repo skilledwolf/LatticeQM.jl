@@ -70,17 +70,14 @@ function addhaldane_naive!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=f
     hops
 end
 
-# import SciPy
+
 import PyCall
 function __init__()
     global cKDTree = PyCall.pyimport("scipy.spatial").cKDTree
 end
-# const cKDTree = SciPy.spatial.cKDTree
 import SparseArrays: spzeros
 import ..TightBinding
 import ..Structure
-
-
 
 function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=false, cellrange=1, mode=:none, zmode=:none)
 

@@ -150,11 +150,9 @@ precompile(t_graphene, (Vector{Float64}, Vector{Float64}))
 using ..TightBinding: MAX_DENSE, MAX_DIAGS
 
 switchlin(x::AbstractFloat) =  ifelse(x < 0, zero(x), x)
-## @polly 
 
-
-function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-5, tz::Float64=0.46, t0::Float64=1.0,
-    ℓinter::Float64=0.125, ℓintra::Float64=0.08, ℓz::Float64=0.001,z::Float64=3.0, a::Float64=1.0,
+function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin::Float64=1e-5, tz::Float64=0.46, t0::Float64=1.0,
+    ℓinter::Float64=0.125, ℓintra::Float64=0.08, z::Float64=3.0, a::Float64=1.0,
     Δmin::Float64=0.1, Δmax::Float64=5.0)
 
     N = size(R1,2)
@@ -180,13 +178,13 @@ function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-5, tz::Flo
             δz = δR[3,i]
             χ = δz^2 /(Δ^2)
 
-            if abs(δz) < a
-                v = -t0 * (1-χ) * exp(-(Δ-a)/ℓintra) #* exp(-δz^2 /ℓz^2)
-            else
-                v = -tz * χ * exp(-(Δ-z)/ℓinter)
-            end
+            # if abs(δz) < a
+            #     v = -t0 * (1-χ) * exp(-(Δ-a)/ℓintra) #* exp(-δz^2 /ℓz^2)
+            # else
+            #     v = -tz * χ * exp(-(Δ-z)/ℓinter)
+            # end
 
-#             v =  -t0 * (1-χ) * exp(-(Δ-a)/ℓintra) * exp(-δz^2 /ℓz^2) - tz * χ * exp(-(Δ-z)/ℓinter)
+            v =  -t0 * (1-χ) * exp(-abs(Δ-a)/ℓintra) - tz * χ * exp(-abs(Δ-z)/ℓinter)
 
             if abs(v) < tmin
                 continue

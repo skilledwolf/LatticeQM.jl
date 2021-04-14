@@ -23,7 +23,7 @@ function addchemicalpotential!(hops::Hops, μ::Real)
     hops
 end
 
-function addchemicalpotential!(hops, lat::Lattice, μ::T; localdim::Int=-1) where T<:AbstractVector{<:Float64}
+function addchemicalpotential!(hops::Hops, lat::Lattice, μ::T; localdim::Int=-1) where T<:AbstractVector{<:Float64}
     # zero0 = zeros(Int, latticedim(lat))
     N = countorbitals(lat)
 
