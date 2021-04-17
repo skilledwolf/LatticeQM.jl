@@ -10,13 +10,7 @@ If you want to know more, get in touch with me.
 
 ## Installation
 ```julia
-using Pkg; Pkg.add("https://github.com/skilledwolf/KPM.jl.git")
-using Pkg; Pkg.add("https://github.com/skilledwolf/LatticeQM.jl.git")
-```
-or for the SSH version (needs SSH key to be set up)
-```julia
-using Pkg; Pkg.add("git@github.com:skilledwolf/KPM.jl.git")
-using Pkg; Pkg.add("git@github.com:skilledwolf/LatticeQM.jl.git")
+using Pkg; Pkg.add("https://gitlab.wolft.net/wolft/LatticeQM.jl.git")
 ```
 
 Regurlarly install updates with `using Pkg; Pkg.update()`.
@@ -65,3 +59,6 @@ If you want to help develop the package, I recommend
 ```julia
 using Pkg; Pkg.remove("LatticeQM")
 ```
+
+## Credits
+I want to thank Tobias Kästli (@vigoleis) for developing the Floquet module and for providing the corresponding Tutorial notebook.
