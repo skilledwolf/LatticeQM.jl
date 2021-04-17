@@ -10,7 +10,6 @@ If you want to know more, get in touch with me.
 
 ## Installation
 ```julia
-using Pkg; Pkg.add("https://gitlab.wolft.net/wolft/KPM.jl.git")
 using Pkg; Pkg.add("https://gitlab.wolft.net/wolft/LatticeQM.jl.git")
 ```
 
