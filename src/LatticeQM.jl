@@ -28,7 +28,7 @@ module LatticeQM
 
     using Base, ElasticArrays, SparseArrays, LinearAlgebra
 
-    using KPM # this is one of my packages
+    # using KPM # this is one of my packages
 
     include("modules/Utils.jl")
     using .Utils
@@ -85,10 +85,6 @@ module LatticeQM
     using .Superconductivity
     export Superconductivity
     export BdGOperator
-
-#     # include("modules/KPM.jl") # was moved to a separate package
-#     # using .KPM
-#     # export KPM
 
     ### Higher-level modules
     include("modules/Geometries.jl")
