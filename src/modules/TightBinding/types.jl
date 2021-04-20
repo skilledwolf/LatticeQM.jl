@@ -117,10 +117,10 @@ function Base.zero(h::AnyHops; format=:auto)
 end
 
 
-function ishermitian(H::Hops)
+function ishermitian(H::Hops; rtol=sqrt(eps()))
     for R=keys(H)
-        if !(haskey(H,-R) && all(H[R].≈H[-R]')) #"H[R] does not have H[-R] partner."
-            return false
+        if !(haskey(H,-R) && all(isapprox.(H[R], H[-R]'; rtol=rtol))) #"H[R] does not have H[-R] partner."
+            return false   
         end
     end
 
@@ -241,9 +241,14 @@ function ensuretype(hops::Hops, format=:auto)
 end
 
 import LinearAlgebra: norm
+import SparseArrays
 
 function trim!(ρ::Hops; kwargs...)
     for δL in keys(ρ)
+        if SparseArrays.issparse(ρ[δL])
+            ρ[δL] = sparse(ρ[δL])
+            SparseArrays.dropzeros!(ρ[δL])
+        end
         if all(isapprox.(ρ[δL], 0; kwargs...))
             delete!(ρ.data, δL)
         end

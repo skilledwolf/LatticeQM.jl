@@ -7,6 +7,8 @@ function minsum(x::AbstractVector,y::AbstractVector)
 	end
 end
 
+import ..Paths
+
 function cropcircle(lat::Lattice)
 	d = latticedim(lat)
 	D = spacedim(lat)
@@ -27,7 +29,7 @@ function cropcircle(lat::Lattice)
 	    points[1:D,:],
 	    points[D+1:end,:], 
 	    extralabels=collect(keys(lat.extralabels)), 
-	    specialpoints=LabeledPoints(
+	    specialpoints=Paths.LabeledPoints(
 	        ["γ"],
 	        [zeros(0)],
 	        ["\$\\gamma\$"],

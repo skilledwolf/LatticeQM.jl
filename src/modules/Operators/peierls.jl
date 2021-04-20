@@ -61,6 +61,34 @@ function peierlsinplane!(hops, lat::Lattice, B::AbstractVector)
     peierls!(hops, lat, phase)
 end
 
+
+function peierlsoutplane!(hops, lat::Lattice, phase::Function)
+    N = countorbitals(lat)
+    D = hopdim(hops)
+    d = div(D,N) # if spinhalf then d=2, if spinless d=1
+    @assert d == 1 # only spinless (testing)
+    @assert D == N*d #consistency check
+
+    # phasebar(r1,r2)= -(phase(r1,r2)-phase(r2,r1))/2
+    # phasebar(ri, rj, R) = phase(ri,rj)+(phase(ri+rj,R)-phase(R,ri+rj))/2
+
+    A = getA(lat)
+    X = positions(lat)
+
+    for (R, h) = hops
+        δa = A * R
+        for i=1:N,j=1:N
+            # hops[R][i,j] *= exp(1im*2π*phasebar(X[:,i]+δa, X[:,i]+X[:,j])) #hops[R][i,j] * exp(1im*2π*phasebar(X[:,i]+δa, X[:,i]+X[:,j]))
+            hops[R][i,j] *= exp(1im*2π*phase(X[:,i], X[:,j], δa)) #hops[R][i,j] * exp(1im*2π*phasebar(X[:,i]+δa, X[:,i]+X[:,j]))
+        end
+    end
+
+    hops
+end
+
+
+import ..Structure.Lattices
+
 """
     peierlsoutplane(hops, lat, p, q)
 
@@ -69,42 +97,25 @@ such that the flux per unit cell is Φ=p/q.
 
 This method automatically constructs and returns the correct superoperartor and magnetic supercell.
 """
-function peierlsoutplane!(hops, lat::Lattice, phase::Function)
-    N = countorbitals(lat)
-    D = hopdim(hops)
-    d = div(D,N) # if spinhalf then d=2, if spinless d=1
-    @assert d == 1 # only spinless (testing)
-    @assert D == N*d #consistency check
-
-    phasebar(r1,r2)= -(phase(r1,r2)-phase(r2,r1))/2
-
-    A = getA(lat)
-    X = positions(lat)
-
-    for (R, h) = hops
-        δa = A * R
-        for i=1:N,j=1:N
-            hops[R][i,j] = hops[R][i,j] * exp(1im*2π*phasebar(X[:,i]+δa, X[:,i]+X[:,j]))
-        end
-    end
-
-    hops
-end
-
 function peierlsoutplane(hops, lat::Lattice, p::Int, q::Int; verbose=true)
     @assert gcd(p,q)<2 "Integers p,q for flux Φ=p/q should be coprime. (here p=$p, q=$q)"
     verbose ? print("Building magnetic supercell for Φ=p/q=$p/$q.") : nothing
 
-    phase = uniformfieldphase_outplane(lat, p/q)
+    Θ = uniformfieldphase_outplane(lat, p/q)
+    Φ = (r,R) -> Θ((r+R)/2,r-R)
+
+    A = Lattices.getA(lat)
 
     mhops = deepcopy(hops)
-    peierlsoutplane!(mhops, lat, phase) # add the cell-position independent phases first
+    peierlsoutplane!(mhops, lat, (ri,rj,R)->Φ(ri,rj)+(Θ(ri+rj,R)-Θ(R,ri+rj))/2) # add the cell-position independent phases first
 
     mlat  = Structure.Lattices.superlattice(lat, [1,q]) # make correct supercell
-    mhops = TightBinding.superlattice(mhops, [1,q], (r,R)->exp(-1im*2π*(r[2]*R[1])*(p/q)) ) # make correct supercell hamiltonian
+    # mhops = TightBinding.superlattice(mhops, [1,q], (r,R)->exp(1im*2π*(r[2]*R[1])*(p/q)) ) # make correct supercell hamiltonian
+    mhops = TightBinding.superlattice(mhops, [1,q], (r,R)-> exp(1im*2π*Φ(A*r,A*R)) )
 
     mhops, mlat
 end
+
 
 using ..Spectrum: bandmatrix, getdos!
 using ProgressMeter
@@ -126,7 +137,7 @@ function hofstadter(hops, lat::Lattice, Q::Int)
     k0 = zeros(Float64, Structure.latticedim(lat), 1)
 
     @showprogress 2 "Iterating through flux... " for (p,q)=fluxes
-        mhops, mlat = Operators.peierlsoutplane(hops, lat, p,q; verbose=false)
+        mhops, mlat = Operators.peierlsoutplane(hops, lat, p, q; verbose=false)
         append!(energies, [vec(bandmatrix(mhops, k0))])
     end
 

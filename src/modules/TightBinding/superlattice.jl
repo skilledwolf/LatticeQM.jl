@@ -29,10 +29,14 @@ function blockmatrix!(mat::AbstractMatrix, i::Int, j::Int, m::AbstractMatrix)
     X0 = CartesianIndex(s[1]*(i-1),s[2]*(j-1))
 
     for X in CartesianIndices(m)
-        mat[X0+X] = m[X]
+        if iszero(m[X])
+            continue
+        end
+        mat[X0+X] += m[X]
     end
 
-    mat
+    # mat[1+(i-1)*s[1]:i*s[1], 1+(j-1)*s[2]:j*s[2]] .= m 
+    mat 
 end
 
 function blockmatrix(N::Int, I::Vector{Int}, J::Vector{Int}, vec_of_mats::AbstractVector{<:AbstractMatrix})
@@ -47,7 +51,8 @@ end
 ####################################################################################################
 ####################################################################################################
 
-import ..Structure.Lattices: Lattice, supercellpoints #, superlattice
+import ..Structure.Lattices
+# import ..Structure.Lattices: Lattice #, superlattice
 
 """
     superlattice(hops, periods)
@@ -57,15 +62,16 @@ This method can be useful as preparation before adding modulations that change t
 periodicity of the model.
 """
 superlattice(hops::AnyHops, v::Vector{Int}, args...; kwargs...) = superlattice(hops, Matrix(Diagonal(v)), args...; kwargs...)
-superlattice(hops::AnyHops, M::Matrix{Int}) = superlattice(hops, M, (r,R)->1)
+superlattice(hops::AnyHops, M::Matrix{Int}; kwargs...) = superlattice(hops, M, (r,R)->1; kwargs...)
 function superlattice(hops::AnyHops, M::Matrix{Int}, phasefunc::Function) where {T<:Number}
 
-    coordinates = supercellpoints(M)
+    coordinates = Lattices.supercellpoints(M)
     
     count = size(coordinates, 2)
     D = count  * hopdim(hops) # size of superlattice hopping matrices
 
-    sneighbors = hcat([[i;j] for i=-2:2 for j=-2:2]...)
+    # sneighbors = hcat(Lattices.getneighborcells(slat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)...)
+    sneighbors = hcat([[i;j] for i=-1:1 for j=-1:1]...)
 
     shops = Hops(Vector(L) => spzeros(ComplexF64, D,D) for L=eachcol(sneighbors))
 
@@ -74,31 +80,34 @@ function superlattice(hops::AnyHops, M::Matrix{Int}, phasefunc::Function) where 
     for (j,a) in enumerate(eachcol(coordinates))
         for (δa, t) in hops
             v = round.(a + δa)
-            n = findfirst(i->haskey(basislookup, v + M' * sneighbors[:,i]), 1:size(sneighbors,2))
+            n = findfirst(i->haskey(basislookup, v + M * sneighbors[:,i]), 1:size(sneighbors,2))
 
-            L = (n==nothing) ? (print(eltype(coordinates)); error("Error: target atom at coordinate $v not found.")) : sneighbors[:,n] # throw error if the required position does not exist
-            i = basislookup[v+ M'*L]
+            L = (n!=nothing) ? sneighbors[:,n] : (print(eltype(coordinates)); error("Error: target atom at coordinate $v not found.")) # throw error if the required position does not exist
+            i = basislookup[v + M*L]
 
-            z = phasefunc([i,j], δa) # phase
+            z = phasefunc(a, a+δa) # phase
+            # println(δa)
+            # println(coordinates[:,j])
+            # println(real(log(z)/(2π*1im)))
 
-            blockmatrix!(shops[L], i, j, t .* z) # write to the corresponding block of the corresponding superlattice hopping matrix
+            blockmatrix!(shops[-L], i, j, t.*z) # write to the corresponding block of the corresponding superlattice hopping matrix 
         end
     end
 
     shops
 end
 
-superlattice(lat::Lattice, hops::AnyHops, v::Vector{Int}, args...; kwargs...) = superlattice(lat, hops, Matrix(Diagonal(v)), args...; kwargs...)
-superlattice(lat::Lattice, hops::AnyHops, M::Matrix{Int}) = superlattice(lat, hops, M, (r,R)->1)
-function superlattice(lat::Lattice, hops::AnyHops, M::Matrix{Int}, phasefunc::Function) where {T<:Number}
-    coordinates = supercellpoints(M)
+superlattice(lat::Lattices.Lattice, hops::AnyHops, v::Vector{Int}, args...; kwargs...) = superlattice(lat, hops, Matrix(Diagonal(v)), args...; kwargs...)
+superlattice(lat::Lattices.Lattice, hops::AnyHops, M::Matrix{Int}; kwargs...) = superlattice(lat, hops, M, (r,R)->1; kwargs...)
+function superlattice(lat::Lattices.Lattice, hops::AnyHops, M::Matrix{Int}, phasefunc::Function; cellrange::Int=1) where {T<:Number}
+    coordinates = Lattices.supercellpoints(M)
     count = size(coordinates, 2)
     D = count  * hopdim(hops) # size of superlattice hopping matrices
 
     slat = Structure.Lattices.superlattice(lat, M, coordinates)
 
-    # sneighbors = hcat(getneighborcells(slat; halfspace=false, innerpoints=true, excludeorigin=false)...)
-    sneighbors = hcat([[i;j] for i=-2:2 for j=-2:2]...)
+    sneighbors = hcat(Lattices.getneighborcells(slat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)...)
+    # sneighbors = hcat([[i;j] for i=-2:2 for j=-2:2]...)
 
     shops = Hops(Vector(L) => spzeros(ComplexF64, D,D) for L=eachcol(sneighbors))
 
@@ -107,14 +116,14 @@ function superlattice(lat::Lattice, hops::AnyHops, M::Matrix{Int}, phasefunc::Fu
     for (j,a) in enumerate(eachcol(coordinates))
         for (δa, t) in hops
             v = round.(a + δa)
-            n = findfirst(i->haskey(basislookup, v + M' * sneighbors[:,i]), 1:size(sneighbors,2))
+            n = findfirst(i->haskey(basislookup, v + M * sneighbors[:,i]), 1:size(sneighbors,2))
 
             L = (n==nothing) ? (print(eltype(coordinates)); error("Error: target atom at coordinate $v not found.")) : sneighbors[:,n] # throw error if the required position does not exist
-            i = basislookup[v+ M'*L]
+            i = basislookup[v+ M*L]
 
-            z = phasefunc([i,j], δa) # phase
+            z = phasefunc(δa, coordinates[:,j]) # phase
 
-            blockmatrix!(shops[L], i, j, t .* z) # write to the corresponding block of the corresponding superlattice hopping matrix
+            blockmatrix!(shops[-L], i, j, t .* z) # write to the corresponding block of the corresponding superlattice hopping matrix
         end
     end
 
