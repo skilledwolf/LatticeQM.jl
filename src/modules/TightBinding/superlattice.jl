@@ -85,10 +85,7 @@ function superlattice(hops::AnyHops, M::Matrix{Int}, phasefunc::Function) where 
             L = (n!=nothing) ? sneighbors[:,n] : (print(eltype(coordinates)); error("Error: target atom at coordinate $v not found.")) # throw error if the required position does not exist
             i = basislookup[v + M*L]
 
-            z = phasefunc(a, a+δa) # phase
-            # println(δa)
-            # println(coordinates[:,j])
-            # println(real(log(z)/(2π*1im)))
+            z = phasefunc(a, a+δa)
 
             blockmatrix!(shops[-L], i, j, t.*z) # write to the corresponding block of the corresponding superlattice hopping matrix 
         end
@@ -121,7 +118,7 @@ function superlattice(lat::Lattices.Lattice, hops::AnyHops, M::Matrix{Int}, phas
             L = (n==nothing) ? (print(eltype(coordinates)); error("Error: target atom at coordinate $v not found.")) : sneighbors[:,n] # throw error if the required position does not exist
             i = basislookup[v+ M*L]
 
-            z = phasefunc(δa, coordinates[:,j]) # phase
+            z = phasefunc(a, a+δa) # phase
 
             blockmatrix!(shops[-L], i, j, t .* z) # write to the corresponding block of the corresponding superlattice hopping matrix
         end

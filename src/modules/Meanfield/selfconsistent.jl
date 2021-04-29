@@ -98,6 +98,6 @@ function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, 
 
     updateH!(H, ρ1)
 
-    ρ1, ϵ_GS, H, converged, Error
+    DenseHops(ρ1), ϵ_GS, H, converged, Error
 end
 

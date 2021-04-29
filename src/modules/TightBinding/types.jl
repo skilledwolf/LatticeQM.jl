@@ -117,9 +117,9 @@ function Base.zero(h::AnyHops; format=:auto)
 end
 
 
-function ishermitian(H::Hops; rtol=sqrt(eps()))
+function ishermitian(H::Hops; tol=sqrt(eps()))
     for R=keys(H)
-        if !(haskey(H,-R) && all(isapprox.(H[R], H[-R]'; rtol=rtol))) #"H[R] does not have H[-R] partner."
+        if !(haskey(H,-R) && maximum(abs.(H[R].-H[-R]'))<tol) #"H[R] does not have H[-R] partner."
             return false   
         end
     end

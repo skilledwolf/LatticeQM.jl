@@ -62,24 +62,50 @@ function peierlsinplane!(hops, lat::Lattice, B::AbstractVector)
 end
 
 
+# function peierlsoutplane!(hops, lat::Lattice, phase::Function)
+#     N = countorbitals(lat)
+#     D = hopdim(hops)
+#     d = div(D,N) # if spinhalf then d=2, if spinless d=1
+#     @assert d == 1 # only spinless (testing)
+#     @assert D == N*d #consistency check
+
+#     # phasebar(r1,r2)= -(phase(r1,r2)-phase(r2,r1))/2
+#     # phasebar(ri, rj, R) = phase(ri,rj)+(phase(ri+rj,R)-phase(R,ri+rj))/2
+
+#     A = getA(lat)
+#     X = positions(lat)
+
+#     for (R, h) = hops
+#         δa = A * R
+#         for i=1:N,j=1:N
+#             # hops[R][i,j] *= exp(1im*2π*phasebar(X[:,i]+δa, X[:,i]+X[:,j])) #hops[R][i,j] * exp(1im*2π*phasebar(X[:,i]+δa, X[:,i]+X[:,j]))
+#             hops[R][i,j] *= exp(1im*2π*phase(X[:,i], X[:,j], δa)) #hops[R][i,j] * exp(1im*2π*phasebar(X[:,i]+δa, X[:,i]+X[:,j]))
+#         end
+#     end
+
+#     hops
+# end
+
 function peierlsoutplane!(hops, lat::Lattice, phase::Function)
     N = countorbitals(lat)
     D = hopdim(hops)
     d = div(D,N) # if spinhalf then d=2, if spinless d=1
-    @assert d == 1 # only spinless (testing)
-    @assert D == N*d #consistency check
-
-    # phasebar(r1,r2)= -(phase(r1,r2)-phase(r2,r1))/2
-    # phasebar(ri, rj, R) = phase(ri,rj)+(phase(ri+rj,R)-phase(R,ri+rj))/2
+    @assert d == 1 "Only spin-less implemented so far for peierl phase." # only spinless (for now)
 
     A = getA(lat)
     X = positions(lat)
 
+    ϕ(i,j,R) = phase(X[:,i], X[:,j], A*R)
+
+    peierlsoutplane!(hops, ϕ)
+end
+
+function peierlsoutplane!(hops, phase::Function)
+    D = hopdim(hops)
+
     for (R, h) = hops
-        δa = A * R
-        for i=1:N,j=1:N
-            # hops[R][i,j] *= exp(1im*2π*phasebar(X[:,i]+δa, X[:,i]+X[:,j])) #hops[R][i,j] * exp(1im*2π*phasebar(X[:,i]+δa, X[:,i]+X[:,j]))
-            hops[R][i,j] *= exp(1im*2π*phase(X[:,i], X[:,j], δa)) #hops[R][i,j] * exp(1im*2π*phasebar(X[:,i]+δa, X[:,i]+X[:,j]))
+        for i=1:D, j=1:D
+           hops[R][i,j] *= exp(1im*2π*phase(i,j,R)) #hops[R][i,j] * exp(1im*2π*phasebar(X[:,i]+δa, X[:,i]+X[:,j]))
         end
     end
 
@@ -129,7 +155,7 @@ Returns a list of fluxes and a list of energies at each flux.
 
 In this implementation we evaluate at the \$\\Gamma\$-point of the magnetic cell.
 """
-function hofstadter(hops, lat::Lattice, Q::Int)
+function hofstadter(hops, lat::Lattice, Q::Int; kwargs...)
 
     fluxes = [(p,q) for q=1:Q for p=1:q-1 if gcd(p,q)<2]
     energies = Vector{Float64}[]
@@ -138,7 +164,7 @@ function hofstadter(hops, lat::Lattice, Q::Int)
 
     @showprogress 2 "Iterating through flux... " for (p,q)=fluxes
         mhops, mlat = Operators.peierlsoutplane(hops, lat, p, q; verbose=false)
-        append!(energies, [vec(bandmatrix(mhops, k0))])
+        append!(energies, [vec(bandmatrix(mhops, k0; kwargs...))])
     end
 
     fluxes = map(x->x[1]//x[2], fluxes)
@@ -191,27 +217,6 @@ function hofstadter_dos(hops, lat::Lattice, Q::Int, frequencies::AbstractVector{
     fluxes[p], DOS[:,p]
 end
 
-# function hofstadter_kpm(hops, lat::Lattice, area::Real, fluxes::AbstractVector{<:Real}, frequencies::AbstractVector{<:Real})
-
-#     @assert latticedim(lat) == 0 "This method only works for finite systems ('zero-dimensional lattice')."
-
-#     DOS = zeros(length(frequencies), length(fluxes))
-
-#     hops0 = deepcopy(hops)
-#     @showprogress 2 "Iterating through flux... " for (i,ϕ)=enumerate(fluxes)
-
-
-#         peierls!(hops0, lat, [0,0,area*ϕ])
-
-
-        
-#     end
-
-#     fluxes = map(x->x[1]//x[2], fluxes)
-#     p = sortperm(fluxes)
-
-#     fluxes[p], DOS[:,p]
-# end
 
 """
     uniformfieldphase(r1,r2; B)
@@ -253,10 +258,12 @@ function uniformfieldphase_inplane(r1::T,r2::T; B::AbstractVector) where T<:Abst
 
     if D<3
         z1=0;  z2=0
+    # end
     else
-        # z1=r1[3]+1.5;  z2=r2[3]+1.5
+        ### z1=r1[3]+1.5;  z2=r2[3]+1.5
         z1=r1[3]+1.5;  z2=r2[3]+1.5
     end
+    # z1=r1[3]; z2=r2[3]
 
     return cross2D(r2-r1, B) * (z1+z2)/2
 end
@@ -270,10 +277,8 @@ Passes the lattice vectors a1 and a2 to uniformfieldphase_outplane(a1,a2,Φ).
 function uniformfieldphase_outplane(lat::Lattice, args...; kwargs...)
     @assert Structure.latticedim(lat)==2 "Only implemented for 2D lattices."
     @assert Structure.spacedim(lat)>2 "Only implemented for lattices in at least 3D space."
-    A=Structure.getA(lat)
-    a1=A[:,1]
-    a2=A[:,2]
-    uniformfieldphase_outplane(a1,a2, args...; kwargs...)
+    A = Structure.getA(lat)
+    uniformfieldphase_outplane(A[:,1], A[:,2], args...; kwargs...)
 end
 
 """
