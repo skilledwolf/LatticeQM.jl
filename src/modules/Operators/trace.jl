@@ -26,8 +26,8 @@ end
 # This is the correct one to use for contraction with "density matrix"
 expval(h1::Hops) = sum(sum(h1[L]) for L=keys(h1))
 expval(h1::Hops, h2::Hops) = sum(sum(h1[L].*h2[L]) for  L=intersect(keys(h1),keys(h2)))
-expval(h1::Hops, h2::AbstractMatrix) = expval(h1, Hops(zerokey(h1)=>h2))
-expval(h1::AbstractMatrix, h2::Hops) = expval(Hops(h1), h2)
+expval(h1::Hops, h2::AbstractMatrix) = expval(h1, Hops(zerokey(h1)=>complex(h2)))
+expval(h1::AbstractMatrix, h2::Hops) = expval(Hops(complex(h1)), h2)
 expval(hops::Hops, name::String, lat::Lattice) = expval(hops, getoperator(lat, name)')
 expval(hops::Hops, operators::AbstractVector, args...) = [expval(hops,o, args...) for o=operators]
 
