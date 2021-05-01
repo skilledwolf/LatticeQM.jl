@@ -39,8 +39,8 @@ function chemicalpotential_0!(energies::AbstractVector{T1}, filling::T1) where T
 end
 
 
-import NLsolve: nlsolve, converged # add 2-3 seconds of load time to the package :(
-import ..Utils: fermidirac
+# import NLsolve # add 1-2 seconds of load time to the package :(
+import ..Utils: fermidirac, brentq
 
 function chemicalpotential_T!(energies::AbstractVector{T1}, nk::Int, filling::T1; T::T1=0.01) where T1<:Real
 
@@ -55,20 +55,25 @@ function chemicalpotential_T!(energies::AbstractVector{T1}, nk::Int, filling::T1
 
     n(μ::AbstractFloat) = sum(fermidirac(ϵ-μ; T=T) for ϵ=energies)/nk
 
-    function δn!(δn::T, μ::T) where {T2<:AbstractFloat, T<:AbstractArray{T2}}
-        δn[1] = n(μ[1]) - d * filling
-        nothing
-    end
-
-    sol = nlsolve(δn!, [μ0])#; ftol=1e-6, iterations=1500)
-    # @assert converged(sol) "Could not calculate the chemical potential for finite T."
-    if !converged(sol)
+    μ, res = brentq(x->n(x)-d*filling, μ0-2*T, μ0+10*T; full_output=true)
+    if !res.converged
         println("WARNING: Calculation of chemical potential for finite T did not converge.")
         println("         Using chemical potential for T=0 instead (=Fermi energy).")
         μ = μ0
-    else
-        μ = sol.zero[1]
     end
+
+    # function δn!(δn::T, μ::T) where {T2<:AbstractFloat, T<:AbstractArray{T2}}
+    #     δn[1] = n(μ[1]) - d * filling
+    #     nothing
+    # end
+    # sol = NLsolve.nlsolve(δn!, [μ0])#; ftol=1e-6, iterations=1500)
+    # if !NLsolve.converged(sol)
+    #     println("WARNING: Calculation of chemical potential for finite T did not converge.")
+    #     println("         Using chemical potential for T=0 instead (=Fermi energy).")
+    #     μ = μ0
+    # else
+    #     μ = sol.zero[1]
+    # end
     
     μ
 end

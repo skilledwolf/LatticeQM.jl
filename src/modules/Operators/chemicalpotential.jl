@@ -1,4 +1,4 @@
-import ..Utils: regulargrid
+import ..Structure: regulargrid
 import ..Structure.Lattices: Lattice, latticedim, countorbitals, allpositions, positions
 import ..TightBinding: Hops, AnyHops, zerokey, hopdim, addhops!
 

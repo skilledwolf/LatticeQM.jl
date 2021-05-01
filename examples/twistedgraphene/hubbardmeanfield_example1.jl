@@ -2,7 +2,7 @@ using LinearAlgebra, Plots
 using LatticeQM
 
 println("Generate lattice...")
-lat = Geometries2D.honeycomb_twisted(6)
+lat = Structure.Geometries.honeycomb_twisted(6)
 Structure.Lattices.foldPC!(lat)
 sx, sy, sz, sublA, sublB = Operators.getoperator(lat, ["sx", "sy", "sz", "sublatticeAspin", "sublatticeBspin"])
 ks = kpath(lat; num_points=80)

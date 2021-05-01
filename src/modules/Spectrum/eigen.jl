@@ -10,23 +10,18 @@ geteigen(h; format=:dense,   kwargs...) = (format==:sparse) ?  eigen_sparse(h; k
 # Sparse eigensolver
 ###################################################################################################
 
-include("eigen_sparse.jl")
-
-# ## This is the well-tested implementation with Arpack. Unfortunately not multi-thread safe!
-# eigmax_sparse(H::AbstractMatrix; kwargs...) = eigs(Hermitian(H); nev=1, which=:LR, kwargs...)[1][1] |> real
-# eigmin_sparse(H::AbstractMatrix; kwargs...) = eigs(Hermitian(H); nev=1, which=:SR, kwargs...)[1][1] |> real
-
-# eigen_sparse(M::AbstractMatrix; num_bands::Int, sigma::Float64=1e-8, which=:LM, kwargs...) = eigs(M; nev=num_bands, sigma=sigma, which=which, kwargs...)
-# eigvals_sparse(args...; kwargs...) = real.((eigen_sparse(args...; kwargs...))[1])
-# eigvecs_sparse(args...; kwargs...) = (eigen_sparse(args...; kwargs...))[2]
+# include("eigen_sparse_julia.jl")
+include("eigen_sparse_arpack.jl") # Arpack implementation. Not multi-threading safe with julia.
 
 ###################################################################################################
 # Dense eigensolver
 ###################################################################################################
 
-eigen_dense(H::AbstractMatrix, args...; kwargs...) = (F=eigen(Matrix(H), args...; kwargs...); (F.values, F.vectors))
-eigvals_dense(H::AbstractMatrix, args...; kwargs...) = eigvals(Matrix(H), args...; kwargs...)
-eigvecs_dense(H::AbstractMatrix, args...; kwargs...) = eigvecs(Matrix(H), args...; kwargs...)
+import LinearAlgebra
+
+eigen_dense(H::AbstractMatrix, args...; kwargs...) = (F=LinearAlgebra.eigen(Matrix(H), args...; kwargs...); (F.values, F.vectors))
+eigvals_dense(H::AbstractMatrix, args...; kwargs...) = LinearAlgebra.eigvals(Matrix(H), args...; kwargs...)
+eigvecs_dense(H::AbstractMatrix, args...; kwargs...) = LinearAlgebra.eigvecs(Matrix(H), args...; kwargs...)
 
 
 ###################################################################################################

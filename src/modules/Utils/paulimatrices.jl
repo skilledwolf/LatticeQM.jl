@@ -24,6 +24,8 @@
       "plus"=>σPLUS, "minus"=>σMINUS
 )
 
+import LinearAlgebra: norm
+
 """
     spinorrotation(θ, n=[0,0,1])
 

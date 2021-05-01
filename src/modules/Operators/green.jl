@@ -1,3 +1,8 @@
+#####################################
+#
+# The implementation in this file needs reviewing and testing!
+#
+#####################################
 
 using Distributed
 using SharedArrays

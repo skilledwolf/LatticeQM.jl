@@ -28,6 +28,8 @@ function electron(H::BdGOperator)
     BdGOperator(Hops(Dict(zerokey(H)=>zero(first(values(Spectrum.getelectronsector(H))))+1.0*I)))
 end
 
+
+
 function Operators.localdensity(ρ::BdGOperator, lat::Lattices.Lattice)
     Operators.localdensity(Spectrum.getelectronsector(ρ), lat)
 end
@@ -38,6 +40,17 @@ function Operators.localobservables(ρ::BdGOperator, lat::Lattices.Lattice)
 
     Δ= Superconductivity.getpairingsector(ρ) * (1im*Operators.getoperator(lat, "sy"))
     SC = Operators.localobservables(Δ, lat)
+
+    M, SC
+end
+
+function Operators.expval(ρ::BdGOperator, args...; kwargs...)
+    ρ0 = Spectrum.getelectronsector(ρ)
+    Δ= Superconductivity.getpairingsector(ρ) * (1im*Operators.getoperator(lat, "sy"))
+
+    M = Operators.expval(ρ0, args...; kwargs...)
+
+    SC = Operators.expval(Δ, args...; kwargs...)
 
     M, SC
 end

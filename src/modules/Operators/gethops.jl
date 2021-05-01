@@ -1,9 +1,14 @@
 const DEFAULT_PRECISION = sqrt(eps())
 
 import ..Structure
+import ..Structure.Lattices
 import ..Structure.Lattices: Lattice
 
-addhops!(hops::Hops, lat::Lattice, t::Function, args...; kwargs...) = addhops!(hops, gethops(lat, t, args...; kwargs...))
+import ..TightBinding
+
+TightBinding.Hops(lat::Lattice, args...; kwargs...) = gethops(lat, args...; kwargs...)
+
+TightBinding.addhops!(hops::Hops, lat::Lattice, t::Function, args...; kwargs...) = TightBinding.addhops!(hops, gethops(lat, t, args...; kwargs...))
 
 """
     gethops(lat::Lattice, t::Function; cellrange=1, format=:auto, vectorized=false)
@@ -27,20 +32,20 @@ end
 
 function hops!(hops::Hops, lat::Lattice, t::Function; cellrange=2, kwargs...)# where {T<:AbstractMatrix{Float64}}
     # Get neighbor cells
-    neighbors = Structure.Lattices.getneighborcells(lat, cellrange; halfspace=true, innerpoints=true, excludeorigin=false)
+    neighbors = Lattices.getneighborcells(lat, cellrange; halfspace=true, innerpoints=true, excludeorigin=false)
     # Iterate the hopping function over orbital pairs and neighbors
     hops!(hops, lat, neighbors, t; kwargs...)
-    trim!(hops)
+    TightBinding.trim!(hops)
 end
 # precompile(hops!, (Hops, Lattice, Function))
 
 import ..Utils: padvec
 
 function hops!(hops::Hops, lat::Lattice, neighbors::Vector{Vector{Int}}, t::Function; kwargs...)
-    R = Structure.allpositions(lat)
+    R = Lattices.allpositions(lat)
     d = size(R,1)
 
-    A = Structure.getA(lat)
+    A = Lattices.getA(lat)
     neighbor_dict = Dict(δL => padvec(A*δL,d) for δL in neighbors)
 
     hops!(hops, R, neighbor_dict, t; kwargs...)
@@ -60,7 +65,7 @@ function hops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vecto
         # println("vectorized")
         vectorizedhops!(hops, R, neighbors, t; kwargs...)
     else
-        format = (format==:auto) ? decidetype(size(R,1)) : format
+        format = (format==:auto) ? TightBinding.decidetype(size(R,1)) : format
 
         if format==:dense
             densehops!(hops, R, neighbors, t; kwargs...)
@@ -153,7 +158,7 @@ function sparsehoppingmatrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{Comple
 
     count = 0 # counter for added matrix elements
 
-    function f!(M, i::Int,j::Int)
+    function f!(M, i::Int, j::Int)
         M[:,:] .= t(Ri[:,i], Rj[:,j])
         M
     end

@@ -1,3 +1,5 @@
+import LinearAlgebra: norm, dot, cross
+
 """
     rotation2D(θ)
 

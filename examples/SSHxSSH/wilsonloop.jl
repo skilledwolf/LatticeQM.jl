@@ -17,7 +17,7 @@ function getSSH2D(t1X,t2X, t1Y,t2Y) #t1X,δtX, t1Y,δtY
     addorbital!(lat, [0,   1/2, 3])
     addorbital!(lat, [1/2, 1/2, 1])
 
-    lat.specialpoints = LatticeQM.Geometries2D.kdict_sq
+    lat.specialpoints = LatticeQM.Structure.Geometries.kdict_sq
 
     h = DenseHops()
     h[[0,0]] = zeros(Complex, 4,4) # intra cell hops

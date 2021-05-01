@@ -4,7 +4,7 @@ pyplot() # use the matplotlib backend for plots
 using LatticeQM
 
 # Set up lattice
-lat = Geometries2D.honeycomb()
+lat = Structure.Geometries.honeycomb()
 
 # Get nearest-neighbor hops in the honeycomb lattice
 hops = Operatorsgraphene(lat; mode=:nospin) # or mode=:spinhalf for spin-1/2

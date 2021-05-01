@@ -1,19 +1,18 @@
 # Convenient interfaces for hopping Hamiltonian
 
 import ..Structure.Lattices: Lattice
-import ..TightBinding: Hops, AnyHops
 
-function opticalconductivityXX(frequencies::AbstractVector, H::Hops, lat::Lattice, args...; kwargs...)
+function opticalconductivityXX(frequencies::AbstractVector, H, lat::Lattice, args...; kwargs...)
     opticalconductivityXX(frequencies, 1, 1, H, lat, args...; kwargs...)
 end
 
-function opticalconductivityXY(frequencies::AbstractVector, H::Hops, lat::Lattice, args...; kwargs...)
+function opticalconductivityXY(frequencies::AbstractVector, H, lat::Lattice, args...; kwargs...)
     opticalconductivityXY(frequencies, 1, 2, H, lat, args...; kwargs...)
 end
 
 import ..Operators: getcurrentoperators
 
-function opticalconductivity(frequencies::AbstractVector, i::Int, j::Int, H::Hops, lat::Lattice, args...; kwargs...)
+function opticalconductivity(frequencies::AbstractVector, i::Int, j::Int, H, lat::Lattice, args...; kwargs...)
     J = getcurrentoperators(lat, H)
     opticalconductivity(frequencies, H, J[i], J[j], args...; kwargs...)
 end
@@ -21,28 +20,24 @@ end
 
 # More abstract interfaces
 
-import ..Utils: regulargrid
+import ..Structure
 
 function opticalconductivity(frequencies::AbstractVector, H, J1, J2; klin, kwargs...)
-    kgrid = regulargrid(;nk=klin^2)
+    kgrid = Structure.regulargrid(;nk=klin^2)
     opticalconductivity(frequencies, H, J1, J2, kgrid; kwargs...)
 end
 
-function opticalconductivity(frequencies::AbstractVector, H, J1::Hops, J2::Hops, ks; kwargs...)
-    opticalconductivity(frequencies, H, getbloch(J1), getbloch(J2), ks; kwargs...)
-end
 
-import ..Structure.Paths: points
-import ..Spectrum: spectrum
+import ..Spectrum
 using SharedArrays
 using ProgressMeter
 
-function opticalconductivity(frequencies::AbstractVector, H, J1::Function, J2::Function, ks::AbstractMatrix; μ::Float64=0.0, Γ::Float64=0.025, T::Float64=0.1, kwargs...)
+function opticalconductivity(frequencies::AbstractVector, H, J1, J2, ks::AbstractMatrix; μ::Float64=0.0, Γ::Float64=0.025, T::Float64=0.1, kwargs...)
 
 #     ks = points(ks)
     N = size(ks, 2)
     function spectrumf(k)
-        spectrum(H(k); kwargs...)
+        Spectrum.spectrum(H(k); kwargs...)
     end
 
 #     OC = SharedArray(complex(zero(frequencies)))

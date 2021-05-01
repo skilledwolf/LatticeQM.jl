@@ -44,9 +44,6 @@ const AnyHops = Hops#{AbstractMatrix{ComplexF64}}
 
 (H::Hops)(k) = fouriersum(H,k) # This will make the type callable
 
-import ..Structure.Lattices: Lattice
-Hops(lat::Lattice, args...; kwargs...) = gethops(lat, args...; kwargs...)
-
 Hops(T=AbstractMatrix{ComplexF64}) = Hops(Dict{Vector{Int},T}())
 Hops(M::AbstractMatrix,d::Int=2) = Hops(Dict(zeros(Int,d)=>M))
 Hops(kv::Pair...) = Hops(Dict(k=>v for (k,v) in kv))
@@ -138,6 +135,7 @@ setzero!(h::Hops, M::AbstractMatrix) = (h[zerokey(h)].=M; h)
 hopdim(hops::Hops) = size(hops,1)
 
 Base.:+(h1::Hops, h2::Hops) = addhops(h1,h2)
+Base.:-(h1::Hops, h2::Hops) = addhops(h1,(-1)*h2)
 addhops!(hops::Hops, newhops::Hops...) = (merge!(+, hops.data, map(x->x.data,newhops)...); hops)
 addhops(hops::Hops, newhops::Hops...) = (H=deepcopy(hops); addhops!(H,newhops...)) #merge(+, hops, newhops...)
 
@@ -150,7 +148,7 @@ multiplyhops(h1::AbstractMatrix, h2::Hops) = multiplyhops(Hops(h1),h2)
 multiplyhops(h1::Hops, h2::AbstractMatrix) = multiplyhops(h1,Hops(h2))
 multiplyhops(h1::Hops, h2::Hops) = Hops(k=>h1[k]*h2[k] for k=intersect(keys(h1),keys(h2)))
 multiplyhops(h::Hops, s::Number) = Hops(k=>h[k]*s for k=keys(h))
-multiplyhops(s::Number, h::Hops) = Hops(k=>h[k]*s for k=keys(h))
+multiplyhops(s::Number, h::Hops) = multiplyhops(h, s)
 
 """
 Naive implementation of combining the linear spaces of two hopping models.
@@ -195,15 +193,15 @@ function Base.kron(a::Hops, b)
 end
 
 
-import ..Algebra
+import ..Utils
 
 function addspin(hoppings, mode=:nospin) #::AbstractHops
     if mode==:nospin || mode==:id
         return hoppings
     elseif mode==:spinhalf || mode==:σ0
-        hoppings = kron(hoppings, Algebra.σ0)
+        hoppings = kron(hoppings, Utils.σ0)
     elseif mode==:σx
-        hoppings = kron(hoppings, Algebra.σX)
+        hoppings = kron(hoppings, Utils.σX)
     else
         error("Do not recognize mode '$mode' in addspin(...).")
     end
@@ -285,7 +283,7 @@ function efficientzero(ρ::Hops)
 end
 
 function flexibleformat(A::AbstractArray, keylist::AbstractVector)
-    Dict(L=>Matrix(m) for (L,m)=zip(keylist,eachslice(A; dims=3)))
+    Dict(L=>Matrix(m) for (L,m)=zip(keylist, eachslice(A; dims=3)))
 end
 
 function flexibleformat!(ρ::Hops, A::AbstractArray, keylist::AbstractVector)

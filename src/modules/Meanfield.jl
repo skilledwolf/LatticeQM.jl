@@ -5,14 +5,8 @@ module Meanfield
     using LinearAlgebra
 
     using ..Utils
-    using ..Algebra
-    using ..Spectrum: spectrum, chemicalpotential
-    using ..TightBinding
-
-    include("Meanfield/types.jl")
-
-    include("Meanfield/interactions.jl")
-    export gethubbard, getcappedyukawa
+    import ..Spectrum: spectrum, chemicalpotential
+    import ..TightBinding
 
     include("Meanfield/initialguess.jl")
     export initialguess

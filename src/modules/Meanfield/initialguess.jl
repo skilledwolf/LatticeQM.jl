@@ -1,6 +1,7 @@
 using ..TightBinding
 using ..Operators: getoperator
 using ..TightBinding: zerokey
+import ..Utils
 
 """
     spindensitymatrix(d::Vector=[1,0,0]) --> Matrix{Float64}
@@ -28,7 +29,7 @@ function spindensitymatrix!(M::AbstractMatrix, d::Vector=[1,0,0]; i=1)
     end
 
     δ = 2*(i-1)
-    M[1+δ:2+δ,1+δ:2+δ] .= 0.5 .* (σ0 .+ sum(d[i_] .* σs[i_] for i_=1:length(d)))
+    M[1+δ:2+δ,1+δ:2+δ] .= 0.5 .* (Utils.σ0 .+ sum(d[i_] .* Utils.σs[i_] for i_=1:length(d)))
 
     M
 end
@@ -85,16 +86,18 @@ end
 
 
 using ..Structure
+import ..Structure.Lattices
 
 function spinspiralangles(lat::Lattice, superperiods)
 
-    R = eachcol(Structure.positions(lat))
-    slat = Structure.Lattices.superlattice(lat, superperiods)
-    B = Structure.getB(slat)
+    R = eachcol(Lattices.positions(lat))
+    slat = Lattices.superlattice(lat, superperiods)
+    B = Lattices.getB(slat)
 
     2π * vec(sum(transpose(B)*R; dims=1))
 end
 
+import ..Structure
 
 """
     spinspiraldensitymatrix(lat::Lattice, superperiods; n::Vector=[0,0,1], v0::Vector=[1,0,0])
@@ -108,7 +111,7 @@ function spinspiraldensitymatrix(lat::Lattice, superperiods; n::Vector=[0,0,1], 
     @assert length(n) == 3 "Normal vector for rotation must have length 3."
     @assert length(v0) == 3 "Initial vector for rotation must have length 3."
 
-    v(θ) = rotation3D(θ,n)*v0
+    v(θ) = Structure.rotation3D(θ,n)*v0
     θs = spinspiralangles(lat, superperiods)
 
     mapspindensitymatrix(v(θ) for θ=θs)
@@ -159,7 +162,7 @@ function setantiferro!(ρ::Hops, lat::Lattice, d=:up)
     sublA, sublB = getoperator(lat, ["sublatticeA", "sublatticeB"])
     ρup = spindensitymatrix(d)
 
-    setzero!(ρ, kron(sublA, ρup) + kron(sublB, σ0-ρup))
+    setzero!(ρ, kron(sublA, ρup) + kron(sublB, Utils.σ0-ρup))
 end
 
 function initialguess(v::Hops, mode=:random, args...; lat=:nothing, kwargs...)

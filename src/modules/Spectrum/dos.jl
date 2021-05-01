@@ -1,6 +1,6 @@
 using Distributed
 # using SharedArrays
-import ..Utils: regulargrid
+import ..Structure: regulargrid
 
 
 """

@@ -60,7 +60,7 @@ function berry(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[1])
     midkgrid, berry(statesgrid0)
 end
 
-import ..Utils: rotation2D
+import ..Structure: rotation2D
 
 function berryalongpath(H, kpoints)
 """

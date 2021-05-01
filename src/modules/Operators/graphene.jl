@@ -16,9 +16,11 @@ function graphene(lat::Lattice; vectorized=true, mode=:nospin, format=:auto, cel
 end
 precompile(graphene, (Lattice,))
 
+import ..Structure.Lattices
+
 valley(args...; kwargs...) = addvalley!(Hops(), args...; kwargs...)
 function addvalley!(hops, lat::Lattice, fz::Function=x->sign(x[3]+1e-3); spinhalf=false, kwargs...)
-    @assert countorbitals(lat) > 1 #latticedim(lat) == 2
+    @assert Lattices.countorbitals(lat) > 1 #latticedim(lat) == 2
 
     t20 = √3/9
     f(R) = sign(R[4]-0.5)
@@ -33,7 +35,7 @@ function addsublatticeimbalance!(hops, lat::Lattice, Δ::Real; kwargs...)
         return nothing
     end
 
-    μ = Δ .* (extracoordinates(lat, "sublattice") .- 0.5)
+    μ = Δ .* (Lattices.extracoordinates(lat, "sublattice") .- 0.5)
     addchemicalpotential!(hops, lat, vec(μ))
 
     nothing

@@ -1,7 +1,7 @@
 using LatticeQM
 
 #### Prepare system
-lat = Geometries2D.honeycomb()
+lat = Geometries.honeycomb()
 hops = Operators.graphene(lat; mode=:nospin, tz=0.3)
 # Operators.addsublatticeimbalance!(hops, lat, 0.3)
 

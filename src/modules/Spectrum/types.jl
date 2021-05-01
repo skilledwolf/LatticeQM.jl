@@ -1,7 +1,3 @@
-# using Plots
-# using HDF5
-using DelimitedFiles
-import ..DummySave
 
 import ..Structure.Paths: DiscretePath
 
@@ -42,8 +38,13 @@ end
 
 using ..Structure.Paths: ticks, ticklabels, scaleticks
 
-function DummySave.savedlm(bands::BandData; path="data", suffix="")
-    mkpath(path)
+
+using DelimitedFiles
+
+DelimitedFiles.writedlm(bands::BandData) = DelimitedFiles.writedlm(".", ks)
+
+function DelimitedFiles.writedlm(path::String, bands::BandData; suffix="")
+    @assert ispath(path) "Error: '$path' is not a valid path."
     writedlm(joinpath(path, "kticks$suffix.out"), scaleticks(bands.path; start=1.0, length=float(size(bands.bands)[2])))
     writedlm(joinpath(path, "kticklabels$suffix.out"), ticklabels(bands.path))
     writedlm(joinpath(path, "bands$suffix.out"), bands.bands)
@@ -53,12 +54,3 @@ function DummySave.savedlm(bands::BandData; path="data", suffix="")
         end
     end
 end
-
-function DummySave.save!(file, data::BandData) # file should be hdf5 output stream
-    write(file, "bands", data.bands)
-    write(file, "observable", (data.obs != nothing) ? data.obs : 0)
-
-    DummySave.save!(file, data.path) # let's see if that works...
-end
-
-DummySave.save(data::BandData, filename::String="bands.h5") = DummySave.save_wrapper(data, filename)

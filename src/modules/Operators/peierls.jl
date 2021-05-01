@@ -1,3 +1,5 @@
+import ..Structure.Lattices
+import ..TightBinding
 
 """
     peierls!(hops, lat, phase)
@@ -17,14 +19,14 @@ Note:
   lead to unexpected/undetected mistakes.
 """
 function peierls!(hops, lat::Lattice, phase::Function)
-    N = countorbitals(lat)
-    D = hopdim(hops)
+    N = Lattices.countorbitals(lat)
+    D = TightBinding.hopdim(hops)
     d = div(D,N) # if spinhalf then d=2, if spinless d=1
     @assert d == 1 # only spinless (testing)
     @assert D == N*d #consistency check
 
-    A = getA(lat)
-    X = positions(lat)
+    A = Lattices.getA(lat)
+    X = Lattices.positions(lat)
 
     for (R, h) = hops
         δa = A * R
@@ -135,9 +137,9 @@ function peierlsoutplane(hops, lat::Lattice, p::Int, q::Int; verbose=true)
     mhops = deepcopy(hops)
     peierlsoutplane!(mhops, lat, (ri,rj,R)->Φ(ri,rj)+(Θ(ri+rj,R)-Θ(R,ri+rj))/2) # add the cell-position independent phases first
 
-    mlat  = Structure.Lattices.superlattice(lat, [1,q]) # make correct supercell
+    mlat  = Lattices.superlattice(lat, [1,q]) # make correct supercell
     # mhops = TightBinding.superlattice(mhops, [1,q], (r,R)->exp(1im*2π*(r[2]*R[1])*(p/q)) ) # make correct supercell hamiltonian
-    mhops = TightBinding.superlattice(mhops, [1,q], (r,R)-> exp(1im*2π*Φ(A*r,A*R)) )
+    mhops = superlattice(mhops, [1,q], (r,R)-> exp(1im*2π*Φ(A*r,A*R)) )
 
     mhops, mlat
 end
@@ -160,7 +162,7 @@ function hofstadter(hops, lat::Lattice, Q::Int; kwargs...)
     fluxes = [(p,q) for q=1:Q for p=1:q-1 if gcd(p,q)<2]
     energies = Vector{Float64}[]
 
-    k0 = zeros(Float64, Structure.latticedim(lat), 1)
+    k0 = zeros(Float64, Lattices.latticedim(lat), 1)
 
     @showprogress 2 "Iterating through flux... " for (p,q)=fluxes
         mhops, mlat = Operators.peierlsoutplane(hops, lat, p, q; verbose=false)
@@ -268,6 +270,7 @@ function uniformfieldphase_inplane(r1::T,r2::T; B::AbstractVector) where T<:Abst
     return cross2D(r2-r1, B) * (z1+z2)/2
 end
 
+import ..Structure.Lattices
 
 """
     uniformfieldphase_outplane(lat, Φ)
@@ -275,9 +278,9 @@ end
 Passes the lattice vectors a1 and a2 to uniformfieldphase_outplane(a1,a2,Φ).
 """
 function uniformfieldphase_outplane(lat::Lattice, args...; kwargs...)
-    @assert Structure.latticedim(lat)==2 "Only implemented for 2D lattices."
-    @assert Structure.spacedim(lat)>2 "Only implemented for lattices in at least 3D space."
-    A = Structure.getA(lat)
+    @assert Lattices.latticedim(lat)==2 "Only implemented for 2D lattices."
+    @assert Lattices.spacedim(lat)>2 "Only implemented for lattices in at least 3D space."
+    A = Lattices.getA(lat)
     uniformfieldphase_outplane(A[:,1], A[:,2], args...; kwargs...)
 end
 

@@ -1,4 +1,4 @@
-using ..Utils: regulargrid
+using ..Structure: regulargrid
 
 function solvehartreefock(h, v, ρ_init, filling::Number, args...; kwargs...)
     ℋ_op, ℋ_scalar = hartreefock(h, v)
@@ -28,10 +28,10 @@ mutable struct Hamiltonian{T}
 end
 
 
-using JLD
+# using JLD
 
 import ..TightBinding: SharedDenseHops
-import ..Green: getdensitymatrix!
+import ..Operators: getdensitymatrix!
 
 """
     solveselfconsistent!(ρ0, ρ1, ℋ_op, ℋ_scalar, filling, ks; convergenceerror=false, multimode=:serial, checkpoint::String="", hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
@@ -54,10 +54,10 @@ note that for small problems `parallel=true` may decrease performance (communica
 function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, ks::AbstractMatrix{Float64};
     convergenceerror=false, multimode=:serial, checkpoint::String="", callback=(x->nothing), hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
 
-    if checkpoint != "" && isfile(checkpoint) && hotstart
-        println("Loading checkpoint file as initial guess: $checkpoint")
-        ρ0 = JLD.load(checkpoint, "mf")
-    end
+    # if checkpoint != "" && isfile(checkpoint) && hotstart
+    #     println("Loading checkpoint file as initial guess: $checkpoint")
+    #     ρ0 = JLD.load(checkpoint, "mf")
+    # end
 
     # Turn dense and prepare for distributed computing
     ρ0 = (multimode==:distributed) ? SharedDenseHops(ρ0) : DenseHops(ρ0)
@@ -81,10 +81,10 @@ function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, 
 
         callback(ρ1)
 
-        if checkpoint != ""
-            verbose ? @info("Saving intermediate mean field...") : nothing
-            JLD.save(checkpoint, "mf", DenseHops(ρ1))
-        end
+        # if checkpoint != ""
+        #     verbose ? @info("Saving intermediate mean field...") : nothing
+        #     JLD.save(checkpoint, "mf", DenseHops(ρ1))
+        # end
 
         ϵ0 + ℋ_scalar(ρ1) # proper ground state energy
     end

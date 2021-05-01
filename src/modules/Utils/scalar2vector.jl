@@ -1,8 +1,12 @@
-macro scalar2vector(f0, N=3)
+import LinearAlgebra: norm
+
 """
+    scalar2vector(f0, N=3)
+
 This is macro is a wrapper that takes as input a function f0(x::Float64) and adds a new dispatch
 f0(r1::Vector, r2::Vector) = f0(norm(r1-r2)) while making sure that r1 and r2 do not exceed length N.
 """
+macro scalar2vector(f0, N=3)
     return quote
         function $(esc(f0))(r1::AbstractVector{Float64}, r2::Float64=0.0; kwargs...)
             n = min(length(r1), $N)

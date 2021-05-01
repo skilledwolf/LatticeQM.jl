@@ -1,4 +1,3 @@
-# __precompile__(true)
 
 """
     LatticeQM 
@@ -8,15 +7,12 @@ convenient functions to build the operators and to obtain bands, expectation val
 topological indices, linear response coefficients and mean-field solutions.
 
 ## Submodules
-- Algebra
 - Structure
 - TightBinding 
 - Spectrum
-- Green
 - Operators
 - LinearResponse
 - Meanfield
-- Geometries2D
 
 Any of these modules can be further explored, e.g., with `?TightBinding`
 
@@ -31,71 +27,54 @@ module LatticeQM
     # using KPM # this is one of my packages
 
     include("modules/Utils.jl")
-    using .Utils
-    using .DummySave
-    export save, savedlm
-
-    include("modules/Algebra.jl")
-    using .Algebra
+    import .Utils
+    # using .Utils.DummySave
+    # export save, savedlm
 
     ### Base modules
     include("modules/Structure.jl")
-    using .Structure
-    export Structure
-    export kpath
+    import .Structure
+    import .Structure: kpath, Geometries
+    export Structure, Geometries, kpath
 
     include("modules/Spectrum.jl")
-    using .Spectrum
-    export Spectrum
+    import .Spectrum
+    import .Spectrum: getbands
     export getbands
 
     include("modules/TightBinding.jl")
-    using .TightBinding
+    import .TightBinding
+    import .TightBinding: DenseHops, SparseHops, Hops, hopdim, addhops!, addhops
     export TightBinding
-    export DenseHops, SparseHops, Hops, AbstractHops, hopdim, addhops!, addhops
+    export DenseHops, SparseHops, Hops, hopdim, addhops!, addhops
 
-    # include("modules/Floquet.jl")
-    # using .Floquet
-    # export Floquet
-
-    include("modules/Green.jl")
-    using .Green
-    export Green
-    export density, density!
-    export densitymatrix, densitymatrix!
+    # # include("modules/Floquet.jl")
+    # # using .Floquet
+    # # export Floquet
 
     include("modules/Operators.jl")
-    using .Operators
+    import .Operators
+    import .Operators: gethops, getoperator, getprojector, setfilling!
     export Operators
-    export getoperator, getprojector
-    export setfilling!
-    export trace, expval
+    export gethops, getoperator, getprojector, setfilling!
 
     include("modules/LinearResponse.jl")
     using .LinearResponse
 
     include("modules/Meanfield.jl")
-    using .Meanfield
+    import .Meanfield
+    import .Meanfield: solveselfconsistent, hartreefock, initialguess
     export Meanfield
-    export selfconsistent, hartreefock
-    export initialguess
-    export gethubbard
+    export solveselfconsistent, hartreefock, initialguess
 
     include("modules/Superconductivity.jl")
     using .Superconductivity
     export Superconductivity
     export BdGOperator
 
-    ### Higher-level modules
-    include("modules/Geometries.jl")
-    import .Geometries2D
-    export Geometries2D
-
     ### Plotting recipes
     using RecipesBase
     include("plotting/Lattice.jl")
     include("plotting/Bands.jl")
 
-# #     include("precompile.jl")
-# #     _precompile_()
 end

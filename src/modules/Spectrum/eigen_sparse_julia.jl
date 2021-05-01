@@ -38,7 +38,7 @@ function construct_linear_map(A)
     LinearMap{eltype(A)}((y, x) ->(y.=F\x) , size(A,1), ismutating=true) # (y, x) ->  ldiv!(y, F, x)
 end
 
-function eigen_sparse(A::AbstractMatrix; num_bands, kwargs...)
+function eigen_sparse(A::AbstractMatrix; num_bands::Int, kwargs...)
 
     # Target the largest eigenvalues of the inverted problem
     decomp, _ = partialschur(construct_linear_map(A), nev=num_bands, which=LM(), kwargs...) #nev=4, tol=1e-5, restarts=100, which=LM()

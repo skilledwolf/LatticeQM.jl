@@ -11,7 +11,7 @@ using LatticeQM
 
 println(":: Preparing system...")
 
-lat = Geometries2D.honeycomb()
+lat = Structure.Geometries.honeycomb()
 ks = kpath(lat; num_points=200)
 
 hops = Operators.graphene(lat; mode=:spinhalf)

@@ -9,19 +9,26 @@ and `Paths.DiscretePath` to deal with discretized paths.
 Check out the submodules:
 - Lattices
 - Paths
+- Geometries
 
 """
 module Structure
 ################################################################################
 ################################################################################
 
+    include("Structure/rotate.jl")
+    include("Structure/grid.jl")
+
     include("Structure/Paths.jl")
-    using .Paths
+    import .Paths
 
     include("Structure/Lattices.jl")
-    using .Lattices
-    export Lattice
-    export kpath
+    import .Lattices
+    import .Lattices: Lattice, kpath
+    export Lattice, kpath
+
+    include("Structure/Geometries.jl")
+    import .Geometries
 
 ################################################################################
 ################################################################################

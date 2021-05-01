@@ -1,9 +1,7 @@
 
-import ..Algebra
-
-energies(H, args...; kwargs...) = Algebra.geteigvals(H, args...; kwargs...)
-wavefunctions(H, args...; kwargs...) = Algebra.geteigvecs(H,args...; kwargs...)
-spectrum(H, args...; kwargs...) = Algebra.geteigen(H,args...; kwargs...)
+energies(H, args...; kwargs...) = geteigvals(H, args...; kwargs...)
+wavefunctions(H, args...; kwargs...) = geteigvecs(H,args...; kwargs...)
+spectrum(H, args...; kwargs...) = geteigen(H,args...; kwargs...)
 
 using Distributed
 using ProgressMeter
@@ -23,7 +21,7 @@ Calculates the energies for operator `H(k)` for each column vector `k` of matrix
 If operators `As=[A1, A2, ...]` are given, their expectaction values are
 calculated and stored for each eigenvector.
 
-Accepts the same keywords as `Algebra.geteigvals`, `Algebra.geteigvecs`, `Algebra.geteigen`.
+Accepts the same keywords as `geteigvals`, `geteigvecs`, `geteigen`.
 In particular: `format` (`:sparse` or `:dense`) and `num_bands::Int`.
 
 Returns a matrix where each column contains the energies for each column `k` in `ks`.
@@ -33,7 +31,7 @@ If `As` were given, a second matrix of the same format is returned containing ex
 ```julia
 using LatticeQM
 
-lat = Geometries2D.honeycomb()
+lat = Structure.Geometries.honeycomb()
 h = Operators.graphene(lat)
 ks = kpath(lat; num_points=200)
 valley = Operators.valleyoperator(lat)
@@ -208,7 +206,7 @@ calculated and stored for each eigenvector.
 
 Note that ks is a discrete path object as returned by `kpath(lat::Lattice,...)`.
 
-Accepts the same keywords as `Algebra.geteigvals`, `Algebra.geteigvecs`, `Algebra.geteigen`.
+Accepts the same keywords as `geteigvals`, `geteigvecs`, `geteigen`.
 In particular: `format` (`:sparse` or `:dense`) and `num_bands::Int`.
 
 Returns a `BandData` object (with fields `bands`, `obs`, `path`).
@@ -217,7 +215,7 @@ Returns a `BandData` object (with fields `bands`, `obs`, `path`).
 ```julia
 using LatticeQM
 
-lat = Geometries2D.honeycomb()
+lat = Structure.Geometries.honeycomb()
 h = Operators.graphene(lat)
 ks = kpath(lat; num_points=200)
 valley = Operators.valleyoperator(lat)

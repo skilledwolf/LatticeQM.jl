@@ -1,3 +1,5 @@
+import ..Structure.Lattices
+
 function gethaldane(args...; kwargs...)
     newhops = Hops()
     addhaldane!(newhops, args...; kwargs...)
@@ -12,7 +14,7 @@ that it is fairly general.
 """
 addhaldane!(hops, lat::Lattice, t2::Number; kwargs...) = addhaldane!(hops, lat, x->t2; kwargs...)
 function addhaldane!(hops, lat::Lattice, t2::Function; mode=:auto, kwargs...)
-    if mode==:fast || (mode==:auto && Structure.countorbitals(lat)>200)
+    if mode==:fast || (mode==:auto && Lattices.countorbitals(lat)>200)
         addhaldane_fast!(hops, lat, t2; kwargs...)
     else
         addhaldane_naive!(hops, lat, t2; kwargs...)
@@ -25,16 +27,16 @@ function addhaldane_naive!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=f
     cross2D(x, y) = x[1] * y[2] - x[2] * y[1] # needed later on in this scope
 
     # NN  = find_neighbors(lat, 1.0)
-    NNN = Structure.Lattices.getneighbors(lat, √3; cellrange=cellrange)
+    NNN = Lattices.getneighbors(lat, √3; cellrange=cellrange)
 
-    N = countorbitals(lat)
-    D = spacedim(lat)
-    ldim = latticedim(lat)
-    R = allpositions(lat) # positions of atoms within unit cell
+    N = Lattices.countorbitals(lat)
+    D = Lattices.spacedim(lat)
+    ldim = Lattices.latticedim(lat)
+    R = Lattices.allpositions(lat) # positions of atoms within unit cell
 
-    A = getA(lat)[:,1:ldim]
+    A = Lattices.getA(lat)[:,1:ldim]
 
-    neighbors = Structure.Lattices.getneighborcells(lat, 1; halfspace=false, innerpoints=true, excludeorigin=false) #[[i;j] for i=-1:1 for j=-1:1]
+    neighbors = Lattices.getneighborcells(lat, 1; halfspace=false, innerpoints=true, excludeorigin=false) #[[i;j] for i=-1:1 for j=-1:1]
     δAs = [A * v for v in neighbors]
 
     # hops = Dict{Vector{Int},SparseMatrixCSC{ComplexF64}}()
@@ -71,25 +73,22 @@ function addhaldane_naive!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=f
 end
 
 
-import PyCall
-function __init__()
-    global cKDTree = PyCall.pyimport("scipy.spatial").cKDTree
-end
 import SparseArrays: spzeros
 import ..TightBinding
 import ..Structure
+import ..Utils: cKDTree
 
 function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=false, cellrange=1, mode=:none, zmode=:none)
 
     cross2D(x, y) = x[1] * y[2] - x[2] * y[1] # needed later on in this scope
 
     # Lattice references 
-    neighbors = Structure.Lattices.getneighborcells(lat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)
-    D=Structure.spacedim(lat)
-    N = Structure.countorbitals(lat)
-    A = Structure.basis(lat,:, 1:Structure.latticedim(lat))
+    neighbors = Lattices.getneighborcells(lat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)
+    D=Lattices.spacedim(lat)
+    N = Lattices.countorbitals(lat)
+    A = Lattices.basis(lat,:, 1:Lattices.latticedim(lat))
     R0 = zero(first(neighbors))
-    points = Structure.allpositions(lat)
+    points = Lattices.allpositions(lat)
     poinst2 = deepcopy(points)
 
     # Build lookup

@@ -6,7 +6,7 @@ using LatticeQM
 ###################################################################################################
 
 # Set up lattice
-lat = Geometries2D.triangular_supercell()
+lat = Structure.Geometries.triangular_supercell()
 sz = Operators.getoperator(lat, "sz")
 sub1, sub2, sub3 = [Operators.getoperator(lat, "sublattice", i, 2) for i=1:3]
 

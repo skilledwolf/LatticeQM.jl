@@ -17,7 +17,7 @@ function density(H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; format=:dense,
         spectrum(H(k); format=format)
     end
 
-    n = zeros(Float64, size(hamiltonian(ks[:,1]))[1])
+    n = zeros(Float64, size(hamiltonian(ks[:,1]), 1))
     density!(n, Σ, ks, μ; kwargs...)
 
     n
@@ -26,7 +26,7 @@ end
 function density!(n::AbstractVector{Float64}, spectrum::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0)
     n[:] .= zero(n)
 
-    L = size(ks)[2]
+    L = size(ks,2)
 
     n[:] = @distributed (+) for j=1:L # @todo: this should be paralellized
 

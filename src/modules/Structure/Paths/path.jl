@@ -34,7 +34,6 @@ function DiscretePath(kdict::LabeledPoints; kwargs...)
 end
 
 # Interface for iteration and item access
-import Base
 Base.eachcol(ks::DiscretePath) = Base.eachcol(ks.points)
 Base.size(ks::DiscretePath, args...) = Base.size(ks.points, args...)
 
@@ -53,7 +52,7 @@ Base.setindex!(ks::DiscretePath,v,args...) = Base.setindex!(ks.points,v,args...)
 ################################################################################
 ################################################################################
 
-import ...Utils
+import ..regulargrid
 
 # Point iterator
 # Define proper iterators for each input type
@@ -65,7 +64,7 @@ function sumk(f_k::Function, ks)
     sum(f_k(k) for k=eachcol(ks))/size(ks,2)
 end
 
-sumk(f_k::Function; klin::Int) = sumk(f_k, Utils.regulargrid(;nk=klin^2))
+sumk(f_k::Function; klin::Int) = sumk(f_k, regulargrid(;nk=klin^2))
 
 
 ################################################################################
@@ -81,15 +80,15 @@ end
 ################################################################################
 ################################################################################
 
-using HDF5
-using ...DummySave
-function DummySave.save!(file, ks::DiscretePath) # file should be hdf5 output stream
-    g = g_create(file, "path")
+import DelimitedFiles
 
-    g["ticks"] = ticks(ks)
-    g["ticklabels"] = ticklabels(ks)
-    g["positions"] = ks.positions
-    g["points"] = ks.points
+DelimitedFiles.writedlm(ks::DiscretePath) = DelimitedFiles.writedlm(".", ks)
+
+function DelimitedFiles.writedlm(path::String, ks::DiscretePath)
+    @assert ispath(path) "Error: '$path' is not a valid path."
+    writedlm(dirname(path)*"/ticks.out", ticks(ks))
+    writedlm(dirname(path)*"/ticklabels.out", ticklabels(ks))
+    writedlm(dirname(path)*"/positions.out", ks.positions)
+    writedlm(dirname(path)*"/points.out", ks.points)
 end
 
-DummySave.save(data::DiscretePath, filename::String="kpath.h5") = DummySave.save_wrapper(data, filename)

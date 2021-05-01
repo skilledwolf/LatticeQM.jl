@@ -1,17 +1,19 @@
 using LinearAlgebra, Plots
 using LatticeQM
 
-lat = Geometries2D.honeycomb()
-sx, sy, sz, sublA, sublB = Operators.getoperator(lat, ["SX", "SY", "SZ", "sublatticeAspin", "sublatticeBspin"])
+@info "Building system"
+@time lat = Geometries.honeycomb()
+@time sx, sy, sz, sublA, sublB = Operators.getoperator(lat, ["SX", "SY", "SZ", "sublatticeAspin", "sublatticeBspin"])
 
-hops = Operators.graphene(lat; mode=:spinhalf)
+@time hops = Operators.graphene(lat; mode=:spinhalf)
 Operators.addzeeman!(hops, lat, r->sign(r[4]-0.5).*1.5.*[sin(0.0π),0,cos(0.0π)] )
 
+@info "Mean field calculation"
 # Set up interaction
-v = Meanfield.gethubbard(lat; mode=:σx, a=0.5, U=5.0) # interaction potential
+v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=5.0) # interaction potential
 ρ_init = Meanfield.initialguess(v, :random; lat=lat) # initial guess
 
-ρ_sol, ϵ_GS, HMF, converged, error = Meanfield.solvehartreefock( # run the calculation
+@time ρ_sol, ϵ_GS, HMF, converged, error = Meanfield.solvehartreefock( # run the calculation
     hops, v, ρ_init, 0.75; klin=30, iterations=800, tol=1e-7,# p_norm=Inf,
     T=0.01, β=0.25,  show_trace=true, clear_trace=true
 )
@@ -25,13 +27,14 @@ dens = Operators.density(ρ_sol)
 @info("Magnetization", Mabs, δMabs, M, δM)
 @info("Density", dens)
 
+@info "Band structure plots"
 # Get the bands without mean-field terms
 ks = kpath(lat; num_points=200)
-bands = getbands(hops, ks, sz)
+@time bands = getbands(hops, ks, sz)
 p1 = plot(bands; markersize=2, size=(600,200))
 
 # Get the bands with mean-field terms
-bands_mf = getbands(HMF.h, ks, sz)
+@time bands_mf = getbands(HMF.h, ks, sz)
 bands_mf.bands .-= HMF.μ # shift chemical potential to zero
 p2 = plot(bands_mf; markersize=2, size=(600,200))
 

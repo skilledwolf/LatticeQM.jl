@@ -1,4 +1,4 @@
-using ..TightBinding: Hops, addspin, getneighborhops
+using ..TightBinding: Hops, addspin
 using ..Utils: heaviside, @scalar2vector
 
 using ..TightBinding: zerokey
@@ -71,12 +71,3 @@ end
 # gethamiltonianubbard(lat; mode=:nospin, format=:auto, kwargs...) = gethamiltonian(lat, r->Hubbard(r; kwargs...); mode=mode, format=format)
 
 
-
-###################################################################################################
-# Backwards compatibility
-###################################################################################################
-export get_Hubbard
-@legacyalias gethubbard get_Hubbard
-
-export get_Hubbard
-@legacyalias getcappedyukawa get_CappedYukawa

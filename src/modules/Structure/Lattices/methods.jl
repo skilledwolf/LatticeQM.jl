@@ -1,4 +1,4 @@
-import ...Utils: rotation2D
+import ..rotation2D
 
 function foldcoordinates!(lat::Lattice)
     d = latticedim(lat)

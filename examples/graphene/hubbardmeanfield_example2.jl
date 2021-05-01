@@ -1,7 +1,7 @@
 using LinearAlgebra, Plots
 using LatticeQM
 
-lat = Geometries2D.honeycomb()
+lat = Structure.Geometries.honeycomb()
 sx, sy, sz, sublA, sublB = Operators.getoperator(lat, ["SX", "SY", "SZ", "sublatticeAspin", "sublatticeBspin"])
 
 H = Operators.graphene(lat; mode=:spinhalf)

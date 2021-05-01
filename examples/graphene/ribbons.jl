@@ -8,8 +8,8 @@ using LatticeQM
 # Build geometries
 ############################################################
 N=10
-lat_armchair = Structure.Lattices.reduceto1D(Geometries2D.honeycomb(), [[1, 1] [N, -N]])
-lat_zigzag   = Structure.Lattices.reduceto1D(Geometries2D.honeycomb(), [[1, 0] [0, N]])
+lat_armchair = Structure.Lattices.reduceto1D(Structure.Geometries.honeycomb(), [[1, 1] [N, -N]])
+lat_zigzag   = Structure.Lattices.reduceto1D(Structure.Geometries.honeycomb(), [[1, 0] [0, N]])
 
 p1 = plot(lat_armchair; supercell=[0:20])
 p2 = plot(lat_zigzag; supercell=[0:15])

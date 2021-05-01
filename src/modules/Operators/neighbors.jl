@@ -1,6 +1,8 @@
 
 
+import LinearAlgebra: norm
 import ..Utils: @scalar2vector
+import ..TightBinding: Hops
 
 function getneighborhops(lat::Lattice; cellrange::Int=3)
 

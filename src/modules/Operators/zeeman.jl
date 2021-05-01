@@ -1,4 +1,4 @@
-import ..Algebra
+import ..Utils
 import ..TightBinding: Hops, AnyHops, addhops!
 import ..Structure.Lattices: Lattice, latticedim, countorbitals, allpositions, positions
 
@@ -12,7 +12,7 @@ function addzeeman!(hops, lat::Lattice, Mv::Function)
     N = countorbitals(lat)
     R = allpositions(lat)
 
-    σn(vec) = sum(vec[i] .* Algebra.σs[i] for i=1:3)
+    σn(vec) = sum(vec[i] .* Utils.σs[i] for i=1:3)
 
     mat = spzeros(ComplexF64, 2*N, 2*N)
     for i_=1:N
@@ -33,7 +33,7 @@ function addzeeman!(hops, lat::Lattice, Mv::Vector{Float64}; format=:dense)
     N = countorbitals(lat)
     R = positions(lat)
 
-    σn = sum(Mv[i] .* σs[i] for i=1:3)
+    σn = sum(Mv[i] .* Utils.σs[i] for i=1:3)
 
     newhops = Hops( zero0 => kron(Matrix(1.0I, N, N), σn) )
     addhops!(hops, newhops)
