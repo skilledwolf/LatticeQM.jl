@@ -4,8 +4,8 @@ gr()
 using LatticeQM
 
 println("Generating lattice geometry...")
-lat = Structure.Geometries.honeycomb_twisted(11)
-Structure.Geometries.smoothdisplaceZ!(lat, 0.045)
+lat = Geometries.honeycomb_twisted(11)
+Geometries.smoothdisplaceZ!(lat, 0.045)
 
 println("Generating lattice operators...")
 valley = Operators.valley(lat; spinhalf=false)

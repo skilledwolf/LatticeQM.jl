@@ -6,7 +6,7 @@ using LatticeQM
 ###################################################################################################
 
 # Set up lattice
-lat = Structure.Geometries.triangular_supercell()
+lat = Geometries.triangular_supercell()
 sz = Operators.getoperator(lat, "sz")
 sub1, sub2, sub3 = [Operators.getoperator(lat, "sublattice", i, 2) for i=1:3]
 
@@ -19,7 +19,7 @@ hops = TightBinding.addspin(Operators.nearestneighbor!(Hops(), lat), :spinhalf)
 using LatticeQM.Meanfield
 
 # Set up interaction
-v = Meanfield.gethubbard(lat; mode=:σx, a=0.5, U=6.0) # interaction potential
+v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=6.0) # interaction potential
 ρ_init = Meanfield.initialguess(v, :random; lat=lat) # initial guess
 
 ρ_sol, ϵ_GS, HMF, converged, error = Meanfield.solvehartreefock( # run the calculation

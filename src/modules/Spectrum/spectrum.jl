@@ -31,7 +31,7 @@ If `As` were given, a second matrix of the same format is returned containing ex
 ```julia
 using LatticeQM
 
-lat = Structure.Geometries.honeycomb()
+lat = Geometries.honeycomb()
 h = Operators.graphene(lat)
 ks = kpath(lat; num_points=200)
 valley = Operators.valleyoperator(lat)
@@ -215,7 +215,7 @@ Returns a `BandData` object (with fields `bands`, `obs`, `path`).
 ```julia
 using LatticeQM
 
-lat = Structure.Geometries.honeycomb()
+lat = Geometries.honeycomb()
 h = Operators.graphene(lat)
 ks = kpath(lat; num_points=200)
 valley = Operators.valleyoperator(lat)

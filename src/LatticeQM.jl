@@ -22,14 +22,13 @@ See folder `examples` of the package.
 """
 module LatticeQM
 
-    using Base, ElasticArrays, SparseArrays, LinearAlgebra
+    # using ElasticArrays
+    using SparseArrays, LinearAlgebra
 
     # using KPM # this is one of my packages
 
     include("modules/Utils.jl")
     import .Utils
-    # using .Utils.DummySave
-    # export save, savedlm
 
     ### Base modules
     include("modules/Structure.jl")
@@ -48,9 +47,9 @@ module LatticeQM
     export TightBinding
     export DenseHops, SparseHops, Hops, hopdim, addhops!, addhops
 
-    # # include("modules/Floquet.jl")
-    # # using .Floquet
-    # # export Floquet
+    # # # include("modules/Floquet.jl")
+    # # # using .Floquet
+    # # # export Floquet
 
     include("modules/Operators.jl")
     import .Operators

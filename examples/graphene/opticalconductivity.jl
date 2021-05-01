@@ -5,7 +5,7 @@ gr() # use the GR backend for plots
 using LatticeQM
 
 # Set up lattice
-lat = Structure.Geometries.honeycomb()
+lat = Geometries.honeycomb()
 
 # Get nearest-neighbor hops in the honeycomb lattice
 using LatticeQM.Operators: graphene, addsublatticeimbalance!

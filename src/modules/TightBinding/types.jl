@@ -7,6 +7,7 @@ using LinearAlgebra: dot
 fourierphase(k,δL) = exp(1.0im * 2π * dot(k, δL))
 
 fouriersum(hoppings, k::AbstractVector) = sum(t .* fourierphase(k, δL) for (δL,t) in hoppings)
+fouriersum(hoppings, k::Float64) = sum(t .* fourierphase([k], δL) for (δL,t) in hoppings)
 
 function fouriersum(hoppings, k::Real, d::Int)
     N=length(zerokey(hoppings))
@@ -32,7 +33,6 @@ end
 # Tight binding operator definitions
 ######################################################################################
 
-import Base
 import SharedArrays: SharedArray
 import SparseArrays: SparseMatrixCSC, sparse, spzeros
 
@@ -93,7 +93,7 @@ Base.empty!(H::Hops) = (Base.empty!(H.data); H)
 Base.empty(H::Hops) = (H2=Base.empty!(deepcopy(H)); H2)
 
 
-function Base.zero(h::AnyHops; format=:auto)
+function Base.zero(h::Hops; format=:auto)
     ρ = Hops()
 
     if format==:dense 

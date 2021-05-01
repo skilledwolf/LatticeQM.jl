@@ -4,7 +4,7 @@ gr()
 using LatticeQM
 
 println("Generating lattice geometry...")
-@time lat = Structure.Geometries.honeycomb_twisted(5)
+@time lat = Geometries.honeycomb_twisted(5)
 
 println("Generating valley operator...")
 @time valley = Operators.valley(lat; spinhalf=false)

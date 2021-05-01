@@ -4,7 +4,7 @@ using LinearAlgebra, Plots
 using LatticeQM
 
 println(":: Create lattice...")
-lat = Structure.Geometries.honeycomb()
+lat = Geometries.honeycomb()
 println(":: Create hop matrix...")
 hops = Operators.graphene(lat; format=:dense)#; mode=:spinhalf)
 # Materials.addhaldane!(hops, lat, 0.1; spinhalf=true, mode=:anti)

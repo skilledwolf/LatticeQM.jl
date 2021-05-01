@@ -1,14 +1,14 @@
 using LinearAlgebra, Plots
 using LatticeQM
 
-lat = Structure.Geometries.honeycomb()
+lat = Geometries.honeycomb()
 sx, sy, sz, sublA, sublB = Operators.getoperator(lat, ["SX", "SY", "SZ", "sublatticeAspin", "sublatticeBspin"])
 
 H = Operators.graphene(lat; mode=:spinhalf)
 Operators.addsublatticeimbalance!(H, lat, 1.5)
 
 # Set up interaction
-v = Meanfield.gethubbard(lat; mode=:σx, a=0.5, U=5.0) # interaction potential
+v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=5.0) # interaction potential
 ρ_init = Meanfield.initialguess(v, :random; lat=lat) # initial guess
 
 ρ_sol, ϵ_GS, HMF, converged, error = Meanfield.solvehartreefock(

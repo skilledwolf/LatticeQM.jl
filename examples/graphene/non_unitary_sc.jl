@@ -11,7 +11,7 @@ using LatticeQM
 
 println(":: Preparing system...")
 
-lat = Structure.Geometries.honeycomb()
+lat = Geometries.honeycomb()
 ks = kpath(lat; num_points=200)
 
 hops = Operators.graphene(lat; mode=:spinhalf)
@@ -45,7 +45,7 @@ Threads.@threads for (i_,j_)=ProgressBar(IJ)
     U = Us[i_]; V = Vs[j_]
 
     hopsBDG = BdGOperator(hops)
-    v = Meanfield.getshortrangedpotential(lat, U, V)
+    v = Operators.getshortrangedpotential(lat, U, V)
 
     ρ0_init = initialguess(v, :random; kind=:nonlocal)
     Δ0_init = initialguess(v, :random; kind=:nonlocal)

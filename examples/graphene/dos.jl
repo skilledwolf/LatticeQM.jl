@@ -3,7 +3,7 @@ gr()
 
 using LatticeQM
 
-lat = Structure.Geometries.honeycomb()
+lat = Geometries.honeycomb()
 H = Operators.graphene(lat; mode=:spinhalf)
 
 ks = LatticeQM.Utils.regulargrid(nk=400^2)

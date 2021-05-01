@@ -2,7 +2,7 @@ using LinearAlgebra, Plots
 using LatticeQM
 
 println("Generate lattice...")
-lat = Structure.Geometries.honeycomb_twisted(6)
+lat = Geometries.honeycomb_twisted(6)
 Structure.Lattices.foldPC!(lat)
 sx, sy, sz, sublA, sublB = Operators.getoperator(lat, ["sx", "sy", "sz", "sublatticeAspin", "sublatticeBspin"])
 ks = kpath(lat; num_points=80)
@@ -13,7 +13,7 @@ hops = Operators.graphene(lat; format=:sparse, mode=:spinhalf, tz=0.45)
 
 # Set up interaction
 println("Set up meanfield interaction...")
-v = Meanfield.gethubbard(lat; mode=:σx, a=0.5, U=2.0) # interaction potential
+v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=2.0) # interaction potential
 ρ_init = Meanfield.initialguess(v, :random; lat=lat) # initial guess
 
 filling = 0.5+2.0/hopdim(hops)

@@ -27,7 +27,7 @@ function getoperator(lat::Lattice, name::String, args...; kwargs...)
     elseif name == "sublatticeBspin"
         return sublatticeprojection(lat, "B", 2, args...; kwargs...)
     elseif name == "Hubbard"
-        error("Load operator '$name' from Meanfield.gethubbard(...).")
+        error("Load operator '$name' from Operators.gethubbard(...).")
     elseif name == "CappedYukawa"
         error("Load operator '$name' from Meanfield.getcappedyukawa(...).")
     else

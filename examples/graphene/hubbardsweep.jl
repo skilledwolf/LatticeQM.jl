@@ -7,7 +7,7 @@ roundreal(x; digits=7) = round.(real.(x); digits=digits)
 
 function get_gap_at_U(U=4.0; filling=0.5, init=:antiferro, T=0.01, β=0.20, show_trace=true, show_bands=false, clear_trace=false, reportmagnetization=false)
 
-    lat = Structure.Geometries.honeycomb()
+    lat = Geometries.honeycomb()
     sx, sy, sz, sublA, sublB = getoperator(lat, ["sx", "sy", "sz", "sublatticeAspin", "sublatticeBspin"])
     hops = graphene(lat; mode=:spinhalf)
 #     addzeeman!(hops, lat, 0.0001)

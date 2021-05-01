@@ -22,7 +22,7 @@ using Plots
 using LatticeQM
 
 # Load a lattice geometry
-lat = Structure.Geometries.honeycomb()
+lat = Geometries.honeycomb()
 
 # Construct graphene tight-binding Hamiltonian
 hops = Operators.graphene(lat; mode=:spinhalf)
