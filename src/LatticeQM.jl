@@ -33,13 +33,13 @@ module LatticeQM
     ### Base modules
     include("modules/Structure.jl")
     import .Structure
-    import .Structure: kpath, Geometries
-    export Structure, Geometries, kpath
+    import .Structure: kpath, Geometries, Lattices
+    export Structure, Geometries, Lattices, kpath
 
     include("modules/Spectrum.jl")
     import .Spectrum
     import .Spectrum: getbands
-    export getbands
+    export Spectrum, getbands
 
     include("modules/TightBinding.jl")
     import .TightBinding
@@ -58,7 +58,8 @@ module LatticeQM
     export gethops, getoperator, getprojector, setfilling!
 
     include("modules/LinearResponse.jl")
-    using .LinearResponse
+    import .LinearResponse
+    export LinearResponse
 
     include("modules/Meanfield.jl")
     import .Meanfield

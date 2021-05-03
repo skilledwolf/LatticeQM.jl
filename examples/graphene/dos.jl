@@ -1,16 +1,15 @@
 using LinearAlgebra, Plots
-gr()
 
 using LatticeQM
+import LatticeQM.Structure
 
 lat = Geometries.honeycomb()
 H = Operators.graphene(lat; mode=:spinhalf)
+H = DenseHops(H)
 
-ks = LatticeQM.Utils.regulargrid(nk=400^2)
-energies = collect(range(-3.1, length=500, stop=3.1))
-Γ = 0.01
-DOS = Spectrum.getdos(H, ks, energies; format=:dense, Γ=Γ)
+energies, dos = Spectrum.getdos(H, -3.1, 3.1; klin=800, format=:dense, Γ=0.005)
 
-plot(energies, DOS)
+plot(energies, dos)
+
 mkpath("output")
 savefig("output/dos.pdf")

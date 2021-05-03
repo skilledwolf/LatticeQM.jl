@@ -76,9 +76,9 @@ Several predefined lattices can be found in ``LatticeQM.Geometries2D``, e.g.,
 
 .. code-block:: julia
 
-  lat1 = Geometries2D.honeycomb()
-  lat2 = Geometries2D.honeycomb_twisted(7)
-  lat3 = Geometries2D.honeycomb_twisted_ABAB(7)
+  lat1 = Geometries.honeycomb()
+  lat2 = Geometries.honeycomb_twisted(7)
+  lat3 = Geometries.honeycomb_twisted_ABAB(7)
 
 Visualizing a two-dimensional lattice
 """""""""""""""""""""""""""""""""""""
@@ -88,7 +88,7 @@ projections.
 
 .. code-block:: julia
 
-  lat = Geometries2D.honeycomb_twisted(7)
+  lat = Geometries.honeycomb_twisted(7)
   plot(lat; repeat=[0:1,0:1])
 
 
@@ -192,7 +192,7 @@ Bandstructure
 
 .. code-block:: julia
 
-  lat = Geometries2D.honeycomb()
+  lat = Geometries.honeycomb()
   hops = Operatorsgraphene(lat; mode=:spinhalf)
   h = getbloch(hops)
 
@@ -202,7 +202,7 @@ Bandstructure
   valley_proj = TightBinding.expvalf(getbloch(valleyhops))
 
   # ks = Structure.kpath(lat; num_points=200)
-  ks = kpath(Geometries2D.k_hexagonal; num_points=200)
+  ks = kpath(Geometries.k_hexagonal; num_points=200)
   bands = getbands(h, ks; projector=valley_proj) #getprojector(lat, "spin")
 
   # Show bands

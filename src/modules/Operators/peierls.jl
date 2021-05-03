@@ -89,13 +89,13 @@ end
 # end
 
 function peierlsoutplane!(hops, lat::Lattice, phase::Function)
-    N = countorbitals(lat)
-    D = hopdim(hops)
+    N = Lattices.countorbitals(lat)
+    D = TightBinding.hopdim(hops)
     d = div(D,N) # if spinhalf then d=2, if spinless d=1
     @assert d == 1 "Only spin-less implemented so far for peierl phase." # only spinless (for now)
 
-    A = getA(lat)
-    X = positions(lat)
+    A = Lattices.getA(lat)
+    X = Lattices.positions(lat)
 
     ϕ(i,j,R) = phase(X[:,i], X[:,j], A*R)
 
@@ -103,7 +103,7 @@ function peierlsoutplane!(hops, lat::Lattice, phase::Function)
 end
 
 function peierlsoutplane!(hops, phase::Function)
-    D = hopdim(hops)
+    D = TightBinding.hopdim(hops)
 
     for (R, h) = hops
         for i=1:D, j=1:D

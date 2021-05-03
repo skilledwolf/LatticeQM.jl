@@ -2,14 +2,15 @@ using LinearAlgebra
 using Plots
 
 using LatticeQM
+import LatticeQM.Structure.Lattices
 
 
 ############################################################
 # Build geometries
 ############################################################
 N=10
-lat_armchair = Structure.Lattices.reduceto1D(Geometries.honeycomb(), [[1, 1] [N, -N]])
-lat_zigzag   = Structure.Lattices.reduceto1D(Geometries.honeycomb(), [[1, 0] [0, N]])
+lat_armchair = Lattices.reduceto1D(Geometries.honeycomb(), [[1, 1] [N, -N]])
+lat_zigzag   = Lattices.reduceto1D(Geometries.honeycomb(), [[1, 0] [0, N]])
 
 p1 = plot(lat_armchair; supercell=[0:20])
 p2 = plot(lat_zigzag; supercell=[0:15])

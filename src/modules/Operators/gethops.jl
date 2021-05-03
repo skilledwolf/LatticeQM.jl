@@ -7,7 +7,6 @@ import ..Structure.Lattices: Lattice
 import ..TightBinding
 
 TightBinding.Hops(lat::Lattice, args...; kwargs...) = gethops(lat, args...; kwargs...)
-
 TightBinding.addhops!(hops::Hops, lat::Lattice, t::Function, args...; kwargs...) = TightBinding.addhops!(hops, gethops(lat, t, args...; kwargs...))
 
 """

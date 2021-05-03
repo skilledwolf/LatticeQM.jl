@@ -17,7 +17,6 @@ function opticalconductivity(frequencies::AbstractVector, i::Int, j::Int, H, lat
     opticalconductivity(frequencies, H, J[i], J[j], args...; kwargs...)
 end
 
-
 # More abstract interfaces
 
 import ..Structure
@@ -31,6 +30,8 @@ end
 import ..Spectrum
 using SharedArrays
 using ProgressMeter
+
+import LinearAlgebra
 
 function opticalconductivity(frequencies::AbstractVector, H, J1, J2, ks::AbstractMatrix; μ::Float64=0.0, Γ::Float64=0.025, T::Float64=0.1, kwargs...)
 
@@ -48,7 +49,7 @@ function opticalconductivity(frequencies::AbstractVector, H, J1, J2, ks::Abstrac
         k = ks[:,j_]
         ϵs, U = spectrumf(k)
 
-        OC[:] += (kubo(frequencies, ϵs, U, J1(k), J2(k); μ=μ, Γ=Γ, T=T))[:]
+        kubo!(OC, frequencies, real(ϵs), U, J1(k), J2(k); μ=μ, Γ=Γ, T=T)
     end
     OC .= OC ./ N
 

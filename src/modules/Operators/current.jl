@@ -48,7 +48,7 @@ end
 
     This should be the preferred way of generating a current operator for a given hopping Hamiltonian.
 """
-function getcurrentoperators(lat::Lattice, hops::AnyHops) # todo: test
+function getcurrentoperators(lat::Lattice, hops::Hops) # todo: test
     N = Lattices.countorbitals(lat)
     # d = latticedim(lat)
     d = Lattices.spacedim(lat)
@@ -76,7 +76,8 @@ end
 function currentoperators!(M::AbstractMatrix, r1, r2)
 
     if issparse(M)
-        return currentoperators_sparse!(sparse(M), r1, r2)
+        # M[:] = sparse(M)[:]
+        return currentoperators_sparse!(M, r1, r2)
     else 
         return currentoperators_dense!(M, r1, r2)
     end

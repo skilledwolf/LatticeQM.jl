@@ -7,11 +7,12 @@ using SparseArrays
 using ..Utils
 using ..Utils: @scalar2vector
 
-using ..Structure
-using ..Structure.Lattices
-using ..Structure: regulargrid
-using ..TightBinding
-using ..Spectrum: chemicalpotential
+import ..Structure
+import ..Structure.Lattices
+import ..Structure: regulargrid
+import ..TightBinding
+import ..TightBinding: Hops, DenseHops, SparseHops
+import ..Spectrum: chemicalpotential
 
 include("Operators/gethops.jl")
 export gethops

@@ -45,7 +45,7 @@ const AnyHops = Hops#{AbstractMatrix{ComplexF64}}
 (H::Hops)(k) = fouriersum(H,k) # This will make the type callable
 
 Hops(T=AbstractMatrix{ComplexF64}) = Hops(Dict{Vector{Int},T}())
-Hops(M::AbstractMatrix,d::Int=2) = Hops(Dict(zeros(Int,d)=>M))
+Hops(M::AbstractMatrix, d::Int=2) = Hops(Dict(zeros(Int,d)=>M))
 Hops(kv::Pair...) = Hops(Dict(k=>v for (k,v) in kv))
 Hops(d::AbstractDict) = Hops(Dict(d...))
 Hops(G::Base.Generator) = Hops(Dict(G...))
@@ -94,22 +94,33 @@ Base.empty(H::Hops) = (H2=Base.empty!(deepcopy(H)); H2)
 
 
 function Base.zero(h::Hops; format=:auto)
-    ρ = Hops()
-
-    if format==:dense 
-        for δL=keys(h)
-            ρ[δL] = zeros(ComplexF64, size(h[δL]))
-        end
+    if format==:dense
+        return zero_dense(h)
     elseif format==:sparse
-        for δL=keys(h)
-            ρ[δL] = spzeros(ComplexF64, size(h[δL]))
-        end
+        return zero_sparse(h)
     else
-        for δL=keys(h)
-            ρ[δL] = zero(h[δL])
-        end
+        return zero_auto(h)
     end
-
+end
+function zero_dense(h::Hops)
+    ρ = Hops()
+    for δL=keys(h)
+        ρ[δL] = zeros(ComplexF64, size(h[δL]))
+    end
+    ρ
+end
+function zero_sparse(h::Hops)
+    ρ = Hops()
+    for δL=keys(h)
+        ρ[δL] = spzeros(ComplexF64, size(h[δL]))
+    end
+    ρ
+end
+function zero_auto(h::Hops)
+    ρ = Hops()
+    for δL=keys(h)
+        ρ[δL] = zero(h[δL])
+    end
     ρ
 end
 

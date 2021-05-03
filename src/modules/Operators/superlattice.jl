@@ -61,9 +61,9 @@ Turn a given hopping model into a superlattice model by copying cells and hoppin
 This method can be useful as preparation before adding modulations that change the
 periodicity of the model.
 """
-superlattice(hops::AnyHops, v::Vector{Int}, args...; kwargs...) = superlattice(hops, Matrix(Diagonal(v)), args...; kwargs...)
-superlattice(hops::AnyHops, M::Matrix{Int}; kwargs...) = superlattice(hops, M, (r,R)->1; kwargs...)
-function superlattice(hops::AnyHops, M::Matrix{Int}, phasefunc::Function) where {T<:Number}
+superlattice(hops::Hops, v::Vector{Int}, args...; kwargs...) = superlattice(hops, Matrix(Diagonal(v)), args...; kwargs...)
+superlattice(hops::Hops, M::Matrix{Int}; kwargs...) = superlattice(hops, M, (r,R)->1; kwargs...)
+function superlattice(hops::Hops, M::Matrix{Int}, phasefunc::Function) where {T<:Number}
 
     coordinates = Lattices.supercellpoints(M)
     
@@ -94,14 +94,14 @@ function superlattice(hops::AnyHops, M::Matrix{Int}, phasefunc::Function) where 
     shops
 end
 
-superlattice(lat::Lattices.Lattice, hops::AnyHops, v::Vector{Int}, args...; kwargs...) = superlattice(lat, hops, Matrix(Diagonal(v)), args...; kwargs...)
-superlattice(lat::Lattices.Lattice, hops::AnyHops, M::Matrix{Int}; kwargs...) = superlattice(lat, hops, M, (r,R)->1; kwargs...)
-function superlattice(lat::Lattices.Lattice, hops::AnyHops, M::Matrix{Int}, phasefunc::Function; cellrange::Int=1) where {T<:Number}
+superlattice(lat::Lattices.Lattice, hops::Hops, v::Vector{Int}, args...; kwargs...) = superlattice(lat, hops, Matrix(Diagonal(v)), args...; kwargs...)
+superlattice(lat::Lattices.Lattice, hops::Hops, M::Matrix{Int}; kwargs...) = superlattice(lat, hops, M, (r,R)->1; kwargs...)
+function superlattice(lat::Lattices.Lattice, hops::Hops, M::Matrix{Int}, phasefunc::Function; cellrange::Int=1) where {T<:Number}
     coordinates = Lattices.supercellpoints(M)
     count = size(coordinates, 2)
     D = count  * hopdim(hops) # size of superlattice hopping matrices
 
-    slat = Structure.Lattices.superlattice(lat, M, coordinates)
+    slat = Lattices.superlattice(lat, M, coordinates)
 
     sneighbors = hcat(Lattices.getneighborcells(slat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)...)
     # sneighbors = hcat([[i;j] for i=-2:2 for j=-2:2]...)
@@ -137,7 +137,7 @@ or inteo a 1D with lattice vector a2 by dropping all hoppings along a1 (index=1)
 Tip: Together with superlattice(hops, periods) one can control the width of the finite ribbon 
 before applying reducelatdim.
 """
-function droplatdim(hops::AnyHops, index::Int)
+function droplatdim(hops::Hops, index::Int)
     newhops = Hops()
 
     N = length(zerokey(hops))

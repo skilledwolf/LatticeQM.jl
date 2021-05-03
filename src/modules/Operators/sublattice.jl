@@ -1,8 +1,10 @@
+import ..Structure.Lattices
+
 function sublatticeprojection(lat::Lattice, n::Number, d=1)
     """
     typically n=0 for sublattice A and n=1 for sublattice B and d=2 for spin-1/2
     """
-    sublattice = extracoordinates(lat, "sublattice")
+    sublattice = Lattices.extracoordinates(lat, "sublattice")
     filtered_sublattice = float(sublattice .== n)
 
     kron(Diagonal(filtered_sublattice[:]), Diagonal(ones(d)))

@@ -18,16 +18,6 @@ precompile(graphene, (Lattice,))
 
 import ..Structure.Lattices
 
-valley(args...; kwargs...) = addvalley!(Hops(), args...; kwargs...)
-function addvalley!(hops, lat::Lattice, fz::Function=x->sign(x[3]+1e-3); spinhalf=false, kwargs...)
-    @assert Lattices.countorbitals(lat) > 1 #latticedim(lat) == 2
-
-    t20 = √3/9
-    f(R) = sign(R[4]-0.5)
-
-    addhaldane!(hops, lat, x-> t20 * f(x) * fz(x); spinhalf=spinhalf, kwargs...)
-end
-
 function addsublatticeimbalance!(hops, lat::Lattice, Δ::Real; kwargs...)
 
     # Only go through the trouble of constructing this matrix for finite Δ
@@ -41,6 +31,15 @@ function addsublatticeimbalance!(hops, lat::Lattice, Δ::Real; kwargs...)
     nothing
 end
 
+valley(args...; kwargs...) = addvalley!(Hops(), args...; kwargs...)
+function addvalley!(hops, lat::Lattice, fz::Function=x->sign(x[3]+1e-3); spinhalf=false, kwargs...)
+    @assert Lattices.countorbitals(lat) > 1 #latticedim(lat) == 2
+
+    t20 = √3/9
+    f(R) = sign(R[4]-0.5)
+
+    addhaldane!(hops, lat, x-> t20 * f(x) * fz(x); spinhalf=spinhalf, kwargs...)
+end
 
 include("haldane.jl")
 
@@ -179,12 +178,6 @@ function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin::Float64=1e-5
 
             δz = δR[3,i]
             χ = δz^2 /(Δ^2)
-
-            # if abs(δz) < a
-            #     v = -t0 * (1-χ) * exp(-(Δ-a)/ℓintra) #* exp(-δz^2 /ℓz^2)
-            # else
-            #     v = -tz * χ * exp(-(Δ-z)/ℓinter)
-            # end
 
             v =  -t0 * (1-χ) * exp(-abs(Δ-a)/ℓintra) - tz * χ * exp(-abs(Δ-z)/ℓinter)
 

@@ -2,6 +2,19 @@ using Distributed
 # using SharedArrays
 import ..Structure: regulargrid
 
+"""
+    getdos(h, emin::Float64, emax::Float64, num=500; kwargs...)
+
+Computes the density of states of operator h(k) on the entire Brillouine zone,
+discretized on a grid with \$ k_{lin} \\times k_{lin} \$ points. 
+and for the frequencies ωs=(ωmin, ω2, ..., ωmax). The paremter \$\\Gamma\$ is the energy broadening.
+
+Accepts the same kwargs as getdos(h, ωs; klin, Γ, kwargs...).
+
+Note: the current implementation only works for a two-dimensional Brillouine zone.
+Might change in the future, but for now use dos(h, ks, ω; Γ) syntax if needed.
+"""
+getdos(h, emin::Float64, emax::Float64, num=500; kwargs...) = (Ωs=LinRange(emin, emax, num); (Ωs, getdos(h, Ωs; kwargs...)));
 
 """
     getdos(h, ωs; klin, Γ, kwargs...)
@@ -36,7 +49,7 @@ and for the frequencies ω=(ω1, ω2, ...). The paremter \$\\Gamma\$ is the ener
 
 Mode can be :distributed or :serial, format can be :auto, :sparse or :dense.
 """
-getdos(h, ks, ωs; kwargs...) = (DOS=zero(ωs); getdos!(DOS, h, ks, ωs; kwargs...))
+getdos(h, ks, ωs::AbstractVector; kwargs...) = (DOS=zero(ωs); getdos!(DOS, h, ks, ωs; kwargs...))
 function getdos!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; parallel=true, mode=:distributed, kwargs...)
     if nprocs()<2 || mode!=:distributed
         parallel=false
