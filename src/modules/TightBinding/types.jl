@@ -33,7 +33,7 @@ end
 # Tight binding operator definitions
 ######################################################################################
 
-import SharedArrays: SharedArray
+import SharedArrays: SharedArray, SharedMatrix
 import SparseArrays: SparseMatrixCSC, sparse, spzeros
 
 mutable struct Hops{T<:AbstractMatrix{ComplexF64}}
@@ -57,7 +57,7 @@ DenseHops(d::AbstractDict) = DenseHops(d...)
 DenseHops(G::Base.Generator) = DenseHops(Dict(G...))
 
 SharedDenseHops(H::Hops) = SharedDenseHops(H.data)
-SharedDenseHops(kv::Pair...) = Hops{Matrix{ComplexF64}}(Dict(k=>SharedArray(Matrix(complex(v))) for (k,v) in kv))
+SharedDenseHops(kv::Pair...) = Hops{SharedMatrix{ComplexF64}}(Dict(k=>SharedArray(Matrix(complex(v))) for (k,v) in kv))
 SharedDenseHops(d::AbstractDict) = SharedDenseHops(d...)
 SharedDenseHops(G::Base.Generator) = SharedDenseHops(Dict(G...))
 

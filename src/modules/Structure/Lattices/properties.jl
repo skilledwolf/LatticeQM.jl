@@ -13,6 +13,12 @@ assertdimension(lat::Lattice, name::String) = !hasdimension(lat, name) ? error("
 basis(lat::Lattice, rselector=(:), cselector=(:)) = lat.basis[rselector,cselector]
 getA(lat::Lattice, rselector=(:), cselector=(:)) = basis(lat)[:,1:latticedim(lat)][rselector,cselector]
 
+# (lat::Lattice)(x::AbstractMatrix) = lat.basis[:,1:size(x,1)] * x 
+(lat::Lattice)(x::Vector{Int}) = (y=coordinates(lat); y[1:latticedim(lat),:] .+= x; y)
+(lat::Lattice)(X::AbstractVector{Vector{Int}}) = (lat(x) for x=X)
+
+(lat::Lattice)(x::Vector{Int}, s::Symbol) = (s==:cartesian) ? basis(lat)*lat(x) : error("Mode '$s' not known.")
+(lat::Lattice)(X::AbstractVector{Vector{Int}}, s::Symbol) = (s==:cartesian) ? (basis(lat)*y for y=lat(X)) : error("Mode '$s' not known.")
 
 """
 Calculate the dual lattice of lat.A.

@@ -76,8 +76,8 @@ function repeat!(lat::Lattice, intvectors::Vector{Vector{Int64}})
     lat
 end
 
-import Base
-Base.repeat(lat::Lattice, repeat=[0:0,0:0]) = repeat!(deepcopy(lat), repeat)
+
+repeat(lat::Lattice, repeat=[0:0,0:0]) = repeat!(deepcopy(lat), repeat)
 
 function repeat(spacecoordinates::AbstractMatrix, Λ=Matrix{Float64}(I, 2, 2), repeat=[0:0,0:0])
 """

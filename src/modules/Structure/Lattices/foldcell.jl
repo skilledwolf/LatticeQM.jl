@@ -30,8 +30,41 @@ function foldcell!(M, points::AbstractMatrix)
         else
             δk = [0.0,0.0]
         end
-        points[1:2,j_] -= δk
+        points[1:2,j_] .-= δk
     end
+
+    points
+end
+
+function foldcell!(lat::Lattice, points::AbstractMatrix; shift=0.0)
+    d = latticedim(lat)
+    @assert d == 2 "Cell folding is (currently) only supported for d=2 lattices."
+
+    A = getA(lat)
+    points .-= shift
+
+    # This piece of code handles the special case of a triangular lattice.
+    # We ensure that the primitive lattice vectors have angle 2π/3, not 2π/6
+    # (it's equivalent, but foldcell! assumes the former)
+    # Note: this part is not thoroughly tested.
+    α = acos(dot(A[:,1],A[:,2])/(norm(A[:,1])*norm(A[:,2])))/(2π)
+    if norm(α)≈1/6
+        # print("Changing lattice basis...")
+        specialpoints = deepcopy(lat.specialpoints)
+
+        # println("Modifying lattice vectors...")
+        T = [1 -1*sign(α); 0 1*sign(α)]
+        lat.basis[1:2,1:2] = A[1:2,1:2] * T
+        lat.spacecoordinates[1:2,:] = inv(T) * lat.spacecoordinates[1:2,:]
+
+        for (k,v) in lat.specialpoints.points # update high-symmetry points
+            specialpoints.points[k] = transpose(T) * v
+        end
+        lat.specialpoints = specialpoints
+    end
+
+    A = getA(lat)[1:d,1:d]
+    foldcell!(transpose(A) * A, points)
 
     points
 end
@@ -40,7 +73,8 @@ end
 """
     foldBZ!(lat::Lattice, points::AbstractMatrix)
 
-Fold coordinates of k-points into the first Brillouin zone.
+Fold coordinates of k-points into the first Brillouin zone. Note that k-points are assumed to
+be in fractional coordinates.
 """
 function foldBZ!(lat::Lattice, points::AbstractMatrix)
     d = latticedim(lat)

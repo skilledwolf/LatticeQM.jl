@@ -263,7 +263,7 @@ function uniformfieldphase_inplane(r1::T,r2::T; B::AbstractVector) where T<:Abst
     # end
     else
         ### z1=r1[3]+1.5;  z2=r2[3]+1.5
-        z1=r1[3]+1.5;  z2=r2[3]+1.5
+        z1=r1[3];  z2=r2[3]
     end
     # z1=r1[3]; z2=r2[3]
 
