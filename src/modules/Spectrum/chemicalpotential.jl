@@ -32,7 +32,12 @@ end
 
 function chemicalpotential_0!(energies::AbstractVector{T1}, filling::T1) where T1<:Real
 
-    i = floor(Int, filling * length(energies)) # fill a fraction of states according to ,,filling''
+    if filling == 1.0
+        return maximum(energies)
+    end
+
+    i = 1 + floor(Int, filling * (length(energies)-1)) # fill a fraction of states according to ,,filling''
+
     e1, e2 = partialsort!(energies, i:i+1) # oldversion: sort!(energies); e1, e2 = energies[i:i+1]
 
     (e1+e2)/2
