@@ -22,9 +22,11 @@ function fouriersum(hoppings, k::Real, d::Int)
     newhops
 end
 
+using LinearAlgebra: Hermitian
+
 function getbloch(hoppings,args...)
     function h(k)
-        fouriersum(hoppings, k,args...)
+        Hermitian(fouriersum(hoppings, k,args...))
     end
     h
 end

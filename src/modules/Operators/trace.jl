@@ -38,11 +38,12 @@ magnetization(ρ, A::AbstractVector{String}, lat::Lattice) = [magnetization(ρ, 
 
 
 import ..Structure
+import ..Structure.Lattices
 import ..Structure.Lattices: Lattice
 
 function localdensity(ρ::Hops, lat::Lattice)
 
-    N = Structure.countorbitals(lat)
+    N = Lattices.countorbitals(lat)
     D = zeros(ComplexF64, N)
 
     P(i) = kron(Diagonal([complex(float(i==j)) for j=1:N]), Diagonal(ones(2))) #assuming spinhalf here. fix in future.
@@ -56,7 +57,7 @@ end
 
 function localmagnetization(ρ::Hops, lat::Lattice)
 
-    N = Structure.countorbitals(lat)
+    N = Lattices.countorbitals(lat)
     M = zeros(ComplexF64, 3,N)
 
     P(i) = kron(Diagonal([complex(float(i==j)) for j=1:N]), Diagonal(ones(2))) #assuming spinhalf here. fix in future.
@@ -69,7 +70,7 @@ function localmagnetization(ρ::Hops, lat::Lattice)
 end
 
 function localobservables(ρ::Hops, lat::Lattice)
-    N = Structure.countorbitals(lat)
+    N = Lattices.countorbitals(lat)
     M = zeros(ComplexF64, 4,N)
 
     P(i) = kron(Diagonal([complex(float(i==j)) for j=1:N]), Diagonal(ones(2))) #assuming spinhalf here. fix in future.

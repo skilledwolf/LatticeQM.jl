@@ -23,7 +23,7 @@ v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=6.0) # interaction potential
 ρ_init = Meanfield.initialguess(v, :random; lat=lat) # initial guess
 
 ρ_sol, ϵ_GS, HMF, converged, error = Meanfield.solvehartreefock( # run the calculation
-    hops, v, ρ_init, 0.5; klin=30, iterations=800, tol=1e-7,# p_norm=Inf,
+    hops, v, ρ_init, 0.5; klin=100, iterations=800, tol=1e-7,# p_norm=Inf,
     T=0.01, β=0.9,  show_trace=true, clear_trace=true
 )
 

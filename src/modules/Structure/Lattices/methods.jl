@@ -31,7 +31,7 @@ function translate!(lat::Lattice, i::Integer, δ::Float64)
 end
 
 function translate!(lat::Lattice, v::AbstractVector)
-    lat.spacecoordinates[:,:] .+= basis(lat) * v
+    lat.spacecoordinates[:,:] .+= v # basis(lat) * v
     lat
 end
 

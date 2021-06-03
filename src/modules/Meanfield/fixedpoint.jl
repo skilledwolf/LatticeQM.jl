@@ -15,7 +15,7 @@ which has the fixed point x0 = sqrt(a).
 function fixedpoint!(f!, x1, x0;
     iterations=500,
     tol=1e-7, β=1.0,
-    p_norm::Real=2,
+    p_norm=Inf,
     show_trace=false,
     clear_trace=false,
     verbose=true
@@ -44,7 +44,7 @@ function fixedpoint!(f!, x1, x0;
         error = norm(values(x1).-values(x0), p_norm)
 
         if show_trace
-            ProgressMeter.update!(prog, error, showvalues = [(:iter,iter)])
+            ProgressMeter.update!(prog, error, showvalues = [(:iter,iter), (:time, t1)])
         end
 
         if error < tol

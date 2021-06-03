@@ -3,12 +3,12 @@
 
 getelectronsector(H::Function) = H
 
-function chemicalpotential(H, ks, filling::Float64; multimode=:distributed, kwargs...)
+function chemicalpotential(H, ks, filling::Real; multimode=:distributed, kwargs...)
 
     chemicalpotential(bandmatrix(getelectronsector(H), ks; multimode=multimode), filling; kwargs...)
 end
 
-function chemicalpotential(bands::AbstractMatrix, filling::Float64; kwargs...)
+function chemicalpotential(bands::AbstractMatrix, filling::Real; kwargs...)
     en = bands[:]
     nk = size(bands,2)
 
@@ -22,7 +22,7 @@ end
 #     chemicalpotential!(en, nk, filling; kwargs...)
 # end
 
-function chemicalpotential!(energies::AbstractVector{T1}, nk::Int, filling::Float64; T::T1=0.0, kwargs...) where T1<:Real
+function chemicalpotential!(energies::AbstractVector{<:Real}, nk::Int, filling::Float64; T::Real=0.0, kwargs...)
     if T==zero(T)
         return chemicalpotential_0!(energies, filling; kwargs...)
     else
@@ -30,7 +30,7 @@ function chemicalpotential!(energies::AbstractVector{T1}, nk::Int, filling::Floa
     end
 end
 
-function chemicalpotential_0!(energies::AbstractVector{T1}, filling::T1) where T1<:Real
+function chemicalpotential_0!(energies::AbstractVector{<:Real}, filling::Real)
 
     if filling == 1.0
         return maximum(energies)

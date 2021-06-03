@@ -6,12 +6,27 @@ function L(State1::T, State2::T) where {T<:AbstractArray{<:Complex,N}} where N
     return res/abs(res)
 end
 
+"""
+    plaquettephase(S00, S10, S01, S11)
+
+Calculates the phase the (non-abelian) phase winding around a plaquette.
+
+This method is not meant to be called directly, it is used by `berry(statesgrid)`.
+"""
 function plaquettephase(S00::T, S10::T, S01::T, S11::T) where {T<:AbstractArray{<:Complex, N}} where N
     real(1.0/(2π*1.0im) * log( L(S00, S10) * L(S10, S11) * L(S01, S11)^(-1) * L(S00,S01)^(-1) ))
 end
 
 mymod(i::Int,j::Int) = 1+mod(i-1, j)
 
+"""
+    berry(statesgrid)
+
+Goes through each plaquette `(i,j),(i+1,j),(i+1,j+1),(i,j+1)` and calculates the (non-abelian) plaquette phase.
+`statesgrid` is a four-dimenional array, containing the discretization information and the occupied states.
+
+You can create a statesgrid with `statesgrid(H, nx, ny, bandindices)` or use the wrapper `berry(H, nx, ny, bandindices)`.
+"""
 function berry(statesgrid::AbstractArray{<:Complex, 4})
 
     (n,m) = size(statesgrid)[1:2]
@@ -28,6 +43,12 @@ function berry(statesgrid::AbstractArray{<:Complex, 4})
     F
 end
 
+"""
+    statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
+
+Evaluates the eigenvectors on a discretized grid (2D Hamiltonian only!) and stores the result (preserving the grid information).
+This method is useful when plaquette phases need to be calculated.
+"""
 function statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
     # Prepare indices and sizes
     NY = (NY<1) ? NX : NY
@@ -54,6 +75,11 @@ function statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
     kgrid, midkgrid, statesgrid0
 end
 
+"""
+    berry(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
+
+Convenience method for `berry(statesgrid)`.
+"""
 function berry(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[1])
     # wavefunctions(k::Vector) -> Matrix{Complex}
     kgrid, midkgrid, statesgrid0 = statesgrid(H, NX, NY, bandindices)
@@ -62,10 +88,14 @@ end
 
 import ..Structure: rotation2D
 
+"""
+    berryalongpath(H, kpoints)
+
+Calculate the abelian Berry curvature for each band along a path of discrete k points.
+It builds little plaquettes along the path between the kpoints[:,i] and kpoints[:,i+1].
+"""
 function berryalongpath(H, kpoints)
-"""
-    Calculate the abelian Berry Curvature for each band along a path of discrete k points
-"""
+
     function wavefunctionsf(k)
         wavefunctions(H(k))
     end
@@ -98,7 +128,7 @@ function berryalongpath(H, kpoints)
 
         for i_=1:M
             berryc[i_,j_-1] = plaquettephase(
-                [U[:,i_] for U in States]...
+                (U[:,i_] for U in States)...
             )
         end
 
@@ -107,9 +137,14 @@ function berryalongpath(H, kpoints)
     berryc
 end
 
-getberry!(bands::BandData, h, ks) = getberry_wf!(bands, h, ks)
 
-function getberry_wf!(bands::BandData, h, ks)
+"""
+    getberry!(bands, h, ks)
+
+Calculates and appends the data from `berryalongpath(h,ks)` to the data object `bands`.
+This is a convenience method that is useful when plotting band diagrams with Berry curvatures colored it.
+"""
+function getberry!(bands::BandData, h, ks)
     
     obs = Array(berryalongpath(h, ks))
     obs = reshape(obs, (size(obs)...,1))
@@ -123,14 +158,16 @@ function getberry_wf!(bands::BandData, h, ks)
     nothing
 end
 
-function NestedWilson2D(H, NX::Int, NY::Int=0, bandindices=[1])
+@deprecate NestedWilson2D Wilson2D
+@deprecate NestedWilsonWannier2D WilsonWannier2D
+
+function Wilson2D(H, NX::Int, NY::Int=0, bandindices=[1])
 
     _, _, statesgrid0 = statesgrid(H, NX, NY, bandindices)
-
-    return NestedWilson2D(statesgrid0[1:(NX-1),1:(NY-1),:,:])
+    Wilson2D(statesgrid0[1:(NX-1),1:(NY-1),:,:])
 end
 
-function NestedWilson2D(statesgrid::AbstractArray{ComplexF64,4})
+function Wilson2D(statesgrid::AbstractArray{ComplexF64,4})
     NX, NY, M1, M2 = size(statesgrid)
 
     en1, U1= WilsonSlice1D(statesgrid, 1)
@@ -139,15 +176,16 @@ function NestedWilson2D(statesgrid::AbstractArray{ComplexF64,4})
     en1, U1, en2, U2
 end
 
-function NestedWilsonWannier2D(H, NX::Int, NY::Int=0, bandindices=[1])
+
+function WilsonWannier2D(H, NX::Int, NY::Int=0, bandindices=[1])
 
     _, _, statesgrid0 = statesgrid(H, NX, NY, bandindices)
-    NestedWilsonWannier2D(statesgrid0[1:(NX-1),1:(NY-1),:,:])
+    WilsonWannier2D(statesgrid0[1:(NX-1),1:(NY-1),:,:])
 end
 
 import Statistics
 
-function NestedWilsonWannier2D(statesgrid::AbstractArray{ComplexF64,4})
+function WilsonWannier2D(statesgrid::AbstractArray{ComplexF64,4})
     NX, NY, M1, M2 = size(statesgrid)
 
     newstatesgrid1 = similar(statesgrid)
@@ -167,6 +205,7 @@ function NestedWilsonWannier2D(statesgrid::AbstractArray{ComplexF64,4})
     
     p1, p2
 end
+
 
 function statesgrid1D(H, NX::Int, bandindices::AbstractArray=[])
     function wavefunctionsf(k)
