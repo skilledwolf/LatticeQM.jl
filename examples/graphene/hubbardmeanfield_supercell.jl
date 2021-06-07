@@ -1,5 +1,6 @@
 using LinearAlgebra, Plots
-# BLAS.set_num_threads(2)
+BLAS.set_num_threads(1)
+
 import FileIO
 using DelimitedFiles
 using LatticeQM
@@ -22,7 +23,7 @@ function honeycombholes(; N=4,rad=0.2, rhombic=false)
 end
 
 @info "Building system"
-lat = honeycombholes(N=5,rad=0.2,rhombic=false) # N=4, rad=0.2
+lat = honeycombholes(N=7,rad=0.25,rhombic=false) # N=5, rad=0.2, # N=4, rad=0.2
 sz = Operators.getoperator(lat,"sz")
 
 println("Number of atoms: ", Lattices.countorbitals(lat))
@@ -34,20 +35,19 @@ println("Number of atoms: ", Lattices.countorbitals(lat))
 @info "Mean field calculation"
 # Set up interaction
 v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=2.0) #|> DenseHops # interaction potential 
-# ρ_init = Meanfield.initialguess(v, :random; lat=lat) #|> DenseHops # initial guess 
+ρ_init = Meanfield.initialguess(v, :random; lat=lat) #|> DenseHops # initial guess 
 # ρ_init = Hops()
 # Operators.addzeeman!(ρ_init, lat, r->sign(r[4]-0.5)*[0,0,1] )
 
-ρ_init = FileIO.load("output/meanfield3.jld2", "ρ_sol")
+# ρ_init = FileIO.load("output/meanfield4.jld2", "ρ_sol")
 
 @time ρ_sol, ϵ_GS, HMF, converged, error = Meanfield.solvehartreefock( # run the calculation
     hops, v, ρ_init, 0.5; klin=10, iterations=500, tol=1e-7,# p_norm=Inf,
-    T=0.001, β=0.6,  show_trace=true, clear_trace=true, multimode=:distributed
+    T=0.001, β=0.5,  show_trace=true, clear_trace=true, multimode=:distributed
 )
 
 mkpath("output")
-FileIO.save("output/meanfield3.jld2", "ρ_sol", ρ_sol)
-
+FileIO.save("output/meanfield4.jld2", "ρ_sol", ρ_sol)
 
 # # Get magnetization
 M = real.(Operators.localmagnetization(ρ_sol, lat))

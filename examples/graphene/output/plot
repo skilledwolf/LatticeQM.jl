@@ -53,6 +53,7 @@ R = np.loadtxt("XYZ.out")
 X,Y,Z = R
 MX,MY,MZ = np.loadtxt("M.out")
 
+print(np.loadtxt("M.out"))
 # R0 = np.sum(R,axis=1)/3
 # X0,Y0,Z0 = np.array([R0,R0,R0]).T
 
