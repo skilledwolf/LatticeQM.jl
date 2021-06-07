@@ -49,9 +49,9 @@ function opticalconductivity(frequencies::AbstractVector, H, J1, J2, ks::Abstrac
         k = ks[:,j_]
         ϵs, U = spectrumf(k)
 
-        kubo!(OC, frequencies, real(ϵs), U, J1(k), J2(k); μ=μ, Γ=Γ, T=T)
+        kubo!(OC, frequencies, real(ϵs), U, J1(k), J2(k)'; μ=μ, Γ=Γ, T=T)
     end
-    OC .= OC ./ N
+    OC .= -1im .* OC ./ N
 
 #     (OC.-OC[1]) ./ (frequencies .+ 1im*Γ) # Calculate the optical conductivity tensor
     OC
