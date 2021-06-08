@@ -62,6 +62,8 @@ function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, 
     # Turn dense and prepare for distributed computing
     ρ0 = (multimode==:distributed) ? SharedDenseHops(ρ0) : DenseHops(ρ0)
     ρ1 = (multimode==:distributed) ? SharedDenseHops(ρ1) : DenseHops(ρ1)
+    # ρ0 = DenseHops(ρ0)
+    # ρ1 = DenseHops(ρ1)
 
     H = Hamiltonian(ℋ_op(ρ0), 0.0)
 

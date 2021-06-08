@@ -107,7 +107,99 @@ using ..TightBinding: Hops, AnyHops
 import ..Spectrum: spectrum, groundstate_sumk
 import ..TightBinding: efficientzero, flexibleformat!, fourierphase
 
-function densitymatrix_parallel!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+#### Nice idea but less performant... large overhead for copying data between processes
+# function densitymatrix_pmap_async!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+#     L = size(ks,2)
+
+#     energies = zeros(Float64, L)
+
+#     function spectrumf(k)
+#         spectrum(H(k); kwargs...)
+#     end
+
+#     for (δL,ρ0)=ρs
+#         ρs[δL][:] .= 0.0 #convert(SharedArray, zero(ρ0))[:]
+#     end
+
+#     zeromat = complex(zeros(size(first(values(ρs)))))
+
+#     channel = RemoteChannel(()->Channel{Tuple{Int, Vector{Float64}, Matrix{Complex}}}(L))
+#     @sync begin
+
+#         @async begin # update G
+#             done = 0
+#             wait(channel)
+#             while done < L
+#                 (i_, ϵs, M) = take!(channel) # read the result from channel (wait if necessary)
+
+#                 for δL=keys(ρs)
+#                     ρs[δL][:,:] .+= (M .* fourierphase(ks[:,i_], δL))
+#                 end
+
+#                 energies[i_] = groundstate_sumk(real(ϵs), μ)
+#                 done = done+1
+#             end
+#         end
+
+#         @async begin # compute spectrum at different k points asynchronosly (good for large/huge systems)
+#             pmap(1:L) do i_
+#                 k = ks[:,i_]
+#                 # println("Calculating spectrum: $i_")
+#                 ϵs, U = spectrumf(k) # calculation
+
+#                 # println("Calculating spectrum: $i_")
+#                 M = zero(zeromat)
+#                 densitymatrix!(M, ϵs.-μ, U; T=T)
+
+#                 # println("Sending to channel: $i_")
+#                 put!(channel, (i_, real.(ϵs), M)) # passing the result to the channel
+#                 nothing
+#             end
+#         end
+#     end
+
+#     for δL = keys(ρs)
+#         ρs[δL][:] ./= L
+#     end
+
+#     sum(real(energies))/L # return the groundstate energy
+# end
+
+function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+    L = size(ks,2)
+
+    energies = SharedArray(zeros(Float64, L))
+    function spectrumf(k)
+        spectrum(H(k); kwargs...)
+    end
+
+    zeromat, δLs = efficientzero(ρs)
+
+    ρsMat = sum(pmap(1:L) do i_
+        k = ks[:,i_]
+        ϵs, U = spectrumf(k) #@time
+
+        ρ0 = zero(zeromat)
+        M = zero(ρ0[:,:,1])
+
+        densitymatrix!(M, ϵs.-μ, U; T=T)
+
+        for (j_,δL)=enumerate(δLs)
+            ρ0[:,:,j_] .+= (M .* fourierphase(-k, δL))
+        end
+
+        energies[i_] = groundstate_sumk(real(ϵs), μ)
+
+        ρ0
+    end)
+
+    flexibleformat!(ρs, ρsMat/L, δLs)
+
+    sum(energies)/L # return the groundstate energy
+end
+
+# deprecated in favor of densitymatrix_pmap
+function densitymatrix_distributed!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
     L = size(ks,2)
 
     energies = SharedArray(zeros(Float64, L))
@@ -177,7 +269,7 @@ end
 function getdensitymatrix!(ρs::Hops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; multimode=:serial, kwargs...)
 
     if multimode==:distributed && nprocs()>1
-        densitymatrix_parallel!(ρs, H, ks, μ; kwargs...)
+        densitymatrix_pmap!(ρs, H, ks, μ; kwargs...)
     elseif multimode==:multithread && Threads.nthreads()>1
         densitymatrix_multithread!(ρs, H, ks, μ; kwargs...)
     else

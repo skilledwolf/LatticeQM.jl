@@ -26,7 +26,7 @@ function fixedpoint!(f!, x1, x0;
 
     if show_trace
         # println("New step.")
-        prog = ProgressThresh(tol, "FIXPOINT SEARCH ")
+        prog = ProgressThresh(tol, "FIXPOINT SEARCH ")#; showspeed=true)
     end
 
     error = 1.0
