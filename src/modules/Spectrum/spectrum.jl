@@ -180,10 +180,10 @@ function bandmatrix_pmap(H, ks, projector; hidebar=false, num_bands::Int=0, kwar
 
     res = (@showprogress (hidebar ? 10^6 : 20) "Computing bands... " pmap(eachcol(ks)) do k
         ϵs, U = spectrum(H(k); kwargs...)
-        colors = [P(k,psi,e) for (e,psi)=zip(ϵs, eachcol(U)), for P=projector]
+        colors = [ P(k, psi, e) for (e,psi) in zip(ϵs, eachcol(U)), P in projector ]
 
         ϵs, colors
-    end 
+    end)
 
     bands = hcat((x[1] for x=res)...)
     obs = cat((x[2] for x=res)...; dims=3)
