@@ -1,23 +1,21 @@
 using Plots, LinearAlgebra
 using LatticeQM
-using LatticeQM.Operators: graphene, addzeeman!, magnetization, density
-using LatticeQM.Meanfield
 
 roundreal(x; digits=7) = round.(real.(x); digits=digits)
 
 function get_gap_at_U(U=4.0; filling=0.5, init=:antiferro, T=0.01, β=0.20, show_trace=true, show_bands=false, clear_trace=false, reportmagnetization=false)
 
     lat = Geometries.honeycomb()
-    sx, sy, sz, sublA, sublB = getoperator(lat, ["sx", "sy", "sz", "sublatticeAspin", "sublatticeBspin"])
-    hops = graphene(lat; mode=:spinhalf)
-#     addzeeman!(hops, lat, 0.0001)
+    sx, sy, sz, sublA, sublB = Operators.getoperator(lat, ["sx", "sy", "sz", "sublatticeAspin", "sublatticeBspin"])
+    hops = Operators.graphene(lat; mode=:spinhalf)
+#     Operators.addzeeman!(hops, lat, 0.0001)
 
-    v = gethubbard(lat; mode=:σx, a=0.5, U=U) # interaction potential
-    ρ_init = initialguess(v, init; lat=lat) # initial guess
+    v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=U) # interaction potential
+    ρ_init = Meanfield.initialguess(v, init; lat=lat) # initial guess
 
-    hf = hartreefock(hops, v)
+    hf = Meanfield.hartreefock(hops, v)
 
-    ρ_sol, ϵ_GS, HMF, converged, error = solveselfconsistent(
+    ρ_sol, ϵ_GS, HMF, converged, error = Meanfield.solveselfconsistent(
         hf, ρ_init, filling; klin=30, iterations=500, tol=1e-8,# p_norm=Inf,
         T=T, β=β,  show_trace=show_trace, clear_trace=clear_trace
     )
@@ -38,12 +36,12 @@ function get_gap_at_U(U=4.0; filling=0.5, init=:antiferro, T=0.01, β=0.20, show
     end
 
     if reportmagnetization
-        mA, mB = roundreal.(magnetization(ρ_sol, [sublA,sublB], lat))
+        mA, mB = roundreal.(Operators.magnetization(ρ_sol, [sublA,sublB], lat))
         δM = mA - mB
         M = mA+mB
         Mabs = norm(M)
         δMabs = norm(δM)
-        dens = density(ρ_sol)
+        dens = Operators.density(ρ_sol)
         @info("Groundstate energy", ϵ_GS)
         @info("Magnetization", Mabs, δMabs, mA, mB, M, δM)
         @info("Density", dens)
