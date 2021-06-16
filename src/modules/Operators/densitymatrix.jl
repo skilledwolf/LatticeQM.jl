@@ -165,37 +165,6 @@ import ..TightBinding: efficientzero, flexibleformat!, fourierphase
 #     sum(real(energies))/L # return the groundstate energy
 # end
 
-# function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
-#     L = size(ks,2)
-
-#     function spectrumf(k)
-#         spectrum(H(k); kwargs...)
-#     end
-
-#     Ls = keys(ρs)
-#     M0 = first(values(ρs))
-
-#     res = pmap(eachcol(ks)) do k
-#         ϵs, U = spectrumf(k) 
-
-#         M = zero(M0)
-#         densitymatrix!(M, ϵs.-μ, U; T=T)
-
-#         ρ0 = Dict(L => M .* fourierphase(-k, δL) for L in Ls)
-
-#         ρ0, groundstate_sumk(real(ϵs), μ)
-#     end
-
-#     ρsnew = mergewith(+, (x[1] for x=res)...)
-#     energies = sum(x[2] for x=res)/L
-
-#     for L in Ls
-#         ρs[L] .= ρsnew[L]
-#     end
-
-#     energies # return the groundstate energy
-# end
-
 function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
     L = size(ks,2)
 
@@ -203,45 +172,45 @@ function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::F
         spectrum(H(k); kwargs...)
     end
 
-    zeromat, δLs = efficientzero(ρs)
+    Ls = keys(ρs)
+    M0 = first(values(ρs))
 
-    ρ0 = convert(SharedArray, zeromat)
+    res = pmap(eachcol(ks)) do k
+        ϵs, U = spectrumf(k) 
 
-    energy = sum(pmap(1:L) do i_
-        k = ks[:,i_]
-        ϵs, U = spectrumf(k) #@time
-
-        M = zero(ρ0[:,:,1])
-
+        M = zero(M0)
         densitymatrix!(M, ϵs.-μ, U; T=T)
 
-        for (j_,δL)=enumerate(δLs)
-            ρ0[:,:,j_] .+= (M .* fourierphase(-k, δL))
-        end
+        ρ0 = Dict(L => M .* fourierphase(-k, δL) for L in Ls)
 
-        groundstate_sumk(real(ϵs), μ)
-    end)/L
+        ρ0, groundstate_sumk(real(ϵs), μ)
+    end
 
-    flexibleformat!(ρs, ρ0/L, δLs)
+    ρsnew = mergewith(+, (x[1] for x=res)...)
+    energies = sum(x[2] for x=res)/L
 
-    energy # return the groundstate energy
+    for L in Ls
+        ρs[L] .= ρsnew[L]
+    end
+
+    energies # return the groundstate energy
 end
 
 # function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
 #     L = size(ks,2)
 
-#     energies = SharedArray(zeros(Float64, L))
 #     function spectrumf(k)
 #         spectrum(H(k); kwargs...)
 #     end
 
 #     zeromat, δLs = efficientzero(ρs)
 
-#     ρsMat = sum(pmap(1:L) do i_
+#     ρ0 = convert(SharedArray, zeromat)
+
+#     energy = sum(pmap(1:L) do i_
 #         k = ks[:,i_]
 #         ϵs, U = spectrumf(k) #@time
 
-#         ρ0 = zero(zeromat)
 #         M = zero(ρ0[:,:,1])
 
 #         densitymatrix!(M, ϵs.-μ, U; T=T)
@@ -250,15 +219,46 @@ end
 #             ρ0[:,:,j_] .+= (M .* fourierphase(-k, δL))
 #         end
 
-#         energies[i_] = groundstate_sumk(real(ϵs), μ)
+#         groundstate_sumk(real(ϵs), μ)
+#     end)/L
 
-#         ρ0
-#     end)
+#     flexibleformat!(ρs, ρ0/L, δLs)
 
-#     flexibleformat!(ρs, ρsMat/L, δLs)
-
-#     sum(energies)/L # return the groundstate energy
+#     energy # return the groundstate energy
 # end
+
+function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+    L = size(ks,2)
+
+    energies = SharedArray(zeros(Float64, L))
+    function spectrumf(k)
+        spectrum(H(k); kwargs...)
+    end
+
+    zeromat, δLs = efficientzero(ρs)
+
+    ρsMat = sum(pmap(1:L) do i_
+        k = ks[:,i_]
+        ϵs, U = spectrumf(k) #@time
+
+        ρ0 = zero(zeromat)
+        M = zero(ρ0[:,:,1])
+
+        densitymatrix!(M, ϵs.-μ, U; T=T)
+
+        for (j_,δL)=enumerate(δLs)
+            ρ0[:,:,j_] .+= (M .* fourierphase(-k, δL))
+        end
+
+        energies[i_] = groundstate_sumk(real(ϵs), μ)
+
+        ρ0
+    end)
+
+    flexibleformat!(ρs, ρsMat/L, δLs)
+
+    sum(energies)/L # return the groundstate energy
+end
 
 # deprecated in favor of densitymatrix_pmap
 function densitymatrix_distributed!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
