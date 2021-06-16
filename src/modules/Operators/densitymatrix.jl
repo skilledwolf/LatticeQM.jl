@@ -205,7 +205,7 @@ function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::F
 
     zeromat, δLs = efficientzero(ρs)
 
-    ρ0 = SharedMatrix(zeromat)
+    ρ0 = SharedArray(zeromat)
 
     energy = sum(pmap(1:L) do i_
         k = ks[:,i_]
