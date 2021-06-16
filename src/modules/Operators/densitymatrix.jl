@@ -190,7 +190,7 @@ function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::F
     energies = sum(x[2] for x=res)/L
 
     for L in Ls
-        ρs[L] .= ρsnew[L]
+        ρs[L] .= ρsnew[L]./L
     end
 
     energies # return the groundstate energy
