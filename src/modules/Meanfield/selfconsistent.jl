@@ -29,7 +29,7 @@ end
 
 
 # using JLD
-
+import Distributed: nprocs
 import ..TightBinding: SharedDenseHops
 import ..Operators: getdensitymatrix!
 
@@ -60,8 +60,8 @@ function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, 
     # end
 
     # Turn dense and prepare for distributed computing
-    ρ0 = (multimode==:distributed) ? SharedDenseHops(ρ0) : DenseHops(ρ0)
-    ρ1 = (multimode==:distributed) ? SharedDenseHops(ρ1) : DenseHops(ρ1)
+    ρ0 = (multimode==:distributed && nprocs()>1) ? SharedDenseHops(ρ0) : DenseHops(ρ0)
+    ρ1 = (multimode==:distributed && nprocs()>1) ? SharedDenseHops(ρ1) : DenseHops(ρ1)
     # ρ0 = DenseHops(ρ0)
     # ρ1 = DenseHops(ρ1)
 

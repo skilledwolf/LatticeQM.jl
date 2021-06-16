@@ -168,35 +168,66 @@ import ..TightBinding: efficientzero, flexibleformat!, fourierphase
 function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
     L = size(ks,2)
 
-    energies = SharedArray(zeros(Float64, L))
     function spectrumf(k)
         spectrum(H(k); kwargs...)
     end
 
-    zeromat, δLs = efficientzero(ρs)
+    Ls = keys(ρs)
+    M0 = first(values(ρs))
 
-    ρsMat = sum(pmap(1:L) do i_
-        k = ks[:,i_]
-        ϵs, U = spectrumf(k) #@time
+    res = pmap(eachcol(ks)) do k
+        ϵs, U = spectrumf(k) 
 
-        ρ0 = zero(zeromat)
-        M = zero(ρ0[:,:,1])
-
+        M = zero(M0)
         densitymatrix!(M, ϵs.-μ, U; T=T)
 
-        for (j_,δL)=enumerate(δLs)
-            ρ0[:,:,j_] .+= (M .* fourierphase(-k, δL))
-        end
+        ρ0 = Dict(L => M .* fourierphase(-k, δL) for L in Ls)
 
-        energies[i_] = groundstate_sumk(real(ϵs), μ)
+        ρ0, groundstate_sumk(real(ϵs), μ)
+    end
 
-        ρ0
-    end)
+    ρsnew = mergewith(+, (x[1] for x=res)...)
+    energies = sum(x[2] for x=res)/L
 
-    flexibleformat!(ρs, ρsMat/L, δLs)
+    for L in Ls
+        ρs[L] .= ρsnew[L]
+    end
 
-    sum(energies)/L # return the groundstate energy
+    energies # return the groundstate energy
 end
+
+# function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+#     L = size(ks,2)
+
+#     energies = SharedArray(zeros(Float64, L))
+#     function spectrumf(k)
+#         spectrum(H(k); kwargs...)
+#     end
+
+#     zeromat, δLs = efficientzero(ρs)
+
+#     ρsMat = sum(pmap(1:L) do i_
+#         k = ks[:,i_]
+#         ϵs, U = spectrumf(k) #@time
+
+#         ρ0 = zero(zeromat)
+#         M = zero(ρ0[:,:,1])
+
+#         densitymatrix!(M, ϵs.-μ, U; T=T)
+
+#         for (j_,δL)=enumerate(δLs)
+#             ρ0[:,:,j_] .+= (M .* fourierphase(-k, δL))
+#         end
+
+#         energies[i_] = groundstate_sumk(real(ϵs), μ)
+
+#         ρ0
+#     end)
+
+#     flexibleformat!(ρs, ρsMat/L, δLs)
+
+#     sum(energies)/L # return the groundstate energy
+# end
 
 # deprecated in favor of densitymatrix_pmap
 function densitymatrix_distributed!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
