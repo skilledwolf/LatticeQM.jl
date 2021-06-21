@@ -91,22 +91,10 @@ end
 
 function bandmatrix_pmap(H, ks; hidebar=false, num_bands::Int=0, kwargs...)
     kwargs = num_bands==0 ? kwargs : Dict(kwargs..., :num_bands=>num_bands)
-    D = (num_bands>0) ? num_bands : size(H(first(eachcol(ks))), 1) # matrix dimension
 
-    N = size(ks,2) # no. of k points
-    bands = convert(SharedArray, Matrix{Float64}(undef, (D,N)))
+    bands = hcat((@showprogress (hidebar ? 10^6 : 20) "Computing bands... " pmap(x->real(energies(H(x); kwargs...)), eachcol(ks)))...)
 
-    function energiesf(k)
-        energies(H(k); kwargs...)
-    end
-
-    @showprogress (hidebar ? 10^6 : 20) "Computing bands... " pmap(1:N) do j_
-        bands[:,j_] .= real.(energiesf(ks[:,j_]))
-        nothing
-    end
-    # bands = hcat(pmap(x->real(energies(H(x); kwargs...)), eachcol(ks))...)
-
-    convert(Array, bands)
+    bands
 end
 
 
@@ -189,29 +177,46 @@ end
 function bandmatrix_pmap(H, ks, projector; hidebar=false, num_bands::Int=0, kwargs...)
     projector = handleprojector(projector)
     kwargs = num_bands==0 ? kwargs : Dict(kwargs..., :num_bands=>num_bands)
-    D = (num_bands>0) ? num_bands : size(H(first(eachcol(ks))), 1) # matrix dimension
 
-    N = size(ks, 2) # number of k points
-    L = length(projector)
-    bands = convert(SharedArray, Matrix{Float64}(undef, (D,N)))
-    obs   = convert(SharedArray, Array{Float64}(undef, (D,N,L)))
+    res = (@showprogress (hidebar ? 10^6 : 20) "Computing bands... " pmap(eachcol(ks)) do k
+        ϵs, U = spectrum(H(k); kwargs...)
+        colors = [ P(k, psi, e) for (e,psi) in zip(ϵs, eachcol(U)), P in projector ]
 
-    function spectrumf(k)
-        spectrum(H(k); kwargs...)
-    end
+        ϵs, colors
+    end)
 
-    @showprogress (hidebar ? 10^6 : 20) "Computing bands... " pmap(1:N) do j_
-        ϵs, U = spectrumf(ks[:,j_])
-        bands[:,j_] .= real.(ϵs)
+    bands = hcat((x[1] for x=res)...)
+    obs = cat((x[2] for x=res)...; dims=3)
 
-        for i_=1:size(U,2), n_=1:L
-            obs[i_,j_,n_] = projector[n_](ks[:,j_],U[:,i_],ϵs[i_])
-        end
-        nothing
-    end
-
-    Array(bands), Array(obs)
+    bands, obs
 end
+
+# function bandmatrix_pmap(H, ks, projector; hidebar=false, num_bands::Int=0, kwargs...)
+#     projector = handleprojector(projector)
+#     kwargs = num_bands==0 ? kwargs : Dict(kwargs..., :num_bands=>num_bands)
+#     D = (num_bands>0) ? num_bands : size(H(first(eachcol(ks))), 1) # matrix dimension
+
+#     N = size(ks, 2) # number of k points
+#     L = length(projector)
+#     bands = convert(SharedArray, Matrix{Float64}(undef, (D,N)))
+#     obs   = convert(SharedArray, Array{Float64}(undef, (D,N,L)))
+
+#     function spectrumf(k)
+#         spectrum(H(k); kwargs...)
+#     end
+
+#     @showprogress (hidebar ? 10^6 : 20) "Computing bands... " pmap(1:N) do j_
+#         ϵs, U = spectrumf(ks[:,j_])
+#         bands[:,j_] .= real.(ϵs)
+
+#         for i_=1:size(U,2), n_=1:L
+#             obs[i_,j_,n_] = projector[n_](ks[:,j_],U[:,i_],ϵs[i_])
+#         end
+#         nothing
+#     end
+
+#     Array(bands), Array(obs)
+# end
 
 
 function bandmatrix_multithread(H, ks, projector; num_bands::Int=0, kwargs...)

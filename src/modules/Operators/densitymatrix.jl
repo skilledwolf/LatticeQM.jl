@@ -165,6 +165,68 @@ import ..TightBinding: efficientzero, flexibleformat!, fourierphase
 #     sum(real(energies))/L # return the groundstate energy
 # end
 
+# function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+#     L = size(ks,2)
+
+#     function spectrumf(k)
+#         spectrum(H(k); kwargs...)
+#     end
+
+#     Ls = keys(ρs)
+#     M0 = first(values(ρs))
+
+#     res = pmap(eachcol(ks)) do k
+#         ϵs, U = spectrumf(k) 
+
+#         M = zero(M0)
+#         densitymatrix!(M, ϵs.-μ, U; T=T)
+
+#         ρ0 = Dict(L => M .* fourierphase(-k, δL) for L in Ls)
+
+#         ρ0, groundstate_sumk(real(ϵs), μ)
+#     end
+
+#     ρsnew = mergewith(+, (x[1] for x=res)...)
+#     energies = sum(x[2] for x=res)/L
+
+#     for L in Ls
+#         ρs[L] .= ρsnew[L]./L
+#     end
+
+#     energies # return the groundstate energy
+# end
+
+# function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+#     L = size(ks,2)
+
+#     function spectrumf(k)
+#         spectrum(H(k); kwargs...)
+#     end
+
+#     zeromat, δLs = efficientzero(ρs)
+
+#     ρ0 = convert(SharedArray, zeromat)
+
+#     energy = sum(pmap(1:L) do i_
+#         k = ks[:,i_]
+#         ϵs, U = spectrumf(k) #@time
+
+#         M = zero(ρ0[:,:,1])
+
+#         densitymatrix!(M, ϵs.-μ, U; T=T)
+
+#         for (j_,δL)=enumerate(δLs)
+#             ρ0[:,:,j_] .+= (M .* fourierphase(-k, δL))
+#         end
+
+#         groundstate_sumk(real(ϵs), μ)
+#     end)/L
+
+#     flexibleformat!(ρs, ρ0/L, δLs)
+
+#     energy # return the groundstate energy
+# end
+
 function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
     L = size(ks,2)
 

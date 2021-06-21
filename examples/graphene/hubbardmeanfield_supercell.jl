@@ -23,7 +23,7 @@ function honeycombholes(; N=4,rad=0.2, rhombic=false)
 end
 
 @info "Building system"
-lat = honeycombholes(N=12,rad=0.27,rhombic=true) # N=5, rad=0.2, # N=4, rad=0.2
+lat = honeycombholes(N=5, rad=0.20, rhombic=true) # N=5, rad=0.2, # N=4, rad=0.2
 sz = Operators.getoperator(lat,"sz")
 
 println("Number of atoms: ", Lattices.countorbitals(lat))
@@ -47,7 +47,7 @@ v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=2.0) #|> DenseHops # interacti
 )
 
 mkpath("output")
-FileIO.save("output/meanfield5.jld2", "ρ_sol", ρ_sol)
+FileIO.save("output/meanfield6.jld2", "ρ_sol", ρ_sol)
 
 # # Get magnetization
 M = real.(Operators.localmagnetization(ρ_sol, lat))
