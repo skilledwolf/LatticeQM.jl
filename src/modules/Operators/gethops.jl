@@ -111,6 +111,7 @@ function densehops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},
     hops
 end
 
+
 function sparsehops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; kwargs...)
     N = size(R,2)
     d = asserthopdim(t(R[:,1]))::Int
@@ -147,7 +148,34 @@ end
 # precompile(densehoppingmatrix!, (Array{ComplexF64}, Matrix{Float64}, Matrix{Float64}, Function))
 
 
-import SparseArrays: sparse
+import SparseArrays: sparse, spzeros
+
+# function sparsehoppingmatrix_new(Ri::Matrix{Float64}, Rj::Matrix{Float64}, t::Function)
+#     N = size(Ri,2) # number of atoms
+#     d = div(size(M, 2), N)
+#     @assert mod(size(M, 2), d)==0 "Incompatible dimensions."
+
+#     M = complex(spzeros(N*d,N*d))
+#     maxind = (N>MAX_DENSE) ? round(Int, MAX_DIAGS * N) : N^2
+#     sizehint!(M, maxind)
+
+#     V  = Matrix{ComplexF64}(undef, (d, d))
+
+#     # Iterate over atom pairs and calculate the (possibly matrix-valued) hopping amplitudes
+#     for i=1:N, j=1:N
+#         V[:,:] .= t(Ri[:,i], Rj[:,j])
+
+#         I = (i-1)*d; J = (j-1)*d
+#         for i0=1:d, j0=1:d
+#             if abs(V[i0, j0]) > precision
+#                 continue
+#             end
+#             M[I+i0, J+j0] = V[i0,j0]
+#         end
+#     end
+
+#     M
+# end
 
 function sparsehoppingmatrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64}, V::Array{ComplexF64}, Ri::Matrix{Float64}, Rj::Matrix{Float64}, t::Function; precision::Float64=DEFAULT_PRECISION)
 

@@ -41,7 +41,7 @@ using ..Structure.Paths: ticks, ticklabels, scaleticks
 
 using DelimitedFiles
 
-DelimitedFiles.writedlm(bands::BandData) = DelimitedFiles.writedlm(".", ks)
+DelimitedFiles.writedlm(bands::BandData) = DelimitedFiles.writedlm(".", bands)
 
 function DelimitedFiles.writedlm(path::String, bands::BandData; suffix="")
     @assert ispath(path) "Error: '$path' is not a valid path."

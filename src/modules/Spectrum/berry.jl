@@ -113,7 +113,8 @@ function berryalongpath(H, kpoints)
     # prepare the array for the results
     berryc = convert(SharedArray, zeros(M, N))
 
-    @sync @distributed for j_=2:N+1
+    # @sync @distributed for j_=2:N+1
+    pmap(2:N+1) do j_
 
         k0 = kpoints[:,j_]
 
@@ -132,6 +133,7 @@ function berryalongpath(H, kpoints)
             )
         end
 
+        nothing
     end
 
     berryc
