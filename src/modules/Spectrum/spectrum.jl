@@ -188,7 +188,7 @@ function bandmatrix_pmap(H, ks, projector; hidebar=false, num_bands::Int=0, kwar
     bands = hcat((x[1] for x=res)...)
     obs = cat((x[2] for x=res)...; dims=3)
 
-    real.(bands), obs
+    real.(bands), permutedims(obs, [3,1,2])
 end
 
 # function bandmatrix_pmap(H, ks, projector; hidebar=false, num_bands::Int=0, kwargs...)
