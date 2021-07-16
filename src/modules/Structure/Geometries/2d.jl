@@ -110,6 +110,16 @@ honeycomb_BA(a::Float64=1.0, z::Float64=3.0) = Lattice(
 #     specialpoints=kdict_tri
 # )
 
+function triangular_twisted(N::Int, a::Float64=1.0, z::Float64=3.0; fold=true)
+    lat = triangular(a)
+    slat = Lattices.twist(lat, lat, N; z=z, m=1)
+    slat.specialpoints = kdict_tri_mini
+    if fold 
+        Lattices.foldPC!(slat; shift=[1/3,1/3,0])
+    end
+    return slat
+end
+precompile(triangular_twisted, (Int, Float64, Float64))
 
 function honeycomb_twisted(N::Int, a::Float64=1.0, z::Float64=3.0; fold=true)
     lat = honeycomb(a)
