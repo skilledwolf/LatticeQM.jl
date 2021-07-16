@@ -5,6 +5,7 @@ Draft_*.zip
 *private/*
 prototyping/*.pdf
 prototyping/output/*.pdf
+.vscode/*
 
 ## Core latex/pdflatex auxiliary files:
 *.aux
