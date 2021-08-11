@@ -162,16 +162,17 @@ precompile(honeycomb_twisted_ABAB, (Int, Float64, Float64))
 
 
 import LinearAlgebra: norm, dot
+import AngleBetweenVectors
 
 function smoothdisplaceZ!(lat, δz_even=0.055, δz_odd=0.0; sharp::Real=1)
     @assert Lattices.latticedim(lat) == 2 "Lattice must be two-dimensional."
-    @assert abs(dot(Lattices.getA(lat,:,1), Lattices.getA(lat,:,2))/(norm(Lattices.getA(lat,:,1))*norm(Lattices.getA(lat,:,2)))) ≈ 0.5
+    @assert (a = AngleBetweenVectors.angle(Lattices.getA(lat,:,1), Lattices.getA(lat,:,2)); a≈pi/3 || a≈2pi/3)
 
     # Define smooth (super)lattice functions
     Gs = [Lattices.getB(lat)*v for v = Lattices.getneighborBZ(lat,1; halfspace=false, innerpoints=true)]
 
-    anglef(b1,b2) = acos(dot(b1,b2)/norm(b1)/norm(b2))
-    angles = [anglef(Gs[1], G) for G=Gs]
+    # anglef(b1,b2) = acos(dot(b1/norm(b1),b2/norm(b2)))
+    angles = [AngleBetweenVectors.angle(Gs[1], G) for G=Gs] 
     angles /= minimum(abs.(filter(α->α!=0, angles)))
     signs = (-1).^round.(Int,angles)
     
