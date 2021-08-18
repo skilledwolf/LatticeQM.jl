@@ -82,8 +82,6 @@ foldPC!(points, lat::Lattice; shift=0.0) = (points[:,:].-=shift; foldcell!(point
 
 Fold all fractional lattice coordinates `lat.spacecoordinates` into the first primitive unit cell.
 """
-foldPC!(lat::Lattice; shift=0.0) = foldcell!(lat.spacecoordinates.-shift, getA(lat))
-
 function foldPC!(lat::Lattice; shift=0.0)
     d = latticedim(lat)
 
