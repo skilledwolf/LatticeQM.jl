@@ -1,3 +1,9 @@
+prototyping/*
+examples/**/*.pdf
+examples/**/*.jld
+examples/**/*.jld2
+examples/**/*.out
+
 *backups/*
 *_backup.*
 project_*.zip
@@ -6,6 +12,8 @@ Draft_*.zip
 prototyping/*.pdf
 prototyping/output/*.pdf
 .vscode/*
+.idea/*
+
 
 ## Core latex/pdflatex auxiliary files:
 *.aux
