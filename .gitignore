@@ -7,6 +7,13 @@ prototyping/**/*.pdf
 prototyping/**/*.jld
 prototyping/**/*.jld2
 prototyping/**/*.out
+tutorial/**/*.pdf
+tutorial/**/*.jld
+tutorial/**/*.jld2
+tutorial/**/*.out
+
+countinvalidations.jl
+Manifest.toml
 
 *backups/*
 *_backup.*
@@ -14,7 +21,6 @@ project_*.zip
 Draft_*.zip
 *private/*
 
-prototyping/output/*.pdf
 .vscode/*
 .idea/*
 
