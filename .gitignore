@@ -15,6 +15,9 @@ tutorial/**/*.out
 countinvalidations.jl
 Manifest.toml
 
+docs/html/*
+docs/build/*
+
 *backups/*
 *_backup.*
 project_*.zip
