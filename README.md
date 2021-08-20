@@ -23,7 +23,7 @@ Note that the folder `examples` and `tutorial` are mounted as volumes. Hence, ch
 using Pkg; Pkg.add("https://gitlab.wolft.net/wolft/LatticeQM.jl.git")
 ```
 
-Regurlarly install updates with `using Pkg; Pkg.update()`.
+Regularly install updates with `using Pkg; Pkg.update()`.
 
 ## Example code
 
