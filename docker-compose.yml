@@ -1,0 +1,13 @@
+version: "3"
+
+services:
+  ijulia:
+    build: .
+    ports:
+      - 8888:8888
+    volumes:
+      - ./tutorial:/home/jovyan/tutorial
+      - ./examples:/home/jovyan/examples
+    environment:
+      julia_version: 1.6.2
+      JUPYTER_ENABLE_LAB: "yes"

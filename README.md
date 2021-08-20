@@ -7,6 +7,16 @@ This is a development repository for julia package that deals with lattice struc
 To get started, check out the notebooks in the folder `tutorial`.  
 If you want to know more, get in touch with me.
 
+## Quickstart with docker
+
+This option requires only [docker](https://www.docker.com). All dependencies (python, julia, jupyter) will be configured automatically inside a container with the correct versions.
+
+If you want to quickly try out the tutorial and the examples, you can start up the docker image with
+```bash
+$ docker-compose up --build
+```
+
+Note that the folder `examples` and `tutorial` are mounted as volumes. Hence, changes made to them in the container will apply also outside the container.
 
 ## Installation
 ```julia
