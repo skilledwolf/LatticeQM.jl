@@ -2,7 +2,7 @@
 using LinearAlgebra: Hermitian
 
 energies(H, args...; kwargs...) = geteigvals(H, args...; kwargs...)
-wavefunctions(H, args...; kwargs...) = geteigvecs(H,args...; kwargs...)
+wavefunctions(H, args...; kwargs...) = geteigvecs(H, args...; kwargs...)
 spectrum(H, args...; kwargs...) = geteigen(H,args...; kwargs...)
 
 using Distributed

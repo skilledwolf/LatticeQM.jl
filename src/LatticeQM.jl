@@ -47,9 +47,9 @@ module LatticeQM
     export TightBinding
     export DenseHops, SparseHops, Hops, hopdim, addhops!, addhops
 
-    # # # include("modules/Floquet.jl")
-    # # # using .Floquet
-    # # # export Floquet
+    include("modules/Floquet.jl")
+    using .Floquet
+    export Floquet
 
     include("modules/Operators.jl")
     import .Operators

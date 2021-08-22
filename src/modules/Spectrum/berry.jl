@@ -1,6 +1,63 @@
 import LinearAlgebra: det, norm, I, svd
 import SharedArrays: SharedArray
 
+
+"""
+    statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
+
+Evaluates the eigenvectors on a discretized grid (2D Hamiltonian only!) and stores the result (preserving the grid information).
+This method is useful when plaquette phases need to be calculated.
+
+Note thate `statesgrid[i,j,:,k]` is the `k`-th eigenvector at gridpoint `i,j`.
+"""
+function statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
+    # Prepare indices and sizes
+    NY = (NY<1) ? NX : NY
+    indices = collect(Iterators.product(1:NX, 1:NY))
+
+    function wavefunctionsf(k)
+        wavefunctions(H(k))
+    end
+    
+    M1 = size(wavefunctionsf(zeros(2)), 2) # dimension of Hilbert space
+    bandindices = (bandindices==[]) ? collect(1:M1) : bandindices
+    M2 = size(bandindices,1) # number of occupied bands
+
+    # Prepare k-grid
+    kgrid = [[x;y] for x=range(0; stop=1, length=NX), y=range(0; stop=1, length=NY)]
+    midkgrid = [[1/(2*NX)+x;1/(2*NY)+y] for x=range(0; stop=1-1.0/NX, length=NX-1), y=range(0; stop=1-1.0/NY, length=NY-1)]
+
+    # Compute eigenspectrum on the k-grid
+    statesgrid0 = convert(SharedArray, zeros(ComplexF64, NX, NY, M1, M2))
+    @sync @distributed for (i_,j_) in indices
+        statesgrid0[i_,j_, :, :] = wavefunctionsf(kgrid[i_,j_].+1.34e-8)[:,bandindices]
+    end
+
+    kgrid, midkgrid, statesgrid0
+end
+
+function statesgrid1D(H, NX::Int, bandindices::AbstractArray=[])
+    function wavefunctionsf(k)
+        wavefunctions(H(k))
+    end
+
+    M1 = size(wavefunctionsf(zeros(1)), 2) # dimension of hilbert space
+    bandindices = (bandindices==[]) ? collect(1:M1) : bandindices
+    M2 = size(bandindices,1) # number of occupied bands
+
+    # Prepare k-grid
+    kgrid = LinRange(0,1,NX)
+
+    # Compute eigenspectrum on the k-grid
+    statesgrid0 = convert(SharedArray, zeros(ComplexF64, NX, M1, M2))
+    @sync @distributed for i_ in 1:NX
+        statesgrid0[i_, :, :] = wavefunctionsf([kgrid[i_]])[:,bandindices]
+    end
+
+    kgrid, statesgrid0
+end
+
+
 function L(State1::T, State2::T) where {T<:AbstractArray{<:Complex,N}} where N
     res = det(State1' * State2)
     return res/abs(res)
@@ -41,38 +98,6 @@ function berry(statesgrid::AbstractArray{<:Complex, 4})
     end
 
     F
-end
-
-"""
-    statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
-
-Evaluates the eigenvectors on a discretized grid (2D Hamiltonian only!) and stores the result (preserving the grid information).
-This method is useful when plaquette phases need to be calculated.
-"""
-function statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
-    # Prepare indices and sizes
-    NY = (NY<1) ? NX : NY
-    indices = collect(Iterators.product(1:NX, 1:NY))
-
-    function wavefunctionsf(k)
-        wavefunctions(H(k))
-    end
-    
-    M1 = size(wavefunctionsf(zeros(2)), 2) # dimension of Hilbert space
-    bandindices = (bandindices==[]) ? collect(1:M1) : bandindices
-    M2 = size(bandindices,1) # number of occupied bands
-
-    # Prepare k-grid
-    kgrid = [[x;y] for x=range(0; stop=1, length=NX), y=range(0; stop=1, length=NY)]
-    midkgrid = [[1/(2*NX)+x;1/(2*NY)+y] for x=range(0; stop=1-1.0/NX, length=NX-1), y=range(0; stop=1-1.0/NY, length=NY-1)]
-
-    # Compute eigenspectrum on the k-grid
-    statesgrid0 = convert(SharedArray, zeros(ComplexF64, NX, NY, M1, M2))
-    @sync @distributed for (i_,j_) in indices
-        statesgrid0[i_,j_, :, :] = wavefunctionsf(kgrid[i_,j_].+1.34e-8)[:,bandindices]
-    end
-
-    kgrid, midkgrid, statesgrid0
 end
 
 """
@@ -209,27 +234,6 @@ function WilsonWannier2D(statesgrid::AbstractArray{ComplexF64,4})
 end
 
 
-function statesgrid1D(H, NX::Int, bandindices::AbstractArray=[])
-    function wavefunctionsf(k)
-        wavefunctions(H(k))
-    end
-
-    M1 = size(wavefunctionsf(zeros(1)), 2) # dimension of hilbert space
-    bandindices = (bandindices==[]) ? collect(1:M1) : bandindices
-    M2 = size(bandindices,1) # number of occupied bands
-
-    # Prepare k-grid
-    kgrid = LinRange(0,1,NX)
-
-    # Compute eigenspectrum on the k-grid
-    statesgrid0 = convert(SharedArray, zeros(ComplexF64, NX, M1, M2))
-    @sync @distributed for i_ in 1:NX
-        statesgrid0[i_, :, :] = wavefunctionsf([kgrid[i_]])[:,bandindices]
-    end
-
-    kgrid, statesgrid0
-end
-
 function Wilson1D(H, NX::Int, bandindices::AbstractArray=[])
     _, statesgrid = statesgrid1D(H, NX, bandindices)
 
@@ -306,8 +310,8 @@ For bands=[] it returns all chern numbers.
 """
 function getcherns(H, NX::Int, NY::Int=0, bands::AbstractArray=[])
     _, _, grid = statesgrid(H, NX, NY, bands)
-    cherns = [sum(Spectrum.berry(grid[:,:,:,i:i])[2]) for i=1:size(grid,4)]
-
+    cherns = [sum(Spectrum.berry(grid[:,:,:,[i]])) for i=1:size(grid,4)]
+    cherns
 end
 
 

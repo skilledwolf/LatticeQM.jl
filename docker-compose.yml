@@ -6,8 +6,8 @@ services:
     ports:
       - 8888:8888
     volumes:
-      - ./tutorial:/home/jovyan/tutorial
-      - ./examples:/home/jovyan/examples
+      - ./extra/tutorial:/home/jovyan/tutorial
+      - ./extra/examples:/home/jovyan/examples
 #      - /path/on/your/drive:/home/jovyan/work # use if you want "work" to persist
 #      - ./src:/LatticeQM/src # use if you want modify LatticeQM "on-the-fly"
 #      - ./Project.toml:/LatticeQM/Project.toml # use if you want modify LatticeQM "on-the-fly"

@@ -2,17 +2,15 @@ using LinearAlgebra: UniformScaling
 
 
 """
-    getFloquetHamiltonian(M::Integer, H0::AbstractMatrix, drive::periodicDrive; hbar::Number=1.)
-    getFloquetHamiltonian(M::Number, H0::Function, drive::periodicDrive)  
-    getFloquetHamiltonian(M::Number, H0::Function, drive::Function)
+    getFloquetMatrix(M::Integer, H0::AbstractMatrix, drive::periodicDrive; hbar::Number=1.)
 
 Build the effective Hamiltonian for several harmonic driving modes, i.e., \$V(t) = \\sum_j V_j \\exp(i*j*n_j*\\omega)\$.
 
 M: truncation  
-H0: time averaged Hamiltonian (i.e., has already absorbed the constant m=0 mode)  
+H0: time averaged Hamiltonian (i.e., has already absorbed the constant m=0 mode), must be matrix
 drive: periodicDrive object
 """
-function getFloquetHamiltonian(M::Integer, H0::AbstractMatrix, drive::periodicDrive; hbar::Number=1.)
+function getFloquetMatrix(M::Integer, H0::AbstractMatrix, drive::periodicDrive; hbar::Number=1.)
     S = UniformScaling(drive.omega*hbar)
     d = size(H0,1) #dimension of the not-driven system
     H = spzeros(ComplexF64 ,d*(2*M+1),d*(2*M+1)) #store the effective Hamiltonian here try sparse arrays for now
@@ -39,9 +37,16 @@ function getFloquetHamiltonian(M::Integer, H0::AbstractMatrix, drive::periodicDr
     return dropzeros!(H) #get rid of 0 entries which werre introduced through H0 and operators
 end
 
-getFloquetHamiltonian(M::Number, H0::Function, drive::periodicDrive) = k -> getFloquetHamiltonian(M, H0(k), drive)
-getFloquetHamiltonian(M::Number, H0::Function, drive::Function) = k -> getFloquetHamiltonian(M, H0(k), drive(k))
+"""
+    getFloquetHamiltonian(M::Number, H0, drive::periodicDrive)  
+    getFloquetHamiltonian(M::Number, H0, drive::Function)
 
+Build the effective Hamiltonian for several harmonic driving modes, i.e., \$V(t) = \\sum_j V_j \\exp(i*j*n_j*\\omega)\$.
+
+M: truncation  
+H0: time averaged Hamiltonian (i.e., has already absorbed the constant m=0 mode), must be callable
+drive: periodicDrive object
+"""
 
 mutable struct FloquetOperator
     H0
@@ -49,4 +54,4 @@ mutable struct FloquetOperator
     M::Integer
 end
 
-getFloquetHamiltonian(HF::FloquetOperator; kwargs...) = getFloquetHamiltonian(HF.M, HF.H0, HF.drive; kwargs...)
+(HF::FloquetOperator)(k; kwargs...) = getFloquetMatrix(HF.M, HF.H0(k), HF.drive; kwargs...)
