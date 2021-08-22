@@ -20,7 +20,9 @@ Note that the folder `examples` and `tutorial` are mounted as volumes. Hence, ch
 
 ## Installation
 ```julia
-using Pkg; Pkg.add("https://gitlab.wolft.net/wolft/LatticeQM.jl.git")
+using Pkg; Pkg.add("git@gitlab.com:skilledwolf/LatticeQM.jl.git")
+# or without SSH key:
+using Pkg; Pkg.add("https://gitlab.com/skilledwolf/LatticeQM.jl.git")
 ```
 
 Regularly install updates with `using Pkg; Pkg.update()`.
