@@ -1,0 +1,21 @@
+# This file is a template, and might need editing before it works on your project.
+# To contribute improvements to CI/CD templates, please follow the Development guide at:
+# https://docs.gitlab.com/ee/development/cicd/templates.html
+# This specific template is located at:
+# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Getting-Started.gitlab-ci.yml
+
+pages:
+  image: julia:1.6.2
+  stage: deploy
+  script:
+    - apt-get update -qq && apt-get install -y git  # needed by Documenter
+    - julia -e 'using Pkg; Pkg.add(pwd()); Pkg.build("LatticeQM");'  # rebuild Julia (can be put somewhere else I'm sure
+    - julia -e 'using Pkg; import LatticeQM; Pkg.add("Documenter")'  # install Documenter
+    - julia --color=yes extra/docs/make.jl  # make documentation
+    - mv extra/docs/build public  # move to the directory picked up by Gitlab pages
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
