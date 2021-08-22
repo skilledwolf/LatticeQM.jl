@@ -13,6 +13,8 @@ pages:
     - julia -e 'using Pkg; import LatticeQM; Pkg.add("Documenter")'  # install Documenter
     - julia --color=yes extra/docs/make.jl  # make documentation
     - mv extra/docs/build public  # move to the directory picked up by Gitlab pages
+  environment:
+    CI: "true"
   artifacts:
     paths:
       - public
