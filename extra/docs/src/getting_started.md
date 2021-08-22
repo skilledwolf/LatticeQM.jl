@@ -1,13 +1,6 @@
-# LatticeQM.jl
+# Getting started
 
-**Not intended for public use yet. Much of the documentation is still missing.**
-
-This is a development repository for julia package that deals with lattice structures and tight-binding models.
-
-To get started, check out the notebooks in the folder `extra/tutorial`.  
-If you want to know more, get in touch with me.
-
-## Quickstart with docker
+## Quickstart with docker (demo)
 
 This option requires only [docker](https://www.docker.com). All dependencies (python, julia, jupyter) will be configured automatically inside a container with the correct versions.
 
@@ -18,7 +11,12 @@ $ docker-compose up --build
 
 Note that the folders `extra/examples` and `extra/tutorial` are mounted as volumes. Hence, changes made to them in the container will apply also outside the container.
 
-## Installation
+## Quickstart with vs-code and docker (demo and development)
+
+Install [docker](https://www.docker.com), [vscode](https://code.visualstudio.com), as well as the plugin `Remote - container`. When you now open the git repository in vscode, it will suggest you to run the project in the container.
+
+## Normal installation
+Make sure a recent version of `julia` is installed and execute:  
 ```julia
 # with configured SSH key:
 using Pkg; Pkg.add("git@gitlab.com:skilledwolf/LatticeQM.jl.git")
@@ -30,7 +28,7 @@ Regularly install updates with `using Pkg; Pkg.update()`.
 
 ## Example code
 
-```julia
+```@example
 using Plots
 using LatticeQM
 
@@ -53,16 +51,20 @@ ks = kpath(lat; num_points=200)
 bands = getbands(hops, ks, valley)
 
 # Show bands
-# save(bands, "bands.h5")
 plot(bands, ylabel="\$\\varepsilon/t\$", colorbar_title="valley", size=(330,200), colorbar=true, markercolor=:PiYG)
+mkpath("figures") # hide
+savefig("figures/graphene_bands_zeeman.svg") # hide
 ```
+
+Which plots the electronic bands of graphene with a Zeeman splitting:  
+![](figures/graphene_bands_zeeman.svg)
 
 ## Contributing
 If you want to help develop the package, I recommend
 
 1. Clone it onto your hard drive, i.e., navigate to `/My/Directory/` and execute `git clone URL` (replace the directory and the URL as appropriate).
 
-2. Add the package to Julia with `using Pkg; Pkg.dev("/My/Directory/LatticeQM")`.
+2. Add the package to Julia with `using Pkg; Pkg.develop("/My/Directory/LatticeQM")`.
 
 3. Make your modifications, test them, then commit and push.
    
@@ -72,6 +74,3 @@ If you want to help develop the package, I recommend
 ```julia
 using Pkg; Pkg.remove("LatticeQM")
 ```
-
-## Credits
-I want to thank Tobias Kästli (@vigoleis) for developing the Floquet module and for providing the corresponding Tutorial notebook.
