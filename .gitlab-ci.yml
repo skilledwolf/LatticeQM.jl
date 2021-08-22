@@ -4,6 +4,10 @@
 # This specific template is located at:
 # https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Getting-Started.gitlab-ci.yml
 
+variables:
+  CI: "true"
+
+
 pages:
   image: julia:1.6.2
   stage: deploy
@@ -13,8 +17,6 @@ pages:
     - julia -e 'using Pkg; import LatticeQM; Pkg.add("Documenter")'  # install Documenter
     - julia --color=yes extra/docs/make.jl  # make documentation
     - mv extra/docs/build public  # move to the directory picked up by Gitlab pages
-  environment:
-    CI: "true"
   artifacts:
     paths:
       - public
