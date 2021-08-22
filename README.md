@@ -4,7 +4,7 @@
 
 This is a development repository for julia package that deals with lattice structures and tight-binding models.
 
-To get started, check out the notebooks in the folder `tutorial`.  
+To get started, check out the notebooks in the folder `extra/tutorial`.  
 If you want to know more, get in touch with me.
 
 ## Quickstart with docker
@@ -16,11 +16,14 @@ If you want to quickly try out the tutorial and the examples, you can start up t
 $ docker-compose up --build
 ```
 
-Note that the folder `examples` and `tutorial` are mounted as volumes. Hence, changes made to them in the container will apply also outside the container.
+Note that the folders `extra/examples` and `extra/tutorial` are mounted as volumes. Hence, changes made to them in the container will apply also outside the container.
 
 ## Installation
 ```julia
-using Pkg; Pkg.add("https://gitlab.wolft.net/wolft/LatticeQM.jl.git")
+# with configured SSH key:
+using Pkg; Pkg.add("git@gitlab.com:skilledwolf/LatticeQM.jl.git")
+# or without SSH key:
+using Pkg; Pkg.add("https://gitlab.com/skilledwolf/LatticeQM.jl.git")
 ```
 
 Regularly install updates with `using Pkg; Pkg.update()`.
