@@ -9,7 +9,7 @@ pages:
   stage: deploy
   script:
     - apt-get update -qq && apt-get install -y git  # needed by Documenter
-    - julia -e 'using Pkg; Pkg.add(pwd()); Pkg.build("LatticeQM");'  # rebuild Julia (can be put somewhere else I'm sure
+    - julia -e 'using Pkg; Pkg.add(path=pwd()); Pkg.build("LatticeQM");'  # rebuild Julia (can be put somewhere else I'm sure
     - julia -e 'using Pkg; import LatticeQM; Pkg.add("Documenter")'  # install Documenter
     - julia --color=yes extra/docs/make.jl  # make documentation
     - mv extra/docs/build public  # move to the directory picked up by Gitlab pages
