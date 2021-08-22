@@ -1,22 +1,17 @@
-prototyping/*
-examples/**/*.pdf
-examples/**/*.jld
-examples/**/*.jld2
-examples/**/*.out
-prototyping/**/*.pdf
-prototyping/**/*.jld
-prototyping/**/*.jld2
-prototyping/**/*.out
-tutorial/**/*.pdf
-tutorial/**/*.jld
-tutorial/**/*.jld2
-tutorial/**/*.out
-
-countinvalidations.jl
 Manifest.toml
+extra/prototyping/*
+extra/docs/html/*
+extra/docs/build/*
 
-docs/html/*
-docs/build/*
+extra/examples/**/*.pdf
+extra/examples/**/*.jld
+extra/examples/**/*.jld2
+extra/examples/**/*.out
+extra/tutorial/**/*.pdf
+extra/tutorial/**/*.jld
+extra/tutorial/**/*.jld2
+extra/tutorial/**/*.out
+
 
 *backups/*
 *_backup.*

@@ -5,7 +5,7 @@ Returns all(!) Floquet bands of a system with time-averaged Hamiltonian H, drive
 The path is chosen along ks and M denotes the cutoff frequency for not regarding Fourier modes anymore.
 A d-dimensional system with a cutoff M will lead to d*(2*M+1) bands.
 """
-function Spectrum.bandmatrix(H, ks, drive, M::Integer; kwargs...)
+function Spectrum.bandmatrix(H, ks, drive::periodicDrive, M::Integer; kwargs...)
 
     HFloq = getFloquetHamiltonian(M, Spectrum.ensureH(H), drive) #new
     return Spectrum.bandmatrix(HFloq, ks; kwargs...)
@@ -96,7 +96,7 @@ import ..Structure.Paths
 
 """From bands.jl in LatticeQM: I added additional functions taking a periodicDrive as argument.
 Maybe it would be wise to put it into that file in the end."""
-function Spectrum.getbands(H, ks::Paths.DiscretePath, drive, M::Integer; kwargs...)
+function Spectrum.getbands(H, ks::Paths.DiscretePath, drive::periodicDrive, M::Integer; kwargs...)
     bands = Spectrum.bandmatrix(H, ks, drive, M; kwargs...)
     bands = reducetoFBZ(bands, M) # reduce the bands to the first Floquet-Brioullin-zone. We choose the result from the middle of the spectrum because they are the most accurate.
     obs = nothing

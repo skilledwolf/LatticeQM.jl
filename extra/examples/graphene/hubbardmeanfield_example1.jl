@@ -1,6 +1,9 @@
 using LinearAlgebra, Plots
 using LatticeQM
 
+Plots.default(show=false)
+ENV["GKSwstype"]="nul" # avoid the need for window server
+
 @info "Building system"
 @time lat = Geometries.honeycomb()
 @time sx, sy, sz, sublA, sublB = Operators.getoperator(lat, ["SX", "SY", "SZ", "sublatticeAspin", "sublatticeBspin"])

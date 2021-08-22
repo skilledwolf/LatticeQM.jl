@@ -1,6 +1,9 @@
 using Plots, LinearAlgebra
 using LatticeQM
 
+Plots.default(show=false)
+ENV["GKSwstype"]="nul" # avoid the need for window server
+
 roundreal(x; digits=7) = round.(real.(x); digits=digits)
 
 function get_gap_at_U(U=4.0; filling=0.5, init=:antiferro, T=0.01, β=0.20, show_trace=true, show_bands=false, clear_trace=false, reportmagnetization=false)
