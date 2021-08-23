@@ -5,7 +5,7 @@
 # https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Getting-Started.gitlab-ci.yml
 
 variables:
-  CI: "true"
+  CI: "true" # used by extra/docs/make.jl
 
 
 pages:
@@ -23,4 +23,6 @@ pages:
       - public
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:  # Include the job and set to when:manual if any of the follow paths match a modified file.
+        - extra/docs/*
 
