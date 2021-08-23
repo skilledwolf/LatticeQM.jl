@@ -18,6 +18,10 @@ $ docker-compose up --build
 
 Note that the folders `extra/examples` and `extra/tutorial` are mounted as volumes. Hence, changes made to them in the container will apply also outside the container.
 
+## Quickstart with vs-code and docker (demo and development)
+
+Install [docker](https://www.docker.com), [vscode](https://code.visualstudio.com), as well as the plugin `Remote - container`. When you now open the git repository in vscode, it will suggest you to run the project in the container.
+
 ## Installation
 ```julia
 # with configured SSH key:
@@ -62,7 +66,7 @@ If you want to help develop the package, I recommend
 
 1. Clone it onto your hard drive, i.e., navigate to `/My/Directory/` and execute `git clone URL` (replace the directory and the URL as appropriate).
 
-2. Add the package to Julia with `using Pkg; Pkg.dev("/My/Directory/LatticeQM")`.
+2. Add the package to Julia with `using Pkg; Pkg.develop("/My/Directory/LatticeQM")`.
 
 3. Make your modifications, test them, then commit and push.
    
