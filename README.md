@@ -1,6 +1,6 @@
 # LatticeQM.jl
 
-**Not intended for public use yet. Much of the documentation is still missing.**
+**Not intended for public use yet. Much of the [documentation](https://skilledwolf.gitlab.io/LatticeQM.jl) is still missing.**
 
 This is a development repository for julia package that deals with lattice structures and tight-binding models.
 
