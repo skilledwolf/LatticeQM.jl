@@ -18,6 +18,8 @@ module Spectrum
     include("Spectrum/bandgap.jl")
     include("Spectrum/groundstatesum.jl")
 
+    include("Spectrum/fermisurface.jl")
+
     include("Spectrum/dos.jl")
     include("Spectrum/ldos.jl")
     include("Spectrum/density.jl")
