@@ -45,6 +45,8 @@ bands, obs = bandmatrix(h, ks.points, valley)
 function bandmatrix(args...; multimode=:distributed, kwargs...)
     if multimode == :distributed && nprocs()>1
         bandmatrix_pmap(args...; kwargs...) # used to be bandmatrix_distributed, which is deprecated now
+    elseif multimode == :distributed2 && nprocs()>1
+        bandmatrix_distributed(args...; kwargs...)
     elseif multimode == :multithread && Threads.nthreads()>1
         bandmatrix_multithread(args...; kwargs...)
     else

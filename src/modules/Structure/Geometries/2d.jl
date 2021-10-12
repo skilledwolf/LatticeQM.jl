@@ -102,6 +102,14 @@ honeycomb_BA(a::Float64=1.0, z::Float64=3.0) = Lattice(
     specialpoints=kdict_tri
 )
 
+honeycomb_ABC(a::Float64=1.0, z::Float64=3.0) = Lattice(
+    a .* A_hex,
+    [[0.0;0.0;0.0]  [1/3; 1/3; 0.0]  [1/3; 1/3; z]   [2/3; 2/3; z]   [-1/3; -1/3; 2*z]   [0; 0; 2*z]],
+    1.0*[[0 1 0 1 0 1]; [-1 -1 1 1 -1 -1]];
+    extralabels=["sublattice", "layer"],
+    specialpoints=kdict_tri
+)
+
 # honeycomb_BA(a::Float64=1.0, z::Float64=3.0) = Lattice(
 #     a .* A_tri,
 #     [[0.0;0.0]   δ_hex   δ_hex  2*δ_hex],

@@ -172,7 +172,7 @@ function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin::Float64=1e-5
         for i=1:N
             @views Δ = sqrt(sum(abs2,δR[1:3,i])) # absolute value of distance vector
 
-            if Δmax < Δ || Δ < Δmin
+            if Δmax < Δ || Δ < Δmin # cutoff lengths
                 continue
             end
 
@@ -181,7 +181,7 @@ function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin::Float64=1e-5
 
             v =  -t0 * (1-χ) * exp(-abs(Δ-a)/ℓintra) - tz * χ * exp(-abs(Δ-z)/ℓinter)
 
-            if abs(v) < tmin
+            if abs(v) < tmin # small energy cutoff for hop amplitudes
                 continue
             end
 

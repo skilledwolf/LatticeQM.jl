@@ -82,3 +82,36 @@ function chemicalpotential_T!(energies::AbstractVector{T1}, nk::Int, filling::T1
     
     μ
 end
+
+
+function getfilling(energies::AbstractVector{T1}, nk::Int, μ::T1; T::T1=0.01) where T1<:Real
+    d = div(length(energies),nk) 
+    sum(fermidirac(ϵ-μ; T=T) for ϵ=energies)/nk/d # filling between 0 and 1
+end
+
+function getfilling(bands::AbstractMatrix, μ::Real; kwargs...)
+    en = bands[:]
+    nk = size(bands,2)
+
+    getfilling(en, nk, μ; kwargs...)
+end
+
+function getfilling(bands::AbstractMatrix, μs::AbstractVector; kwargs...)
+    en = bands[:]
+    nk = size(bands,2)
+
+    [getfilling(en, nk, μ; kwargs...) for μ in μs]
+end
+
+function filling(H, ks, μ; multimode=:distributed, kwargs...)
+
+    getfilling(bandmatrix(getelectronsector(H), ks; multimode=multimode), μ; kwargs...)
+end
+
+import ..Structure: regulargrid
+
+function filling(H, μ; multimode=:distributed, nk=10, kwargs...)
+    ks = regulargrid(nk=nk^2)
+
+    getfilling(bandmatrix(getelectronsector(H), ks; multimode=multimode), μ; kwargs...)
+end

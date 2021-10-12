@@ -126,7 +126,8 @@ function addbasis!(lat::Lattice, vec::Vector, kind::Symbol=:periodic)
     if spacedim(lat) == 0
         lat.basis = float(hcat(vec))
     else
-        @assert spacedim(lat) == size(vec,1) "Basis vector does not have the correct space dimension"
+        # @assert spacedim(lat) == size(vec,1) "Basis vector does not have the correct space dimension"
+
         lat.basis = hcat(lat.basis, float(vec))
     end
 
