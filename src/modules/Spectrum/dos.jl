@@ -14,7 +14,7 @@ Accepts the same kwargs as getdos(h, ωs; klin, Γ, kwargs...).
 Note: the current implementation only works for a two-dimensional Brillouine zone.
 Might change in the future, but for now use dos(h, ks, ω; Γ) syntax if needed.
 """
-getdos(h, emin::Float64, emax::Float64, num=500; kwargs...) = (Ωs=LinRange(emin, emax, num); (Ωs, getdos(h, Ωs; kwargs...)));
+getdos(h, emin::Float64, emax::Float64, num::Int=500; kwargs...) = (Ωs=LinRange(emin, emax, num); (Ωs, getdos(h, Ωs; kwargs...)));
 
 """
     getdos(h, ωs; klin, Γ, kwargs...)
@@ -49,28 +49,28 @@ and for the frequencies ω=(ω1, ω2, ...). The paremter \$\\Gamma\$ is the ener
 
 Mode can be :distributed or :serial, format can be :auto, :sparse or :dense.
 """
-getdos(h, ks, ωs::AbstractVector; kwargs...) = (DOS=zero(ωs); getdos!(DOS, h, ks, ωs; kwargs...))
-function getdos!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; parallel=true, mode=:distributed, kwargs...)
+getdos(h, ωs::AbstractVector, ks, args...; kwargs...) = (DOS=zero(ωs); getdos!(DOS, h, ωs, ks, args...; kwargs...))
+function getdos!(DOS, h, frequencies::AbstractVector{<:Number}, ks::AbstractMatrix{<:Real}, args...; parallel=true, mode=:distributed, kwargs...)
     if nprocs()<2 || mode!=:distributed
         parallel=false
     end
     
     if parallel
-        DOS = dos_parallel!(DOS, h, ks, frequencies; kwargs...)
+        DOS = dos_parallel!(DOS, h, frequencies, ks, args...; kwargs...)
     else
-        DOS = dos_serial!(DOS, h, ks, frequencies; kwargs...)
+        DOS = dos_serial!(DOS, h, frequencies, ks, args...; kwargs...)
     end
 
     DOS
 end
 
 dos!(DOS, energies::AbstractVector, ωs; kwargs...) = foreach(x->dos!(DOS, x, ωs; kwargs...), energies)
-function dos!(DOS, energy::Number, ωs; broadening::Number)
-    DOS .+= imag.( 1.0./(ωs .- 1.0im .* broadening .- energy) )
+function dos!(DOS, energy::Number, ωs; broadening::Number, weight::Number=1.0)
+    DOS .+= imag.( weight.*1.0./(ωs .- 1.0im .* broadening .- energy) )
     DOS
 end
 
-function dos_serial!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; Γ::Number, kwargs...)
+function dos_serial!(DOS, h, frequencies::AbstractVector{<:Number}, ks::AbstractMatrix{<:Real}; Γ::Number, kwargs...)
     L = size(ks,2)
     function ϵs(k)
         energies(h(k); kwargs...)
@@ -83,7 +83,7 @@ function dos_serial!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVe
     DOS
 end
 
-function dos_parallel!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; Γ::Number, kwargs...)
+function dos_parallel!(DOS, h, frequencies::AbstractVector{<:Number}, ks::AbstractMatrix{<:Real}; Γ::Number, kwargs...)
     L = size(ks,2)
     function ϵs(k)
         energies(h(k); kwargs...)
@@ -97,6 +97,38 @@ function dos_parallel!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::Abstract
         tmp
     end
     DOS[:] += (DOS0 / L)[:]
+
+    DOS
+end
+
+function dos_serial!(DOS, h, frequencies::AbstractVector{<:Number}, ks::AbstractMatrix{<:Real}, kweights::AbstractVector; Γ::Number, kwargs...)
+    L = size(ks,2)
+    function ϵs(k)
+        energies(h(k); kwargs...)
+    end
+
+    @showprogress 6 "Computing DOS... " for (k,w)=zip(eachcol(ks),kweights) # j=1:L
+        dos!(DOS, ϵs(k), frequencies; broadening=Γ, weight=w)
+    end
+    # DOS ./= L
+    DOS
+end
+
+function dos_parallel!(DOS, h, frequencies::AbstractVector{<:Number}, ks::AbstractMatrix{<:Real}, kweights::AbstractVector; Γ::Number, kwargs...)
+    L = size(ks,2)
+    function ϵs(k)
+        energies(h(k); kwargs...)
+    end
+
+
+    DOS0 = @sync @showprogress 6 "Computing DOS... " @distributed (+) for j=1:L # over ks
+        tmp = zero(DOS)
+        dos!(tmp, ϵs(ks[:,j]), frequencies; broadening=Γ, weight=kweights[j])
+
+        tmp
+    end
+    # DOS[:] += (DOS0 / L)[:]
+    DOS[:] += DOS0[:]
 
     DOS
 end
