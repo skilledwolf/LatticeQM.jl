@@ -331,7 +331,7 @@ end
 function getdensitymatrix!(ρs::Hops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; multimode=:serial, kwargs...)
 
     if multimode==:distributed && nprocs()>1
-        densitymatrix_pmap!(ρs, H, ks, μ; kwargs...)
+        densitymatrix_distributed!(ρs, H, ks, μ; kwargs...) # or _pmap ?
     elseif multimode==:multithread && Threads.nthreads()>1
         densitymatrix_multithread!(ρs, H, ks, μ; kwargs...)
     else
