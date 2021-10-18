@@ -56,13 +56,13 @@ end
 # end
 
 function getcappedyukawa(lat, args...; spin=true, k0=1.0, a=nothing, U=1.0, kwargs...)
-    t(args0...) = CappedYukawa(args0...; k0=k0, U=U)
-    ee_exchange = Hops(lat, args..., t; kwargs...)
-
     if a!=nothing
         @info "Overwriting keyword argument k0 with a^(-1)."
         k0=1/a
     end
+
+    t(args0...) = CappedYukawa(args0...; k0=k0, U=U)
+    ee_exchange = Hops(lat, args..., t; kwargs...)
 
     if spin
         ee_exchange = kron(ee_exchange, ones(2,2))
