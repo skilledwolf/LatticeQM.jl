@@ -48,7 +48,8 @@ function hartreefock(v::Hops)
         end
 
         for L in keys(v)
-            vmf[L] += -v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
+            # note Oct 19 2021: changed from conj.(..) to transpose(...)
+            vmf[L] += -v[L] .* transpose(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
         end
 
         vmf[zerokey(ρ)] += spdiagm(0 => V0 * diag(ρ[zerokey(ρ)])) # Hartree contribution
@@ -98,7 +99,8 @@ function fock(v::Hops)
         end
 
         for L in keys(v)
-            vmf[L] += -v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
+            # note Oct 19 2021: changed from conj.(..) to transpose(...)
+            vmf[L] += -v[L] .* transpose(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
         end
 
         vmf
