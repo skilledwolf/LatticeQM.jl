@@ -72,6 +72,51 @@ function hartreefock(v::Hops)
     vMF, ϵMF
 end
 
+function fock(h::Hops, v::Hops)
+    vMF, ϵMF = fock(v)
+
+    hMF(ρ::Hops) = h + vMF(ρ)
+
+    hMF, ϵMF
+end
+
+function fock(v::Hops)
+    """
+        Expects the real space potential {V(L) | L unit cell vector}.
+        It returns a functional 𝒱[ρ] that builds the mean field hamiltonian
+
+        This may look harmless but requires a careful derivation.
+    """
+
+    V0 = sum(v[L] for L in keys(v))
+    vmf = empty(v)
+
+    function vMF(ρ::Hops)
+        # empty!(vmf)
+        for L in keys(v)
+            vmf[L] = zero(v[L])
+        end
+
+        for L in keys(v)
+            vmf[L] += -v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
+        end
+
+        vmf
+    end
+
+    function ϵMF(ρs::Hops)
+        vρ = diag(ρs[zerokey(ρs)])
+
+        energy +=  1/2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L,vL) in v)) # Fock contribution
+
+
+        @assert isapprox(imag(energy),0; atol=sqrt(eps()))
+        real(energy)
+    end
+
+    vMF, ϵMF
+end
+
 
 function hartreefock_pairing(v::Hops)
     """

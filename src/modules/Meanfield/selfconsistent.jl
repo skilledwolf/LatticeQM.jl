@@ -8,6 +8,14 @@ end
 # precompile(solvehartreefock, (Hops, Hops, Hops, Float64))
 precompile(solvehartreefock, (Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Float64))
 
+function solvefock(h, v, ρ_init, filling::Number, args...; kwargs...)
+    ℋ_op, ℋ_scalar = fock(h, v)
+
+    solveselfconsistent(ρ_init, ℋ_op, ℋ_scalar, filling, args...; kwargs...)
+end
+# precompile(solvehartreefock, (Hops, Hops, Hops, Float64))
+precompile(solvehartreefock, (Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Float64))
+
 solveselfconsistent(hf, ρ_init, filling::Number, ks::AbstractMatrix; kwargs...) = solveselfconsistent(ρ_init, hf..., filling, ks; kwargs...)
 solveselfconsistent(hf, ρ_init, filling::Number; klin, kwargs...) = solveselfconsistent(ρ_init, hf..., filling; klin=klin, kwargs...)
 
@@ -51,7 +59,7 @@ parallel=true might help if diagonalization per k point is very time consuming
 (e.g. for twisted bilayer graphene)
 note that for small problems `parallel=true` may decrease performance (communication overhead)
 """
-function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, ks::AbstractMatrix{Float64};
+function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, ks::AbstractMatrix{Float64}, kweights=nothing;
     convergenceerror=false, multimode=:serial, checkpoint::String="", callback=(x->nothing), hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
 
     # if checkpoint != "" && isfile(checkpoint) && hotstart
