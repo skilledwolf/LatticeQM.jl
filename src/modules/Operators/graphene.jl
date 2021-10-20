@@ -16,6 +16,35 @@ function graphene(lat::Lattice; vectorized=true, mode=:nospin, format=:auto, cel
 end
 precompile(graphene, (Lattice,))
 
+function graphene_rhombohedral(lat; spin=false, a=1.0, d=3.0, γ0=-1.0, γ1=0.12, γ2=-0.006, γ3=0.05, γ4=0.014, kwargs...)
+
+    function t(r1, r2=0.0)
+        δr=r1.-r2
+        
+        if abs(norm(δr[1:2])-a)<0.01 && abs(δr[3]) < 0.01 
+            return γ0
+        elseif abs(norm(δr[1:2]))<0.01 && abs(abs(δr[3])-d) < 0.01 
+            return γ0 * γ1
+        elseif abs(norm(δr[1:2]))<0.01 && abs(abs(δr[3])-2*d) < 0.01
+            return γ0 * γ2
+        elseif abs(norm(δr[1:2])-a)<0.01 && abs(abs(δr[3])-d) < 0.01
+            return γ0 * γ4
+        elseif abs(norm(δr[1:2])-2*a)<0.01 && abs(abs(δr[3])-d) < 0.01
+            return γ0 * γ3
+        end
+        
+        return 0.0
+    end
+
+    hops = Hops(lat, t; vectorized=false, kwargs...)
+
+    if spin
+        hops = addspin(hops, mode)
+    end
+
+    hops
+end
+
 import ..Structure.Lattices
 
 function addsublatticeimbalance!(hops, lat::Lattice, Δ::Real; kwargs...)
