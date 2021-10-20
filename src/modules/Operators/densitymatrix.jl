@@ -20,7 +20,8 @@ function densitymatrix!(ρ0::AbstractMatrix, ϵs::AbstractVector, U::AbstractMat
     fd = fermidirac.(real.(ϵs); T=T)
 
     for m in 1:length(ϵs)
-        ρ0[:,:] .+= (fd[m] .* φk .* (conj.(U[:,m]) * transpose(U[:,m])))
+        # note Oct 20 2021: (conj.(U[:,m]) * transpose(U[:,m]))) --> U[:,m] * U[:,m]'))
+        ρ0[:,:] .+= (fd[m] .* φk .* U[:,m] * U[:,m]')
     end
     ρ0
 end
@@ -87,7 +88,7 @@ function densitymatrix_multithread!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}
 
         lock(lk) do 
             for δL=keys(ρs)
-                    ρs[δL][:,:] .+= (M .* fourierphase(k, δL))
+                    ρs[δL][:,:] .+= (M .* fourierphase(-k, δL))
             end
         end
 
@@ -314,7 +315,7 @@ function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ:
         densitymatrix!(M, ϵs.-μ, U; T=T)
 
         for δL=keys(ρs)
-            ρs[δL][:,:] .+= (M .* fourierphase(k, δL))
+            ρs[δL][:,:] .+= (M .* fourierphase(-k, δL))
         end
 
         energies[i_] = groundstate_sumk(real(ϵs), μ)
