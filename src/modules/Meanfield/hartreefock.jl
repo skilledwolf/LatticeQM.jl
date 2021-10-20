@@ -107,7 +107,7 @@ function fock(v::Hops)
     function ϵMF(ρs::Hops)
         vρ = diag(ρs[zerokey(ρs)])
 
-        energy +=  1/2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L,vL) in v)) # Fock contribution
+        energy =  1/2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L,vL) in v)) # Fock contribution
 
 
         @assert isapprox(imag(energy),0; atol=sqrt(eps()))
