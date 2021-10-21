@@ -39,7 +39,7 @@ function graphene_rhombohedral(lat; spin=false, a=1.0, d=3.0, γ0=-1.0, γ1=0.12
     hops = Hops(lat, t; vectorized=false, kwargs...)
 
     if spin
-        hops = addspin(hops, mode)
+        hops = addspin(hops, :spinhalf)
     end
 
     hops

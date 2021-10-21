@@ -73,6 +73,60 @@ function hartreefock(v::Hops)
     vMF, ϵMF
 end
 
+
+function hartree(h::Hops, v::Hops)
+    vMF, ϵMF = hartree(v)
+
+    hMF(ρ::Hops) = h + vMF(ρ)
+
+    hMF, ϵMF
+end
+
+
+function hartree(v::Hops)
+    """
+        Expects the real space potential {V(L) | L unit cell vector}.
+        It returns a functional 𝒱[ρ] that builds the mean field hamiltonian
+
+        This may look harmless but requires a careful derivation.
+    """
+
+    V0 = sum(v[L] for L in keys(v))
+    vmf = empty(v)
+
+    function vMF(ρ::Hops)
+        # empty!(vmf)
+        for L in keys(v)
+            vmf[L] = zero(v[L])
+        end
+
+        # for L in keys(v)
+        #     # note Oct 19 2021: changed from conj.(..) to transpose(...)
+        #     vmf[L] += -v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
+        # end
+
+        vmf[zerokey(ρ)] += spdiagm(0 => V0 * diag(ρ[zerokey(ρ)])) # Hartree contribution
+
+        # addhops!(vmf, Hops(zerokey(ρ) => spdiagm(0 => 2*V0 * diag(ρ[zerokey(ρ)])))) # Hartree contribution
+
+        vmf
+    end
+
+    function ϵMF(ρs::Hops)
+        vρ = diag(ρs[zerokey(ρs)])
+
+        energy = - 1/2 * (transpose(vρ) * V0 * vρ) # Hartree contribution
+        # energy +=  1/2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L,vL) in v)) # Fock contribution
+
+
+        @assert isapprox(imag(energy),0; atol=sqrt(eps()))
+        real(energy)
+    end
+
+    vMF, ϵMF
+end
+
+
 function fock(h::Hops, v::Hops)
     vMF, ϵMF = fock(v)
 
