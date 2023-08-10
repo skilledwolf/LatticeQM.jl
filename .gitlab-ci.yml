@@ -9,7 +9,7 @@ variables:
 
 
 pages:
-  image: julia:1.6.2
+  image: julia:1.9.2
   stage: deploy
   script:
     - apt-get update -qq && apt-get install -y git  # needed by Documenter
