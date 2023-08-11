@@ -1,8 +1,8 @@
 image:
   file: .gitpod.Dockerfile
 tasks:
-  - init: julia --project=@. -e 'using Pkg; Pkg.activate("."); Pkg.instantiate()'
-    command: julia --project=@. -e 'using Pkg; Pkg.activate("."); using LatticeQM'
+  - init: julia -e 'using Pkg; Pkg.develop(path="/workspace/LatticeQM.jl"); using LatticeQM'
+    command: julia -e 'using LatticeQM'
 
 vscode:
   extensions:
