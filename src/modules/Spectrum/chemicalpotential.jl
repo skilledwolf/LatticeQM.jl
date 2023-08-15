@@ -61,7 +61,7 @@ function chemicalpotential_T!(energies::AbstractVector{T1}, nk::Int, filling::T1
     n(μ::AbstractFloat) = sum(fermidirac(ϵ-μ; T=T) for ϵ=energies)/nk
 
     μ, res = brentq(x->n(x)-d*filling, μ0-2*T, μ0+10*T; full_output=true)
-    if !res.converged
+    if !res["converged"]
         println("WARNING: Calculation of chemical potential for finite T did not converge.")
         println("         Using chemical potential for T=0 instead (=Fermi energy).")
         μ = μ0
