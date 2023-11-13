@@ -1,7 +1,7 @@
 name = "LatticeQM"
 uuid = "606d2a7e-9b17-11e9-1c5c-455b84f60309"
 authors = ["Tobias Wolf <wolft@itp.phys.ethz.ch>"]
-version = "0.5.2"
+version = "0.6.0"
 
 [deps]
 AngleBetweenVectors = "ec570357-d46e-52ed-9726-18773498274d"
