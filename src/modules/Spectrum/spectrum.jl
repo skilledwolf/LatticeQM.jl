@@ -1,9 +1,9 @@
 
 using LinearAlgebra: Hermitian
 
-energies(H, args...; kwargs...) = geteigvals(H, args...; kwargs...)
-wavefunctions(H, args...; kwargs...) = geteigvecs(H, args...; kwargs...)
-spectrum(H, args...; kwargs...) = geteigen(H,args...; kwargs...)
+const energies = geteigvals
+const wavefunctions = geteigvecs
+const spectrum = geteigen
 
 using Distributed
 using ProgressMeter
@@ -14,7 +14,19 @@ dim(f::Function, x::Number) = size(f(x), 1)
 dim(f::Function, x::AbstractVector) = size(f(first(x)), 1)
 dim(f::Function, x::AbstractMatrix) = size(f(first(eachcol(x))), 1)
 
-handleprojector(projector) = isa(projector, AbstractVector) ? [expvalf(p) for p in projector] : [expvalf(projector)]
+function expvalf(𝑶::AbstractMatrix)
+    f(k, ψ, ϵ) = real.(dot(ψ, 𝑶, ψ))
+    f
+end
+
+function expvalf(𝑶::Function)
+    f(k, ψ, ϵ) = real.(dot(ψ, 𝑶(k), ψ))
+    f
+end
+
+handleprojector(projector) = isa(projector, AbstractVector) ? map(expvalf, projector) : [expvalf(projector)]
+
+import ..Structure
 
 """
     bandmatrix(H, ks::Matrix{Float} [, As]; kwargs...)
@@ -42,90 +54,144 @@ bands, obs = bandmatrix(h, ks.points, valley)
 
 ```
 """
-function bandmatrix(args...; multimode=:distributed, kwargs...)
-    if multimode == :distributed && nprocs()>1
-        bandmatrix_distributed(args...; kwargs...) # or bandmatrix_pmap ?
+function bandmatrix(H, ks, args...; multimode = :distributed, kwargs...)
+    ks = Structure.points(ks)
+
+    return bandmatrix_distributed(H, ks, args...; kwargs...)
+
+    if multimode == :distributed && nprocs() > 1
+        bandmatrix_distributed(H, ks, args...; kwargs...) # or bandmatrix_pmap ?
     # elseif multimode == :distributed2 && nprocs()>1
-    #     bandmatrix_distributed(args...; kwargs...)
-    elseif multimode == :multithread && Threads.nthreads()>1
-        bandmatrix_multithread(args...; kwargs...)
+    #     bandmatrix_distributed(H, ks, args...; kwargs...)
+    elseif multimode == :multithread && Threads.nthreads() > 1
+        bandmatrix_multithread(H, ks, args...; kwargs...)
     else
-        bandmatrix_serial(args...; kwargs...)
+        bandmatrix_serial(H, ks, args...; kwargs...)
     end
 end
 
 
 function bandmatrix_serial(H, ks; hidebar=false, num_bands::Int=0, kwargs...)
     kwargs = num_bands==0 ? kwargs : Dict(kwargs..., :num_bands=>num_bands)
-    D = (num_bands>0) ? num_bands : size(H(first(eachcol(ks))), 1) # matrix dimension
+    D = (num_bands>0) ? num_bands : dim(H,ks) # matrix dimension
 
     N = size(ks,2) # no. of k points
     bands = zeros(Float64, D, N)
 
-    function energiesf(k)
-        energies(H(k); kwargs...)
-    end
-
     @showprogress (hidebar ? 10^6 : 20) "Computing bands... " for j_=1:N
-        bands[:,j_] .= real.(energiesf(ks[:,j_]))
+        bands[:,j_] .= energies(H(ks[:,j_]); kwargs...)
     end
 
     bands
 end
+
+import Dagger
+# function bandmatrix_distributed(H, ks; hidebar=false, num_bands::Int=0, kwargs...)
+#     kwargs = num_bands == 0 ? kwargs : Dict(kwargs..., :num_bands => num_bands)
+#     D = (num_bands > 0) ? num_bands : size(H(first(eachcol(ks))), 1) # matrix dimension
+
+#     N = size(ks, 2)
+#     bands = Dagger.@mutable zeros(Float64, D, N)
+
+#     results = [(Dagger.@spawn (j_, energies(H(ks[:, j_]); kwargs...))) for j_ = 1:N]
+#     t = Dagger.spawn((bands, results) -> begin
+#             for (j_, result) = results
+#                 bands[:, j_] .= real.(fetch(result))
+#             end
+#         end, bands, results)
+#     wait(t)
+
+#     collect(bands)
+# end
+# function bandmatrix_distributed(H, ks; hidebar=false, num_bands::Int=0, kwargs...)
+#     kwargs = num_bands == 0 ? kwargs : Dict(kwargs..., :num_bands => num_bands)
+#     D = (num_bands > 0) ? num_bands : size(H(first(eachcol(ks))), 1) # matrix dimension
+
+#     N = size(ks, 2) # no. of k points
+#     bands = Dagger.@mutable zeros(Float64, D, N)
+
+#     # @time energies(H(ks[:, 2]))
+
+#     # @time bands = begin
+#     #     ts = []
+#     #     for j_ = 1:N
+#     #         hk = Dagger.@spawn H(ks[:, j_])
+#     #         en = Dagger.@spawn energies(hk; kwargs...)
+            
+#     #         t = Dagger.spawn((bands, energies, j_) -> begin
+#     #             bands[:, j_] .= real.(energies)
+#     #             nothing
+#     #         end, bands, en, j_)
+#     #         push!(ts, t)
+#     #     end
+#     #     wait.(ts)
+#     #     collect(bands)
+#     # end
+
+#     # @time begin
+#     #     results = [(Dagger.@spawn (j_, energies(H(ks[:, j_]); kwargs...))) for j_ = 1:N]
+#     #     # ts = [Dagger.spawn((bands, energies, j_) -> begin
+#     #     #     bands[:, j_] .= real.(energies)
+#     #     #     nothing
+#     #     # end, bands, result, j_) for (j_, result)=results]
+#     #     # wait.(ts)
+#     #     t = Dagger.spawn((bands, results) -> begin
+#     #             for (j_, result) = results
+#     #                 bands[:, j_] .= real.(fetch(result))
+#     #             end
+#     #         end, bands, results)
+#     #     wait(t)
+#     #     bands = collect(bands)
+#     # end
+
+
+#     results = [(Dagger.@spawn (j_, energies(H(ks[:,j_]); kwargs...))) for j_=1:N]
+#     t = Dagger.spawn((bands, results) -> begin
+#         for (j_,result) = results 
+#             bands[:, j_] .= real.(fetch(result))
+#         end
+#     end, bands, results)
+#     wait(t)
+#     bands = collect(bands)
+
+#     # println("norm ", LinearAlgebra.norm(bands))
+#     # println("BANDMATRIX DONE")
+#     # println("Stopping workers ...")
+#     # println(workers())
+#     # rmprocs(workers())
+#     # exit()
+
+#     bands
+# end
 
 function bandmatrix_distributed(H, ks; hidebar=false, num_bands::Int=0, kwargs...)
     kwargs = num_bands==0 ? kwargs : Dict(kwargs..., :num_bands=>num_bands)
-    D = (num_bands>0) ? num_bands : size(H(first(eachcol(ks))), 1) # matrix dimension
+    D = (num_bands > 0) ? num_bands : dim(H, ks) # matrix dimension
 
     N = size(ks,2) # no. of k points
-    bands = convert(SharedArray, zeros(Float64, D, N))
+    bands = SharedArray(Array{Float64}(undef, D, N))
 
-    function energiesf(k)
-        energies(H(k); kwargs...)
+    @sync @showprogress (hidebar ? 10^6 : 5) "Computing bands... "  @distributed for j_=1:N
+        bands[:, j_] .= real.(energies(H(ks[:, j_]); kwargs...))
     end
 
-    @sync @showprogress (hidebar ? 10^6 : 20) "Computing bands... "  @distributed for j_=1:N
-        bands[:,j_] .= real.(energiesf(ks[:,j_]))
-    end
-
-    convert(Array, bands)
-end
-
-function bandmatrix_pmap(H, ks; hidebar=false, num_bands::Int=0, kwargs...)
-    kwargs = num_bands==0 ? kwargs : Dict(kwargs..., :num_bands=>num_bands)
-
-    bands = hcat((@showprogress (hidebar ? 10^6 : 20) "Computing bands... " pmap(x->real(energies(H(x); kwargs...)), eachcol(ks)))...)
-
+    # sdata(bands)
     bands
 end
 
+# function bandmatrix_pmap(H, ks; hidebar=false, num_bands::Int=0, kwargs...)
+#     kwargs = num_bands==0 ? kwargs : Dict(kwargs..., :num_bands=>num_bands)
 
-function bandmatrix_multithread(H, ks; num_bands::Int=0, kwargs...)
-    kwargs = num_bands==0 ? kwargs : Dict(kwargs..., :num_bands=>num_bands)
-    D = (num_bands>0) ? num_bands : size(H(first(eachcol(ks))), 1) # matrix dimension
+#     bands = hcat((@showprogress (hidebar ? 10^6 : 20) "Computing bands... " pmap(x->real(energies(H(x); kwargs...)), eachcol(ks)))...)
 
-    N = size(ks,2) # no. of k points
-    bands = zeros(Float64, D, N)
+#     bands
+# end
 
-    function energiesf(k)
-        energies(H(k); kwargs...)
-    end
-
-    # lk = Threads.ReentrantLock()
-    Threads.@threads for j_=1:N
-        # en = real.(energiesf(ks[:,j_]))
-        # lock(lk) do 
-        bands[:,j_] .= real.(energiesf(ks[:,j_]))
-        # end
-    end
-
-    bands
-end
 
 function bandmatrix_serial(H, ks, projector; hidebar=false, num_bands::Int=0, kwargs...)
     projector = handleprojector(projector)
     kwargs = num_bands==0 ? kwargs : Dict(kwargs..., :num_bands=>num_bands)
-    D = (num_bands>0) ? num_bands : size(H(first(eachcol(ks))), 1) # matrix dimension
+    D = (num_bands > 0) ? num_bands : dim(H, ks) # matrix dimension
 
     N = size(ks, 2) # number of k points
     L = length(projector)
@@ -133,12 +199,13 @@ function bandmatrix_serial(H, ks, projector; hidebar=false, num_bands::Int=0, kw
     obs   = zeros(Float64, D, N, L)
 
     function spectrumf(k)
-        spectrum(H(k); kwargs...)
+        
     end
 
     @showprogress (hidebar ? 10^6 : 20) "Computing bands... " for j_=1:N
 #     @showprogress 1 "Computing bands..." for j_=1:N
-        ϵs, U = spectrumf(ks[:,j_])
+        ϵs, U = spectrum(H(ks[:, j_]); kwargs...)
+        @assert all(imag.(ϵs) .< 1e-10) "Imaginary eigenvalues encountered!"
         bands[:,j_] .= real.(ϵs)
 
         for i_=1:size(U,2), n_=1:L
@@ -149,23 +216,45 @@ function bandmatrix_serial(H, ks, projector; hidebar=false, num_bands::Int=0, kw
     bands, obs
 end
 
+# function bandmatrix_distributed(H, ks, projector; hidebar=false, num_bands::Int=0, kwargs...)
+#     projector = handleprojector(projector)
+#     kwargs = num_bands == 0 ? kwargs : Dict(kwargs..., :num_bands => num_bands)
+#     D = (num_bands > 0) ? num_bands : size(H(first(eachcol(ks))), 1) # matrix dimension
+
+#     N = size(ks, 2) # no. of k points
+#     L = length(projector)
+#     bands = Dagger.@mutable zeros(Float64, D, N)
+#     obs = Dagger.@mutable zeros(Float64, D, N, L)
+
+#     results = [(Dagger.@spawn (j_, spectrum(H(ks[:, j_]); kwargs...))) for j_ = 1:N]
+#     t = Dagger.spawn((bands, obs, results) -> begin
+#             for (j_, result) = results
+#                 ϵs, U = fetch(result)
+#                 bands[:, j_] .= real.(ϵs)
+
+#                 for i_ = 1:size(U, 2), n_ = 1:L
+#                     obs[i_, j_, n_] = projector[n_](ks[:, j_], U[:, i_], ϵs[i_])
+#                 end
+#             end
+#         end, bands, obs, results)
+#     wait(t)
+
+#     collect(bands), collect(obs)
+# end
+
 function bandmatrix_distributed(H, ks, projector; hidebar=false, num_bands::Int=0, kwargs...)
     projector = handleprojector(projector)
     kwargs = num_bands==0 ? kwargs : Dict(kwargs..., :num_bands=>num_bands)
-    D = (num_bands>0) ? num_bands : size(H(first(eachcol(ks))), 1) # matrix dimension
+    D = (num_bands > 0) ? num_bands : dim(H, ks) # matrix dimension
 
     N = size(ks, 2) # number of k points
     L = length(projector)
     bands = convert(SharedArray, Matrix{Float64}(undef, (D,N)))
     obs   = convert(SharedArray, Array{Float64}(undef, (D,N,L)))
 
-    function spectrumf(k)
-        spectrum(H(k); kwargs...)
-    end
-
     @sync @showprogress (hidebar ? 10^6 : 20) "Computing bands... " @distributed for j_=1:N
 #     @showprogress 1 "Computing bands..." for j_=1:N
-        ϵs, U = spectrumf(ks[:,j_])
+        ϵs, U = spectrum(H(ks[:,j_]); kwargs...)
         bands[:,j_] .= real.(ϵs)
 
         for i_=1:size(U,2), n_=1:L
@@ -191,64 +280,6 @@ function bandmatrix_pmap(H, ks, projector; hidebar=false, num_bands::Int=0, kwar
     obs = cat((x[2] for x=res)...; dims=3)
 
     real.(bands), permutedims(obs, [1,3,2])
-end
-
-# function bandmatrix_pmap(H, ks, projector; hidebar=false, num_bands::Int=0, kwargs...)
-#     projector = handleprojector(projector)
-#     kwargs = num_bands==0 ? kwargs : Dict(kwargs..., :num_bands=>num_bands)
-#     D = (num_bands>0) ? num_bands : size(H(first(eachcol(ks))), 1) # matrix dimension
-
-#     N = size(ks, 2) # number of k points
-#     L = length(projector)
-#     bands = convert(SharedArray, Matrix{Float64}(undef, (D,N)))
-#     obs   = convert(SharedArray, Array{Float64}(undef, (D,N,L)))
-
-#     function spectrumf(k)
-#         spectrum(H(k); kwargs...)
-#     end
-
-#     @showprogress (hidebar ? 10^6 : 20) "Computing bands... " pmap(1:N) do j_
-#         ϵs, U = spectrumf(ks[:,j_])
-#         bands[:,j_] .= real.(ϵs)
-
-#         for i_=1:size(U,2), n_=1:L
-#             obs[i_,j_,n_] = projector[n_](ks[:,j_],U[:,i_],ϵs[i_])
-#         end
-#         nothing
-#     end
-
-#     Array(bands), Array(obs)
-# end
-
-
-function bandmatrix_multithread(H, ks, projector; num_bands::Int=0, kwargs...)
-    projector = handleprojector(projector)
-    kwargs = num_bands==0 ? kwargs : Dict(kwargs..., :num_bands=>num_bands)
-    D = (num_bands>0) ? num_bands : size(H(first(eachcol(ks))), 1) # matrix dimension
-
-    N = size(ks, 2) # number of k points
-    L = length(projector)
-    bands = zeros(D, N)
-    obs   = zeros(D, N, L)
-
-    function spectrumf(k)
-        spectrum(H(k); kwargs...)
-    end
-
-    # lk = Threads.ReentrantLock()
-    Threads.@threads for j_=1:N
-        ϵs, U = spectrumf(ks[:,j_])
-        
-        # lock(lk) do 
-        bands[:,j_] .= real.(ϵs)
-
-        for i_=1:size(U,2), n_=1:L
-            obs[i_,j_,n_] = projector[n_](ks[:,j_],U[:,i_],ϵs[i_])
-        end
-        # end
-    end
-
-    bands, obs
 end
 
 

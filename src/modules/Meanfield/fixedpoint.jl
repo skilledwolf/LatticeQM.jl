@@ -1,4 +1,4 @@
-using Printf
+# using Printf
 
 using ProgressMeter
 
@@ -15,7 +15,7 @@ which has the fixed point x0 = sqrt(a).
 function fixedpoint!(f!, x1, x0;
     iterations=500,
     tol=1e-7, β=1.0,
-    p_norm=Inf,
+    p_norm=2,#Inf,
     show_trace=false,
     clear_trace=false,
     verbose=true
@@ -29,7 +29,7 @@ function fixedpoint!(f!, x1, x0;
         prog = ProgressThresh(tol, "FIXPOINT SEARCH ")#; showspeed=true)
     end
 
-    error = 1.0
+    residual = 1.0
     iter = 0
     while iter < iterations
         iter += 1
@@ -41,13 +41,14 @@ function fixedpoint!(f!, x1, x0;
         t1 = (time_ns()-t0)/1e9
 
         # Convergence?
-        error = norm(values(x1).-values(x0), p_norm)
+        # residual = norm(values(x1) .- values(x0), p_norm)
+        residual = norm(values(x1) .- values(x0), p_norm)/norm(values(x1), p_norm)
 
         if show_trace
-            ProgressMeter.update!(prog, error, showvalues = [(:iter,iter), (:time, t1)])
+            ProgressMeter.update!(prog, residual, showvalues=[(:iter, iter), (:time, t1), (:residual, residual)])
         end
 
-        if error < tol
+        if residual < tol
             converged = true
             break
         end
@@ -64,14 +65,14 @@ function fixedpoint!(f!, x1, x0;
     end
 
     if verbose
-        @info("Total #iterations: $iter   Residual error: $error")
+        @info("Total #iterations: $iter   Residual error: $residual")
     end
 
     if !converged
-        @warn("Did not convergence to requested target tolerance. Residual: $error")
+        @warn("Did not convergence to requested target tolerance. Residual: $residual")
     end
 
-    ϵ0, error, converged
+    ϵ0, residual, converged
 end
 
 

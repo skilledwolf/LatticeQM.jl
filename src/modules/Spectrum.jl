@@ -8,7 +8,7 @@ module Spectrum
     include("Spectrum/eigen.jl")
 
     include("Spectrum/types.jl")
-    include("Spectrum/expval.jl")
+    # include("Spectrum/expval.jl")
 
     include("Spectrum/spectrum.jl")
     # export getbands, spectrum

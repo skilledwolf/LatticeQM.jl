@@ -7,6 +7,12 @@ import LatticeQM.Structure.Paths: scaleticks, ticklabels
         markercolor --> :black
     else
         mycolors = data.obs[:,:,n]
+        # Apply sorting operation for each column
+        perm = sortperm(mycolors; dims=1)
+        data.bands .= data.bands[perm]
+        mycolors .= mycolors[perm]
+        data.obs[:, :, n] .= mycolors
+
         max = quantile(abs.(mycolors)[:], cquantile) # maximum(abs.(data.obs[:,:,n]))
         # max = maximum(abs.(data.obs[:,:,n]))
         min = (csymmetric ? -max : quantile(abs.(mycolors)[:], 1-cquantile))

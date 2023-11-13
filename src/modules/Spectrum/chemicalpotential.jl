@@ -1,117 +1,142 @@
-# TODO: implement chemicalpotential!(bands::AbstractMatrix, ...)
-# the repeated allocation of bands is problematic for large systems!
 
-getelectronsector(H::Function) = H
+##########################################################################################
+# Low-level chemicalpotential solver
+##########################################################################################
 
-function chemicalpotential(H, ks, filling::Real; multimode=:distributed, kwargs...)
+chemicalpotential(bands::AbstractArray, kgrid, filling::Real; T::Real = 0.0, kwargs...) = (T == zero(T)) ? chemicalpotential_0(bands, filling; kwargs...) : chemicalpotential_T(bands, kgrid, filling; T = T, kwargs...)
 
-    chemicalpotential(bandmatrix(getelectronsector(H), ks; multimode=multimode), filling; kwargs...)
-end
-
-function chemicalpotential(bands::AbstractMatrix, filling::Real; kwargs...)
-    en = bands[:]
-    nk = size(bands,2)
-
-    chemicalpotential!(en, nk, filling; kwargs...)
-end
-
-# function chemicalpotential(energies::AbstractVector, ks::AbstractMatrix, filling::Float64; kwargs...)
-#     en = energies[:]
-#     nk = size(ks,2)
-#
-#     chemicalpotential!(en, nk, filling; kwargs...)
-# end
-
-function chemicalpotential!(energies::AbstractVector{<:Real}, nk::Int, filling::Float64; T::Real=0.0, kwargs...)
-    if T==zero(T)
-        return chemicalpotential_0!(energies, filling; kwargs...)
-    else
-        return chemicalpotential_T!(energies, nk, filling; T=T, kwargs...)
-    end
-end
-
+chemicalpotential_0(energies, args...; kwargs...) = (en = energies[:]; chemicalpotential_0!(en, args...; kwargs...))
 function chemicalpotential_0!(energies::AbstractVector{<:Real}, filling::Real)
 
     if filling == 1.0
-        return maximum(energies)
+        en = maximum(energies)
+    else
+        i = 1 + floor(Int, filling * (length(energies) - 1)) # fill a fraction of states according to ,,filling''
+        en = sum(partialsort!(energies, i:i+1)) / 2 # oldversion: sort!(energies); e1, e2 = energies[i:i+1]
     end
 
-    i = 1 + floor(Int, filling * (length(energies)-1)) # fill a fraction of states according to ,,filling''
-
-    e1, e2 = partialsort!(energies, i:i+1) # oldversion: sort!(energies); e1, e2 = energies[i:i+1]
-
-    (e1+e2)/2
+    en
 end
 
 
 # import NLsolve # add 1-2 seconds of load time to the package :(
-import ..Utils: fermidirac, brentq
+import ..Utils: fermidirac#, brentq
 
-function chemicalpotential_T!(energies::AbstractVector{T1}, nk::Int, filling::T1; T::T1=0.01) where T1<:Real
+import Roots
 
-    d = div(length(energies),nk) # number of bands
+function chemicalpotential_T(bands, kgrid, filling::T1; T::T1 = 0.01) where {T1<:Real}
 
-    # Initial guess for T=0
-    μ0 = chemicalpotential_0!(energies, filling)
+    #  solve  n(μ*) = n_occ for μ*
+    # μ0 = chemicalpotential_0(bands, filling) # initial guess
+    # μ, res = brentq(x -> getfilling(bands, kgrid; μ = x) - filling, μ0 - 2 * T, μ0 + 10 * T; full_output = true)
+    μ = Roots.find_zero(x -> getfilling(bands, kgrid; μ = x) - filling, (minimum(bands), maximum(bands)))
 
-    ##########################################
-    ###  Solve  n(μ*) = N_occ for μ*
-    ##########################################
-
-    n(μ::AbstractFloat) = sum(fermidirac(ϵ-μ; T=T) for ϵ=energies)/nk
-
-    μ, res = brentq(x->n(x)-d*filling, μ0-2*T, μ0+10*T; full_output=true)
-    if !res.converged
-        println("WARNING: Calculation of chemical potential for finite T did not converge.")
-        println("         Using chemical potential for T=0 instead (=Fermi energy).")
-        μ = μ0
-    end
-
-    # function δn!(δn::T, μ::T) where {T2<:AbstractFloat, T<:AbstractArray{T2}}
-    #     δn[1] = n(μ[1]) - d * filling
-    #     nothing
-    # end
-    # sol = NLsolve.nlsolve(δn!, [μ0])#; ftol=1e-6, iterations=1500)
-    # if !NLsolve.converged(sol)
+    # if !res.converged
     #     println("WARNING: Calculation of chemical potential for finite T did not converge.")
     #     println("         Using chemical potential for T=0 instead (=Fermi energy).")
-    #     μ = μ0
-    # else
-    #     μ = sol.zero[1]
+    #     μ = chemicalpotential_0(bands, filling)
     # end
-    
+
     μ
 end
 
 
-function getfilling(energies::AbstractVector{T1}, nk::Int, μ::T1; T::T1=0.01) where T1<:Real
-    d = div(length(energies),nk) 
-    sum(fermidirac(ϵ-μ; T=T) for ϵ=energies)/nk/d # filling between 0 and 1
+##########################################################################################
+# Interface of chemicalpotential to Hamiltonian type
+##########################################################################################
+
+getelectronsector(H::Function) = H
+
+function chemicalpotential(H, ks, filling::Real; multimode = :distributed, kwargs...)
+
+    chemicalpotential(bandmatrix(getelectronsector(H), ks; multimode = multimode), ks, filling; kwargs...)
 end
 
-function getfilling(bands::AbstractMatrix, μ::Real; kwargs...)
-    en = bands[:]
-    nk = size(bands,2)
+function chemicalpotential(H, ks, fillings::AbstractVector; multimode = :distributed, kwargs...)
 
-    getfilling(en, nk, μ; kwargs...)
+    bands = bandmatrix(getelectronsector(H), ks; multimode = multimode) # compute once to determine multiple fillings later on
+
+    [chemicalpotential(bands, ks, filling; kwargs...) for filling in fillings]
 end
 
-function getfilling(bands::AbstractMatrix, μs::AbstractVector; kwargs...)
-    en = bands[:]
-    nk = size(bands,2)
 
-    [getfilling(en, nk, μ; kwargs...) for μ in μs]
-end
+import ..Structure: Mesh, meshweights
 
-function filling(H, ks, μ; multimode=:distributed, kwargs...)
 
-    getfilling(bandmatrix(getelectronsector(H), ks; multimode=multimode), μ; kwargs...)
+##########################################################################################
+# getfilling for non-regular grids
+##########################################################################################
+import Statistics
+
+getfillings(bands::AbstractMatrix, μs::AbstractVector, args...; kwargs...) = [getfilling(bands, args...; μ = μ, kwargs...) for μ in μs]
+
+getfilling(bands::AbstractMatrix, kmesh::Mesh; kwargs...) = getfilling(bands, meshweights(kmesh); kwargs...)
+
+getfilling(bands::AbstractArray, kpoints::AbstractMatrix; kwargs...) = Statistics.mean(fermidirac(bands; kwargs...))
+getfilling(bands::AbstractArray; kwargs...) = Statistics.mean(fermidirac(bands; kwargs...))
+getfilling(bands::AbstractMatrix, weights::AbstractVector; kwargs...) = sum(weights' .* fermidirac(bands; kwargs...)) / size(bands, 1)
+
+
+
+##########################################################################################
+# Interface of getfilling to Hamiltonian type
+##########################################################################################
+
+function filling(H, ks, μ; multimode = :distributed, kwargs...)
+
+    getfilling(bandmatrix(getelectronsector(H), ks; multimode = multimode), ks; μ = μ, kwargs...)
 end
 
 import ..Structure: regulargrid
 
-function filling(H, μ; multimode=:distributed, nk=10, kwargs...)
-    ks = regulargrid(nk=nk^2)
+function filling(H, μ; multimode = :distributed, nk = 10, kwargs...)
+    ks = regulargrid(nk = nk^2)
 
-    getfilling(bandmatrix(getelectronsector(H), ks; multimode=multimode), μ; kwargs...)
+    getfilling(bandmatrix(getelectronsector(H), ks; multimode = multimode); μ = μ, kwargs...)
 end
+
+function fillings(H, ks, μs; kwargs...)
+    bandmatrix = bandmatrix(getelectronsector(H), ks; multimode = multimode)
+
+    getfillings(bandmatrix, μs, ks; kwargs...)
+end
+
+function fillings(H, μs; nk=10, kwargs...)
+    ks = regulargrid(nk = nk^2)
+    bandmatrix = bandmatrix(getelectronsector(H), ks; multimode = multimode)
+
+    getfillings(bandmatrix, μs, ks; kwargs...)
+end
+
+
+
+##########################################################################################
+# Alternate all-julia implementation: (requires NLsolve, which loads slowly)
+##########################################################################################
+
+# function chemicalpotential_T(bands, kgrid, filling::T1; T::T1 = 0.01) where {T1<:Real}
+
+#     # Initial guess for T=0
+#     μ0 = chemicalpotential_0(bands, filling)
+
+#     ##########################################
+#     ###  Solve  n(μ*) = N_occ for μ*
+#     ##########################################
+
+#     n(μ::AbstractFloat) = getfilling(bands, kgrid; μ = μ)
+
+#     function δn!(δn::T, μ::T) where {T2<:AbstractFloat, T<:AbstractArray{T2}}
+#         δn[1] = n(μ[1]) - filling
+#         nothing
+#     end
+#     sol = NLsolve.nlsolve(δn!, [μ0])#; ftol=1e-6, iterations=1500)
+#     if !NLsolve.converged(sol)
+#         println("WARNING: Calculation of chemical potential for finite T did not converge.")
+#         println("         Using chemical potential for T=0 instead (=Fermi energy).")
+#         μ = μ0
+#     else
+#         μ = sol.zero[1]
+#     end
+
+#     μ
+# end

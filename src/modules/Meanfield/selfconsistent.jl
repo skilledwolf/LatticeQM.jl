@@ -5,8 +5,7 @@ function solvehartreefock(h, v, ρ_init, filling::Number, args...; kwargs...)
 
     solveselfconsistent(ρ_init, ℋ_op, ℋ_scalar, filling, args...; kwargs...)
 end
-# precompile(solvehartreefock, (Hops, Hops, Hops, Float64))
-precompile(solvehartreefock, (Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Float64))
+# precompile(solvehartreefock, (Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Float64))
 
 function solvefock(h, v, ρ_init, filling::Number, args...; kwargs...)
     ℋ_op, ℋ_scalar = fock(h, v)
@@ -14,7 +13,7 @@ function solvefock(h, v, ρ_init, filling::Number, args...; kwargs...)
     solveselfconsistent(ρ_init, ℋ_op, ℋ_scalar, filling, args...; kwargs...)
 end
 # precompile(solvehartreefock, (Hops, Hops, Hops, Float64))
-precompile(solvefock, (Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Float64))
+# precompile(solvefock, (Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Float64))
 
 function solvehartree(h, v, ρ_init, filling::Number, args...; kwargs...)
     ℋ_op, ℋ_scalar = hartree(h, v)
@@ -22,12 +21,13 @@ function solvehartree(h, v, ρ_init, filling::Number, args...; kwargs...)
     solveselfconsistent(ρ_init, ℋ_op, ℋ_scalar, filling, args...; kwargs...)
 end
 # precompile(solvehartreefock, (Hops, Hops, Hops, Float64))
-precompile(solvehartree, (Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Float64))
+# precompile(solvehartree, (Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Float64))
 
-solveselfconsistent(hf, ρ_init, filling::Number, ks::AbstractMatrix; kwargs...) = solveselfconsistent(ρ_init, hf..., filling, ks; kwargs...)
-solveselfconsistent(hf, ρ_init, filling::Number; klin, kwargs...) = solveselfconsistent(ρ_init, hf..., filling; klin=klin, kwargs...)
+# This interface is obsolete:
+# solveselfconsistent(hf, ρ_init, filling::Number, ks::AbstractMatrix; kwargs...) = solveselfconsistent(ρ_init, hf..., filling, ks; kwargs...)
+# solveselfconsistent(hf, ρ_init, filling::Number; klin, kwargs...) = solveselfconsistent(ρ_init, hf..., filling; klin=klin, kwargs...)
 
-solveselfconsistent(ρ0, ℋ_op, ℋ_scalar, filling::Number, ks::AbstractMatrix; kwargs...) = solveselfconsistent!(deepcopy(ρ0), ℋ_op, ℋ_scalar, filling, ks; kwargs...)
+solveselfconsistent(ρ0, ℋ_op, ℋ_scalar, filling::Number, ks; kwargs...) = solveselfconsistent!(deepcopy(ρ0), ℋ_op, ℋ_scalar, filling, ks; kwargs...)
 solveselfconsistent(ρ0, ℋ_op, ℋ_scalar, filling::Number; klin, kwargs...) = solveselfconsistent!(deepcopy(ρ0), ℋ_op, ℋ_scalar, filling; klin=klin, kwargs...)
 
 function solveselfconsistent!(ρ0, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, args...; kwargs...)
@@ -67,7 +67,7 @@ parallel=true might help if diagonalization per k point is very time consuming
 (e.g. for twisted bilayer graphene)
 note that for small problems `parallel=true` may decrease performance (communication overhead)
 """
-function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, ks::AbstractMatrix{Float64}, kweights=nothing;
+function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, ks;
     convergenceerror=false, multimode=:serial, checkpoint::String="", callback=(x->nothing), hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
 
     # if checkpoint != "" && isfile(checkpoint) && hotstart
@@ -92,9 +92,11 @@ function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, 
     end
 
     function update!(ρ1, ρ0)
+        # @time updateH!(H, ρ0)
         updateH!(H, ρ0)
 
         verbose ? @info("Updating the mean field...") : nothing
+        # @time ϵ0 = getdensitymatrix!(ρ1, H.h, ks, H.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
         ϵ0 = getdensitymatrix!(ρ1, H.h, ks, H.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
 
         callback(ρ1)
@@ -108,14 +110,13 @@ function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, 
     end
 
     # Compute the ground state energy for the mean-field fixed point
-    ϵ_GS, Error, converged = fixedpoint!(update!, ρ1, ρ0; iterations=iterations, tol=tol, verbose=verbose, kwargs...)
+    ϵ_GS, residual, converged = fixedpoint!(update!, ρ1, ρ0; iterations=iterations, tol=tol, verbose=verbose, kwargs...)
 
     if convergenceerror && !converged
         error("Convergence error.")
     end
-
     updateH!(H, ρ1)
 
-    DenseHops(ρ1), ϵ_GS, H, converged, Error
+    DenseHops(ρ1), ϵ_GS, H, converged, residual
 end
 

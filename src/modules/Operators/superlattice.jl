@@ -63,7 +63,7 @@ periodicity of the model.
 """
 superlattice(hops::Hops, v::Vector{Int}, args...; kwargs...) = superlattice(hops, Matrix(Diagonal(v)), args...; kwargs...)
 superlattice(hops::Hops, M::Matrix{Int}; kwargs...) = superlattice(hops, M, (r,R)->1; kwargs...)
-function superlattice(hops::Hops, M::Matrix{Int}, phasefunc::Function) where {T<:Number}
+function superlattice(hops::Hops, M::Matrix{Int}, phasefunc::Function) #where {T<:Number}
 
     coordinates = Lattices.supercellpoints(M)
     
@@ -96,7 +96,7 @@ end
 
 superlattice(lat::Lattices.Lattice, hops::Hops, v::Vector{Int}, args...; kwargs...) = superlattice(lat, hops, Matrix(Diagonal(v)), args...; kwargs...)
 superlattice(lat::Lattices.Lattice, hops::Hops, M::Matrix{Int}; kwargs...) = superlattice(lat, hops, M, (r,R)->1; kwargs...)
-function superlattice(lat::Lattices.Lattice, hops::Hops, M::Matrix{Int}, phasefunc::Function; cellrange::Int=1) where {T<:Number}
+function superlattice(lat::Lattices.Lattice, hops::Hops, M::Matrix{Int}, phasefunc::Function; cellrange::Int=1) #where {T<:Number}
     coordinates = Lattices.supercellpoints(M)
     count = size(coordinates, 2)
     D = count  * hopdim(hops) # size of superlattice hopping matrices

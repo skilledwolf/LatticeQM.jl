@@ -1,24 +1,17 @@
-@fastmath function groundstate_sumk(ϵs_k::AbstractVector{T}, μ::T=0.0) where {T<:Number}
-    tmp = zero(T)
-    for ϵ in ϵs_k
-        if ϵ <= μ
-            tmp += ϵ
-        end
-    end
-
-    tmp
+function groundstate_sumk(ϵs_k::AbstractVector, μ::Number = 0; T::Number = 0)
+    sum(fermidirac(ϵs_k .- μ; T = T) .* ϵs_k)
 end
 
-function groundstate_energy(ϵs::Function, ks::AbstractMatrix{T}, μ::T=0.0; kwargs...) where {T<:Number}
-    # Σ = ϵs(hamiltonian; format=format)
-    L = size(ks)[2]
+# function groundstate_energy(ϵs::Function, ks::AbstractMatrix{T}, μ::T=0.0; kwargs...) where {T<:Number}
+#     # Σ = ϵs(hamiltonian; format=format)
+#     L = size(ks)[2]
 
-    ϵGS = @distributed (+) for j=1:L
-        groundstate_sumk(ϵs(ks[:,j]), μ)
-    end
+#     ϵGS = @distributed (+) for j=1:L
+#         groundstate_sumk(ϵs(ks[:,j]), μ)
+#     end
 
-    ϵGS / L
-end
+#     ϵGS / L
+# end
 
 # function groundstate_energy_multithread(ϵs::Function, ks::AbstractMatrix{T}, μ::T=0.0; kwargs...) where {T<:Number}
 #     # Σ = ϵs(hamiltonian; format=format)

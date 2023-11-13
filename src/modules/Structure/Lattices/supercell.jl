@@ -12,7 +12,7 @@ Build superlattice geometry, i.e., build a larger supercell at it's new lattice 
 function superlattice(lat::Lattice, superperiods::Matrix{Int}; kwargs...)
 
     if superperiods==[[1,0],[0,1]] # nothing to do!
-        return lat
+        return deepcopy(lat)
     end
 
     D = spacedim(lat)
@@ -118,7 +118,7 @@ end
 
 
 function crop2unitcell!(lat::Lattice)#, lat1::Lattice)
-    indices = [i for (i,a) in enumerate(eachcol(lat.spacecoordinates[1:latticedim(lat),:])) if inunitrange(a;offset=1e-3)]
+    indices = [i for (i,a) in enumerate(eachcol(lat.spacecoordinates[1:latticedim(lat),:])) if inunitrange(a)]
     lat.spacecoordinates = lat.spacecoordinates[:,indices]
     lat.extracoordinates = lat.extracoordinates[:,indices]
     lat
@@ -171,20 +171,34 @@ Consider an integer lattice of dimension D=size(M,1). Matrix M describes a (non-
 of this integer lattice. We want to find all lattice points that lie inside a unit cell of this
 new superlattice.
 """
-function supercellpoints(M::AbstractMatrix{Int}; offset::Float64=sqrt(eps()))#, check=false) # offset is a dummy variable, should be removed
+function supercellpoints(M::Matrix{Int}; offset::Float64=sqrt(eps()))#, check=false) # offset is a dummy variable, should be removed
     d = size(M)[1]
+    n = round(Int, abs(det(M)))
     Φ = inv(M) # transformation from integer lattice into unit cube coordinates of the
-                # superlattice unit cell
+    # superlattice unit cell
 
     # Get all corner points of the (non-orthogonal) parallepiped described by M
     # then get limits for an enclosing box region
     corners = M * UnitCubeCorners(d)
     bounds = extrema(corners; dims=2)
 
-    innerpoints = Φ * hcat(([x...] for x in BoundIterator(bounds))...)
-    innerpoints = M * hcat((p for p in eachcol(innerpoints) if inunitrange(p; offset=offset))...)
+    innerpoints = Vector{Int}[]
+    sizehint!(innerpoints, n)
 
-    return round.(Int, innerpoints)  # M' * points
+    for x in Iterators.product((range(x[1]...) for x in eachrow(bounds))...)
+        x = [x...]
+        x0 = Φ * x
+        if all((x0 .< 1 - offset) .& (x0 .>= 0 - offset))
+            push!(innerpoints, x)
+        end
+    end
+
+    @assert length(innerpoints)==n "Something went wrong: Could not find all cells that lie in the supercell."
+
+    hcat(innerpoints...)
 end
 precompile(supercellpoints, (Matrix{Int},))
+
+
+
 

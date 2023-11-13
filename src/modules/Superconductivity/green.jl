@@ -2,9 +2,6 @@
 using ..Operators: densitymatrix, densitymatrix!
 using ..TightBinding: zerokey
 
-function Operators.getdensitymatrix(H::BdGOperator{<:AnyHops}, args...; kwargs...)
-    Operators.getdensitymatrix(H.h, args...; kwargs...)
-end
 
 function Operators.getdensitymatrix!(ρ::BdGOperator{<:AnyHops}, H::BdGOperator{<:AnyHops}, ks::AbstractMatrix, μ::Real=0; kwargs...)
     d = hopdim(H)

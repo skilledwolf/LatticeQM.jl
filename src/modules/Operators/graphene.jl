@@ -16,21 +16,22 @@ function graphene(lat::Lattice; vectorized=true, mode=:nospin, format=:auto, cel
 end
 precompile(graphene, (Lattice,))
 
-function graphene_rhombohedral(lat; spin=false, a=1.0, d=3.0, γ0=-1.0, γ1=0.12, γ2=-0.006, γ3=0.05, γ4=0.014, kwargs...)
+# default parameters taken from PHYSICAL REVIEW B 82, 035409 (2010), Table 1
+function graphene_rhombohedral(lat; spin=false, a=1.0, d=3.0, γ0=-3.16, γ1=0.502, γ2=-0.0171, γ3=-0.377, γ4=-0.099, kwargs...)
 
     function t(r1, r2=0.0)
         δr=r1.-r2
         
-        if abs(norm(δr[1:2])-a)<0.01 && abs(δr[3]) < 0.01 
+        if abs(norm(δr[1:2])-a)<0.01 && abs(δr[3]) < 0.01 # same layer, NN
             return γ0
-        elseif abs(norm(δr[1:2]))<0.01 && abs(abs(δr[3])-d) < 0.01 
-            return γ0 * γ1
-        elseif abs(norm(δr[1:2]))<0.01 && abs(abs(δr[3])-2*d) < 0.01
-            return γ0 * γ2
-        elseif abs(norm(δr[1:2])-a)<0.01 && abs(abs(δr[3])-d) < 0.01
-            return γ0 * γ4
-        elseif abs(norm(δr[1:2])-2*a)<0.01 && abs(abs(δr[3])-d) < 0.01
-            return γ0 * γ3
+        elseif abs(norm(δr[1:2]))<0.01 && abs(abs(δr[3])-d) < 0.01  ## NN-layer, vertical
+            return γ1
+        elseif abs(norm(δr[1:2]))<0.01 && abs(abs(δr[3])-2*d) < 0.01 ## NNN-layer, vertical
+            return γ2
+        elseif abs(norm(δr[1:2])-a)<0.01 && abs(abs(δr[3])-d) < 0.01 && abs(δr[4]) < 0.01 ## NN-layer, non-vertical, AA
+            return γ4
+        elseif abs(norm(δr[1:2])-2*a)<0.01 && abs(abs(δr[3])-d) < 0.01 && abs(δr[4]) > 0.01 ## NN-layer, non-vertical, AB
+            return γ3
         end
         
         return 0.0
@@ -189,12 +190,12 @@ function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin::Float64=1e-5
 
     # Preallocate memory: important for huge sparse matrices
     maxind = (N>MAX_DENSE) ? round(Int, MAX_DIAGS * N) : N^2 # MIN_SPARSITY * N^2 # semi-arbitrary limit for dense allocation
-    IS = Vector{Int}(undef, maxind)
-    JS = similar(IS)
-    VS = similar(IS, Float64)
+
+    out = spzeros(ComplexF64, N,N)
+    sizehint!(out, maxind)
+
     δR = similar(R1)
 
-    count = 0
     @fastmath @inbounds for j=1:N
         @views δR .= R1 .- R2[:,j]
 
@@ -214,12 +215,11 @@ function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin::Float64=1e-5
                 continue
             end
 
-            count = count+1
-            IS[count], JS[count], VS[count] = i, j, v
+            out[i,j] = v
         end
     end
 
-    @views sparse(IS[1:count],JS[1:count],complex(VS[1:count]), N, N)
+    out
 end
 precompile(t_graphene, (Matrix{Float64}, Matrix{Float64}))
 

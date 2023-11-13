@@ -19,7 +19,8 @@ function setfilling!(H, kgrid, filling; kwargs...)
 end
 
 function addchemicalpotential!(hops::Hops, μ::Real)
-    hops[zerokey(hops)] += μ * I
+    inds = diagind(hops[zerokey(hops)])
+    hops[zerokey(hops)][inds] .+= μ
     hops
 end
 

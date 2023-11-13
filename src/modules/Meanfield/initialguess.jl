@@ -54,6 +54,8 @@ function spindensitymatrix!(M::AbstractMatrix, s::Symbol; kwargs...)
     elseif s==:randomXY || s==:randXY
         ϕ = 2π * rand()
         d = [cos(ϕ), sin(ϕ), 0]
+    elseif s==:randomZ || s==:randZ
+        d = [0,0,(-1)^rand(Bool)]
     end
 
     spindensitymatrix!(M, d; kwargs...)
@@ -132,6 +134,9 @@ function setrandom!(ρ::Hops, kind=:nonlocal)
         end
     elseif kind==:XY || kind==:xy
         M = mapspindensitymatrix(:randomXY, n)
+        setzero!(ρ, M)
+    elseif kind==:Z || kind==:z
+        M = mapspindensitymatrix(:randomZ, n)
         setzero!(ρ, M)
     else
         error("Unrecognized request for mode '$kind'.")

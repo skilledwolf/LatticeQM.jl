@@ -31,7 +31,7 @@ Might change in the future, but for now use dos(h, ks, ω; Γ) syntax if needed.
 getdos(h, ωs; kwargs...) = (DOS=zero(ωs); getdos!(DOS, h, ωs; kwargs...))
 function getdos!(DOS, h, ωs::AbstractVector; klin::Int, kwargs...)
     ks = regulargrid(nk=klin^2)
-    getdos!(DOS, h, ks, ωs; kwargs...)
+    getdos!(DOS, h, Vector(ωs), ks; kwargs...)
 
     DOS
 end
@@ -50,7 +50,7 @@ and for the frequencies ω=(ω1, ω2, ...). The paremter \$\\Gamma\$ is the ener
 Mode can be :distributed or :serial, format can be :auto, :sparse or :dense.
 """
 getdos(h, ωs::AbstractVector, ks, args...; kwargs...) = (DOS=zero(ωs); getdos!(DOS, h, ωs, ks, args...; kwargs...))
-function getdos!(DOS, h, frequencies::AbstractVector{<:Number}, ks::AbstractMatrix{<:Real}, args...; parallel=true, mode=:distributed, kwargs...)
+function getdos!(DOS, h, frequencies::AbstractVector, ks, args...; parallel=true, mode=:distributed, kwargs...)
     if nprocs()<2 || mode!=:distributed
         parallel=false
     end
@@ -70,7 +70,7 @@ function dos!(DOS, energy::Number, ωs; broadening::Number, weight::Number=1.0)
     DOS
 end
 
-function dos_serial!(DOS, h, frequencies::AbstractVector{<:Number}, ks::AbstractMatrix{<:Real}; Γ::Number, kwargs...)
+function dos_serial!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix{<:Real}; Γ::Number, kwargs...)
     L = size(ks,2)
     function ϵs(k)
         energies(h(k); kwargs...)
@@ -83,7 +83,7 @@ function dos_serial!(DOS, h, frequencies::AbstractVector{<:Number}, ks::Abstract
     DOS
 end
 
-function dos_parallel!(DOS, h, frequencies::AbstractVector{<:Number}, ks::AbstractMatrix{<:Real}; Γ::Number, kwargs...)
+function dos_parallel!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix; Γ::Number, kwargs...)
     L = size(ks,2)
     function ϵs(k)
         energies(h(k); kwargs...)
@@ -101,7 +101,7 @@ function dos_parallel!(DOS, h, frequencies::AbstractVector{<:Number}, ks::Abstra
     DOS
 end
 
-function dos_serial!(DOS, h, frequencies::AbstractVector{<:Number}, ks::AbstractMatrix{<:Real}, kweights::AbstractVector; Γ::Number, kwargs...)
+function dos_serial!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix, kweights::AbstractVector; Γ::Number, kwargs...)
     L = size(ks,2)
     function ϵs(k)
         energies(h(k); kwargs...)
@@ -114,7 +114,7 @@ function dos_serial!(DOS, h, frequencies::AbstractVector{<:Number}, ks::Abstract
     DOS
 end
 
-function dos_parallel!(DOS, h, frequencies::AbstractVector{<:Number}, ks::AbstractMatrix{<:Real}, kweights::AbstractVector; Γ::Number, kwargs...)
+function dos_parallel!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix, kweights::AbstractVector; Γ::Number, kwargs...)
     L = size(ks,2)
     function ϵs(k)
         energies(h(k); kwargs...)
@@ -131,6 +131,20 @@ function dos_parallel!(DOS, h, frequencies::AbstractVector{<:Number}, ks::Abstra
     DOS[:] += DOS0[:]
 
     DOS
+end
+
+import ..Structure: Mesh, meshweights
+
+function dos_serial!(DOS, h, frequencies::AbstractVector, kgrid::Mesh; kwargs...)
+    ks = kgrid.points
+    kweights = meshweights(kgrid)
+    dos_serial!(DOS, h, frequencies, ks, kweights; kwargs...)
+end
+
+function dos_parallel!(DOS, h, frequencies::AbstractVector, kgrid::Mesh; kwargs...)
+    ks = kgrid.points
+    kweights = meshweights(kgrid)
+    dos_parallel!(DOS, h, frequencies, ks, kweights; kwargs...)
 end
 
 # # todo: include into dos!(...)

@@ -89,7 +89,7 @@ honeycomb_AA(a::Float64=1.0, z::Float64=3.0) = Lattice(
 honeycomb_AB(a::Float64=1.0, z::Float64=3.0) = Lattice(
     a .* A_hex,
     [[0.0;0.0;-z/2]  [1/3; 1/3; -z/2]  [2/3; 2/3; z/2]   [1/3; 1/3; z/2]],
-    1.0*hcat([0 1 0 1]);
+    1.0*hcat([0 1 1 0]);
     extralabels=["sublattice"],
     specialpoints=kdict_tri
 )

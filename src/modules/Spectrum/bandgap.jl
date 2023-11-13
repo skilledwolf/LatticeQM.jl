@@ -8,7 +8,7 @@ end
 function bandgap_filling(H, ks, filling::Real; multimode=:distributed, kwargs...)
     # Calculate the gap around in which the Fermi level lies
     bands = bandmatrix(H, ks; multimode=multimode) # dense diagonalization (default)!
-    μ = chemicalpotential(bands, filling; kwargs...)
+    μ = chemicalpotential(bands, ks, filling; kwargs...)
 
     bandgap_energy(bands, μ)
 end

@@ -17,10 +17,11 @@ module Structure
 ################################################################################
 
     include("Structure/rotate.jl")
-    include("Structure/grid.jl")
 
     include("Structure/Paths.jl")
     import .Paths
+
+    include("Structure/grid.jl")
 
     include("Structure/Lattices.jl")
     import .Lattices

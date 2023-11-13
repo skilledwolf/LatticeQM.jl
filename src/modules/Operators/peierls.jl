@@ -202,7 +202,7 @@ The parameter Γ determines the energy broadening when calculating DOS.
 
 Returns a list of fluxes and a the dos at given frequencies at each flux.
 """
-function hofstadter_dos(hops, lat::Lattice, Q::Int, frequencies::AbstractVector{<:Real}; klin::Int=100, Γ::Real=0.05)
+function hofstadter_dos(hops, lat::Lattice, Q::Int, frequencies::AbstractVector; klin::Int=100, Γ::Real=0.05)
 
     fluxes = [(p,q) for q=1:Q for p=1:q-1 if gcd(p,q)<2]
     DOS = zeros(length(frequencies), length(fluxes))

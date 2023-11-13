@@ -52,19 +52,20 @@ Base.setindex!(ks::DiscretePath,v,args...) = Base.setindex!(ks.points,v,args...)
 ################################################################################
 ################################################################################
 
-import ..regulargrid
 
 # Point iterator
 # Define proper iterators for each input type
-points(ks::DiscretePath) = ks.points
-points(ks::T) where {T<:AbstractMatrix} = ks
-points(ks::T2) where {T2<:AbstractVector{<:AbstractVector}} = hcat(ks...)
+# points(ks::DiscretePath) = ks.points
+# points(ks::T) where {T<:AbstractMatrix} = ks
+# points(ks::T2) where {T2<:AbstractVector{<:AbstractVector}} = hcat(ks...)
 
-function sumk(f_k::Function, ks)
-    sum(f_k(k) for k=eachcol(ks))/size(ks,2)
-end
 
-sumk(f_k::Function; klin::Int) = sumk(f_k, regulargrid(;nk=klin^2))
+# function sumk(f_k::Function, ks)
+#     sum(f_k(k) for k=eachcol(ks))/size(ks,2)
+# end
+
+# import ..regulargrid
+# sumk(f_k::Function; klin::Int) = sumk(f_k, regulargrid(;nk=klin^2))
 
 
 ################################################################################

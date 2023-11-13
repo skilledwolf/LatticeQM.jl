@@ -10,6 +10,7 @@ geteigen(h; format=:dense,   kwargs...) = (format==:sparse) ?  eigen_sparse(h; k
 # Sparse eigensolver
 ###################################################################################################
 
+# include("eigen_sparse_krylovkit.jl")
 # include("eigen_sparse_julia.jl")
 include("eigen_sparse_arpack.jl") # Arpack implementation. Not multi-threading safe with julia.
 
@@ -18,10 +19,11 @@ include("eigen_sparse_arpack.jl") # Arpack implementation. Not multi-threading s
 ###################################################################################################
 
 import LinearAlgebra
+import SharedArrays: sdata
 
-eigen_dense(H::AbstractMatrix, args...; kwargs...) = (F=LinearAlgebra.eigen(Matrix(H), args...; kwargs...); (F.values, F.vectors))
-eigvals_dense(H::AbstractMatrix, args...; kwargs...) = LinearAlgebra.eigvals(Matrix(H), args...; kwargs...)
-eigvecs_dense(H::AbstractMatrix, args...; kwargs...) = LinearAlgebra.eigvecs(Matrix(H), args...; kwargs...)
+eigen_dense(H::AbstractMatrix, args...; kwargs...) = (F=LinearAlgebra.eigen(H, args...; kwargs...); (F.values, F.vectors))
+eigvals_dense(H::AbstractMatrix, args...; kwargs...) = LinearAlgebra.eigvals(H, args...; kwargs...)
+eigvecs_dense(H::AbstractMatrix, args...; kwargs...) = LinearAlgebra.eigvecs(H, args...; kwargs...)
 
 
 ###################################################################################################
