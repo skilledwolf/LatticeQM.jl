@@ -1,39 +1,20 @@
 using ..Structure: regulargrid
 
-function solvehartreefock(h, v, ρ_init, filling::Number, args...; kwargs...)
-    ℋ_op, ℋ_scalar = hartreefock(h, v)
+# Specialized cases
+solvehartreefock(h, v, ρ_init, filling::Number, args...; kwargs...) = solveselfconsistent(ρ_init, hartreefock(h, v)..., filling, args...; kwargs...)
+solvefock(h, v, ρ_init, filling::Number, args...; kwargs...) = solveselfconsistent(ρ_init, fock(h, v)..., filling, args...; kwargs...)
+solvehartree(h, v, ρ_init, filling::Number, args...; kwargs...) = solveselfconsistent(ρ_init, hartree(h, v), filling, args...; kwargs...)
 
-    solveselfconsistent(ρ_init, ℋ_op, ℋ_scalar, filling, args...; kwargs...)
-end
-# precompile(solvehartreefock, (Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Float64))
-
-function solvefock(h, v, ρ_init, filling::Number, args...; kwargs...)
-    ℋ_op, ℋ_scalar = fock(h, v)
-
-    solveselfconsistent(ρ_init, ℋ_op, ℋ_scalar, filling, args...; kwargs...)
-end
-# precompile(solvehartreefock, (Hops, Hops, Hops, Float64))
-# precompile(solvefock, (Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Float64))
-
-function solvehartree(h, v, ρ_init, filling::Number, args...; kwargs...)
-    ℋ_op, ℋ_scalar = hartree(h, v)
-
-    solveselfconsistent(ρ_init, ℋ_op, ℋ_scalar, filling, args...; kwargs...)
-end
-# precompile(solvehartreefock, (Hops, Hops, Hops, Float64))
-# precompile(solvehartree, (Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Hops{Matrix{ComplexF64}}, Float64))
-
-# This interface is obsolete:
-# solveselfconsistent(hf, ρ_init, filling::Number, ks::AbstractMatrix; kwargs...) = solveselfconsistent(ρ_init, hf..., filling, ks; kwargs...)
-# solveselfconsistent(hf, ρ_init, filling::Number; klin, kwargs...) = solveselfconsistent(ρ_init, hf..., filling; klin=klin, kwargs...)
-
+# Interface to solveselfconsistent!(ρ0, ...)
 solveselfconsistent(ρ0, ℋ_op, ℋ_scalar, filling::Number, ks; kwargs...) = solveselfconsistent!(deepcopy(ρ0), ℋ_op, ℋ_scalar, filling, ks; kwargs...)
 solveselfconsistent(ρ0, ℋ_op, ℋ_scalar, filling::Number; klin, kwargs...) = solveselfconsistent!(deepcopy(ρ0), ℋ_op, ℋ_scalar, filling; klin=klin, kwargs...)
 
+# Interface to solveselfconsistent!(ρ0, ρ1, ...)
 function solveselfconsistent!(ρ0, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, args...; kwargs...)
     return solveselfconsistent!(ρ0, deepcopy(ρ0), ℋ_op, ℋ_scalar, filling, args...; kwargs...)
 end
 
+# Interface to solveselfconsistent!(ρ0, ρ1, ..., ks, ...)
 function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, filling::Float64; klin::Int, kwargs...)
     solveselfconsistent!(ρ0, ρ1, ℋ_op, ℋ_scalar, filling, regulargrid(nk=klin^2); kwargs...)
 end
@@ -42,7 +23,6 @@ mutable struct Hamiltonian{T}
     h::T
     μ::Float64
 end
-
 
 # using JLD
 import Distributed: nprocs
@@ -67,7 +47,7 @@ parallel=true might help if diagonalization per k point is very time consuming
 (e.g. for twisted bilayer graphene)
 note that for small problems `parallel=true` may decrease performance (communication overhead)
 """
-function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, ks;
+function solveselfconsistent!(ρ0::AbstractHops, ρ1::AbstractHops, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, ks;
     convergenceerror=false, multimode=:serial, checkpoint::String="", callback=(x->nothing), hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
 
     # if checkpoint != "" && isfile(checkpoint) && hotstart
@@ -78,8 +58,6 @@ function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, 
     # Turn dense and prepare for distributed computing
     ρ0 = (multimode==:distributed && nprocs()>1) ? SharedDenseHops(ρ0) : DenseHops(ρ0)
     ρ1 = (multimode==:distributed && nprocs()>1) ? SharedDenseHops(ρ1) : DenseHops(ρ1)
-    # ρ0 = DenseHops(ρ0)
-    # ρ1 = DenseHops(ρ1)
 
     H = Hamiltonian(ℋ_op(ρ0), 0.0)
 

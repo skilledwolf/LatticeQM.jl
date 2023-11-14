@@ -39,23 +39,20 @@ function hartreefock(v::Hops)
     """
 
     V0 = sum(v[L] for L in keys(v))
-    vmf = empty(v)
+    # vmf = empty(v)
+    vmf = zero(v)
 
     function vMF(ρ::Hops)
         # empty!(vmf)
-        for L in keys(v)
-            vmf[L] = zero(v[L])
-        end
+        fill!(vmf, 0.0)
 
         for L in keys(v)
             # note Oct 19 2021: changed from conj.(..) to transpose(...)
-            vmf[L] += -v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
+            vmf[L] .+= -v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
         end
 
-        vmf[zerokey(ρ)] += spdiagm(0 => V0 * diag(ρ[zerokey(ρ)])) # Hartree contribution
-
+        vmf[zerokey(ρ)] .+= spdiagm(0 => V0 * diag(ρ[zerokey(ρ)])) # Hartree contribution
         # addhops!(vmf, Hops(zerokey(ρ) => spdiagm(0 => 2*V0 * diag(ρ[zerokey(ρ)])))) # Hartree contribution
-
         vmf
     end
 
@@ -92,20 +89,19 @@ function hartree(v::Hops)
     """
 
     V0 = sum(v[L] for L in keys(v))
-    vmf = empty(v)
+    # vmf = empty(v)
+    vmf = zero(v)
 
     function vMF(ρ::Hops)
         # empty!(vmf)
-        for L in keys(v)
-            vmf[L] = zero(v[L])
-        end
+        fill!(vmf, 0.0)
 
         # for L in keys(v)
         #     # note Oct 19 2021: changed from conj.(..) to transpose(...)
         #     vmf[L] += -v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
         # end
 
-        vmf[zerokey(ρ)] += spdiagm(0 => V0 * diag(ρ[zerokey(ρ)])) # Hartree contribution
+        vmf[zerokey(ρ)] .+= spdiagm(0 => V0 * diag(ρ[zerokey(ρ)])) # Hartree contribution
 
         # addhops!(vmf, Hops(zerokey(ρ) => spdiagm(0 => 2*V0 * diag(ρ[zerokey(ρ)])))) # Hartree contribution
 
@@ -144,18 +140,17 @@ function fock(v::Hops)
     """
 
     V0 = sum(v[L] for L in keys(v))
-    vmf = empty(v)
+    # vmf = empty(v)
+    vmf = zero(v)
 
     function vMF(ρ::Hops)
         # empty!(vmf)
-        for L in keys(v)
-            vmf[L] = zero(v[L])
-        end
+        fill!(vmf, 0.0)
 
         for L in keys(v)
             # note Oct 19 2021: changed from conj.(..) to transpose(...)
             # note Oct 20 2021: changed it back, but adapted definition in density matrix
-            vmf[L] += -v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
+            vmf[L] .+= -v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
         end
 
         vmf
@@ -184,14 +179,17 @@ function hartreefock_pairing(v::Hops)
     """
 
     V0 = sum(v[L] for L in keys(v))
-    vmf = empty(v)
-    Δmf = empty(v)
+    # vmf = empty(v)
+    # Δmf = empty(v)
+    vmf = zero(v)
+    Δmf = zero(v)
 
     function vMF(ρ::Hops)
-        empty!(vmf)
+        # empty!(vmf)
+        fill!(vmf, 0.0)
 
         for L in keys(v)
-            vmf[L] = -v[L] .* conj.(ρ[L]) # Fock contribution
+            vmf[L] .+= -v[L] .* conj.(ρ[L]) # Fock contribution
         end
 
         vmf[zerokey(ρ)] += spdiagm(0 => V0 * diag(ρ[zerokey(ρ)])) # Hartree contribution
@@ -201,10 +199,11 @@ function hartreefock_pairing(v::Hops)
     end
 
     function ΔMF(ρ::Hops)
-        empty!(Δmf)
+        # empty!(Δmf)
+        fill!(Δmf, 0.0)
 
         for L in keys(v)
-            Δmf[L] = v[L] .* conj.(ρ[L]) # Fock contribution
+            Δmf[L] .+= v[L] .* conj.(ρ[L]) # Fock contribution
         end
 
         Δmf

@@ -1,6 +1,6 @@
 using Base
 import ..TightBinding
-using ..TightBinding: Hops, AnyHops, DenseHops, SharedDenseHops, hopdim, addhops!, addhops, zerokey
+using ..TightBinding: Hops, AbstractHops, DenseHops, SharedDenseHops, hopdim, addhops!, addhops, zerokey
 
 
 mutable struct BdGOperator{T}

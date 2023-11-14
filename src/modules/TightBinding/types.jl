@@ -42,6 +42,7 @@ end
 ######################################################################################
 
 import SharedArrays: SharedArray, SharedMatrix
+import SparseArrays
 import SparseArrays: SparseMatrixCSC, sparse, spzeros
 
 # using StaticArrays
@@ -59,44 +60,40 @@ import SparseArrays: SparseMatrixCSC, sparse, spzeros
 # end
 # Hops(T::Type=AbstractMatrix{ComplexF64}, N::Int=2) = Hops{SVector{N,Int},T}(Dict())
 
-struct Hops{K<:AbstractVector{Int} where {N},T<:AbstractMatrix{ComplexF64}}
+abstract type AbstractHops end
+
+struct Hops{K<:AbstractVector{Int} where {N},T<:AbstractMatrix{ComplexF64}} <: AbstractHops
     data::Dict{K,T}
 end
 
-function Hops{K,T}(d::AbstractDict=Dict()) where {K<:AbstractVector{Int} , T<:AbstractMatrix{ComplexF64}}
-    return Hops(Dict{K,T}(d...))
-end
+const DenseHops{K}       = Hops{K,Matrix{ComplexF64}}
+const SharedDenseHops{K} = Hops{K,SharedMatrix{ComplexF64}}
+const SparseHops{K}      = Hops{K,SparseMatrixCSC{ComplexF64,Int64}}
 
-(H::Hops)(k) = Hermitian(fouriersum(H,k)) # This will make the type callable
+(H::Hops)(k) = Hermitian(fouriersum(H, k))
 
+Hops{K,T}(d::AbstractDict=Dict()) where {K<:AbstractVector{Int},T<:AbstractMatrix{ComplexF64}} = Hops(Dict{K,T}(d...))
+
+Hops(hops::Hops) = hops
 Hops(T::Type=AbstractMatrix{ComplexF64}, K::Type=Vector{Int}) = Hops{K,T}(Dict())
 Hops(M::AbstractMatrix, d::Int=2) = Hops(Dict(zeros(Int,d)=>M))
 Hops(kv::Pair...) = Hops(Dict(k=>v for (k,v) in kv))
 Hops(G::Base.Generator) = Hops(Dict(G...))
 
-const AnyHops = Hops#{AbstractMatrix{ComplexF64}} # Very questionable if I should keep this...
+# Dense conversion
+dense(hops::DenseHops) = hops
+dense(hops::Hops{K,T}) where {K,T<:AbstractMatrix{ComplexF64}} = DenseHops{K}(Dict(k => Matrix{ComplexF64}(v) for (k, v) in hops.data))
+DenseHops(args...; kwargs...) = dense(Hops(args...; kwargs...))
 
+# Sparse conversion
+SparseArrays.sparse(hops::SparseHops) = hops
+SparseArrays.sparse(hops::Hops{K,T}) where {K,T<:AbstractMatrix{ComplexF64}} = SparseHops{K}(Dict(k => sparse(v) for (k, v) in hops.data))
+SparseHops(args...; kwargs...) = sparse(Hops(args...; kwargs...))
 
-DenseHops(K::Type=Vector{Int64}) = Hops{K,Matrix{ComplexF64}}(Dict())
-DenseHops(H::Hops) = DenseHops(H.data)
-# DenseHops(kv::Pair{K,AbstractMatrix}...) where {K} = Hops{K,Matrix{ComplexF64}}(Dict(k => complex(Matrix(v)) for (k, v) in kv))
-DenseHops(d::Dict{K,T}) where {K,T} = Hops{K,Matrix{ComplexF64}}(Dict(k => complex(Matrix(v)) for (k, v) in d))
-# DenseHops(d::AbstractDict) = DenseHops(d...)
-DenseHops(G::Base.Generator) = DenseHops(Dict(G...))
-
-SharedDenseHops(K::Type=Vector{Int64}) = Hops{K,SharedMatrix{ComplexF64}}(Dict())
-SharedDenseHops(H::Hops) = SharedDenseHops(H.data)
-# SharedDenseHops(kv::Pair{K,AbstractMatrix}...) where {K} = Hops{K,SharedMatrix{ComplexF64}}(Dict(k => SharedArray(Matrix(complex(v))) for (k, v) in kv))
-SharedDenseHops(d::Dict{K,T}) where {K,T} = Hops{K,SharedMatrix{ComplexF64}}(Dict(k => SharedArray(Matrix(complex(v))) for (k, v) in d))
-SharedDenseHops(G::Base.Generator)  = SharedDenseHops(Dict(G...))
-
-
-SparseHops(K::Type=Vector{Int64}) = Hops{K,SparseMatrixCSC{Complex{Float64},Int64}}(Dict())
-SparseHops(H::Hops) = SparseHops(H.data)
-# SparseHops(kv::Pair{K,AbstractMatrix}...) where {K} = Hops{K,SparseMatrixCSC{ComplexF64,Int64}}(Dict(k => sparse(complex(v)) for (k, v) in kv))
-SparseHops(d::Dict{K,T}) where {K,T} = Hops{K,SparseMatrixCSC{ComplexF64,Int64}}(Dict(k => sparse(complex(v)) for (k, v) in d))
-SparseHops(G::Base.Generator) = SparseHops(Dict(G...))
-
+# Shared conversion
+shareddense(hops::SharedDenseHops) = hops
+shareddense(hops::Hops{K,T}) where {K,T<:AbstractMatrix{ComplexF64}} = SharedDenseHops{K}(Dict(k => SharedArray(Matrix{ComplexF64}(v)) for (k, v) in hops.data))
+SharedDenseHops(args...; kwargs...) = shareddense(Hops(args...; kwargs...))
 
 # Interface to spectrum
 import ..Spectrum
@@ -124,38 +121,26 @@ Base.setindex!(H::Hops,v,i) = Base.setindex!(H.data,v,i)
 Base.empty!(H::Hops) = (Base.empty!(H.data); H)
 Base.empty(H::Hops) = (H2=Base.empty!(deepcopy(H)); H2)
 
-
-function Base.zero(h::Hops{T}; format=:auto) where T
-    if format==:dense
-        return zero_dense(h)
-    elseif format==:sparse
-        return zero_sparse(h)
-    else
-        return zero_auto(h)
+function Base.fill!(H::Hops, x)
+    for δL in keys(H)
+        fill!(H[δL], x)
     end
-end
-function zero_dense(h::Hops)
-    ρ = Hops()
-    for δL=keys(h)
-        ρ[δL] = zeros(ComplexF64, size(h[δL]))
-    end
-    ρ
-end
-function zero_sparse(h::Hops)
-    ρ = Hops()
-    for δL=keys(h)
-        ρ[δL] = spzeros(ComplexF64, size(h[δL]))
-    end
-    ρ
-end
-function zero_auto(h::Hops)
-    ρ = Hops()
-    for δL=keys(h)
-        ρ[δL] = zero(h[δL])
-    end
-    ρ
+    H
 end
 
+function Base.zero(h::Hops{K,T}) where {K,T<:AbstractMatrix{ComplexF64}}
+    Hops{K,T}(Dict{K,T}(δL => zero(h[δL]) for δL in keys(h)))
+end
+
+function zero_dense(h::Hops{K,T}) where {K,T<:AbstractMatrix{ComplexF64}}
+    d = Dict{K,Matrix{ComplexF64}}(δL => zeros(ComplexF64, size(h[δL])) for δL in keys(h))
+    DenseHops{K}(d)
+end
+
+function zero_sparse(h::Hops{K,T}) where {K,T<:AbstractMatrix{ComplexF64}}
+    d = Dict{K,SparseMatrixCSC{ComplexF64,Int64}}(δL => spzeros(ComplexF64, size(h[δL])) for δL in keys(h))
+    SparseHops{K}(d)
+end
 
 function ishermitian(H::Hops; tol=sqrt(eps()))
     for R=keys(H)
@@ -252,8 +237,8 @@ function addspin(hoppings, mode=:nospin) #::AbstractHops
     hoppings
 end
 
-const MAX_DENSE = 500
-const MAX_DIAGS = 100
+const MAX_DENSE = 500::Int
+const MAX_DIAGS = 100::Int
 
 decidetype(hops::Hops) = decidetype(hopdim(hops))
 

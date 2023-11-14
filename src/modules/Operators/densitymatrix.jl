@@ -5,18 +5,35 @@ import Tullio # for tensor contractions
 # import TensorOperations # for tensor contractions
 
 import ..Utils: fermidirac
-import ..TightBinding: Hops, AnyHops, dim
+import ..TightBinding: Hops, AbstractHops, dim
 import ..TightBinding: fourierphase
 import ..Structure: Mesh, meshweights
 
 densitymatrix(ϵ::Number, ψ::AbstractVector; T::Real = 0.01) = fermidirac(real(ϵ); T = T) .* transpose(ψ * ψ') #transpose(ψ * ψ') # (ψ * ψ')
 
-function densitymatrix!(ρ0::AbstractMatrix, ϵs::AbstractVector, U::AbstractMatrix; φk::ComplexF64 = 1.0 + 0.0im, T = 0.01, kwargs...)
-    fd = fermidirac.(real.(ϵs); T = T)
+function densitymatrix!(ρ0::AbstractMatrix, fd::AbstractVector, U::AbstractMatrix)
 
-    # note Oct 20 2021: (conj.(U[:,m]) * transpose(U[:,m]))) --> U[:,m] * U[:,m]'))
-    Tullio.@tullio ρ0[i, j] += fd[m] * φk * U[i, m] * conj(U[j, m])
-    # TensorOperations.@tensoropt ρ0[i, j] += fd[m] * φk * U[i, m] * conj(U[j, m])
+    # # note Oct 20 2021: (conj.(U[:,m]) * transpose(U[:,m]))) --> U[:,m] * U[:,m]'))
+    # Tullio.@tullio ρ0[i, j] += fd[m] * φk * U[i, m] * conj(U[j, m])
+
+    ρ0 .= 0.0
+    for n = axes(U, 2)
+        # @views ρ0 .+= fd[n] .* U[:, n] .* U[:, n]'
+        @views mul!(ρ0, U[:, n], U[:, n]', fd[n], 1)
+    end
+    ρ0
+end
+
+# mul!(ρ0, U[:, n], U[:, n]', fd[n], 1)
+
+function getdensitymatrices_Ls(phases::AbstractVector, fd::AbstractVector, U::AbstractMatrix, w::Number=1.0)
+    D, N = size(U)
+    mat = Array{ComplexF64}(undef, (D, D))
+    densitymatrix!(mat, fd, U)
+    ρ0 = Array{ComplexF64}(undef, (D, D, size(phases,1)))
+    for j_ = axes(phases,1)
+        @views ρ0[:, :, j_] .= w .* phases[j_] .* mat
+    end
     ρ0
 end
 
@@ -49,7 +66,7 @@ end
 import ..Spectrum: spectrum
 import ..TightBinding: efficientzero, flexibleformat!, fourierphase
 
-function densitymatrix_distributed!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+function densitymatrix_distributed!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
     L = size(ks, 2)
 
     energies = SharedArray(zeros(Float64, L))
@@ -58,45 +75,67 @@ function densitymatrix_distributed!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}
     M = length(δLs); Ns = size(H)
     ρsMat = SharedArray(zeros(ComplexF64, Ns..., M))
 
+    fourierphases = [fourierphase(-k, δL) for δL in δLs, k in eachcol(ks)]  
+
     @sync @distributed for i_ = 1:L
         k = ks[:, i_]
         ϵs, U = spectrum(H(k); kwargs...)
         fd = fermidirac.(real.(ϵs .- μ); T=T)
 
         w = kweights[i_]
-        phases = [fourierphase(-k, δL) for δL in δLs]
+        phases = fourierphases[:, i_] # [fourierphase(-k, δL) for δL in δLs]
 
-        fdw = fd .* w
+        @views ρsMat .+= getdensitymatrices_Ls(phases, fd, U, w)
+        
+        # Tullio.@tullio mat[i,j] := $w * fd[m] * U[i, m] * conj(U[j, m])
+        # Tullio.@tullio ρsMat[i, j, n] += phases[n] * mat[i,j] #* fdw[m] * U[i, m] * conj(U[j, m])
+        # Tullio.@tullio ρsMat[i, j, n] += $w * phases[n] * fd[m] * U[i, m] * conj(U[j, m])
+        # # ρsMat .= ρsMat .+ TensorOperations.@tensoropt mat[i, j, n] := fdw[m] * phases[n] * U[i, m] * conj(U[j, m])
+        # U = nothing
 
-        Tullio.@tullio ρsMat[i, j, n] += fdw[m] * phases[n] * U[i, m] * conj(U[j, m])
-        # ρsMat .= ρsMat .+ TensorOperations.@tensoropt mat[i, j, n] := fdw[m] * phases[n] * U[i, m] * conj(U[j, m])
-        U = nothing
-
-        energies[i_] = real(w * sum(ϵs .* fermidirac(ϵs .- μ)))
+        energies[i_] = real(w * sum(ϵs .* fd))
     end
 
     flexibleformat!(ρs, ρsMat, δLs)
     sum(energies) # return the kinetic part of the gs energy
 end
 
-# function densitymatrix_distributed!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+# function densitymatrix_distributed!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
 #     L = size(ks, 2)
 
 #     energies = SharedArray(zeros(Float64, L))
 #     δLs = collect(keys(ρs))
+#     M = length(δLs); 
+
+#     fourierphases = [fourierphase(-k, δL) for δL in δLs, k in eachcol(ks)]
 
 #     ρsMat = @distributed (+) for i_ = 1:L
 #         k = ks[:, i_]
-#         ϵs, U = spectrum(H(k); kwargs...)
+#         w = kweights[i_]
+#         phases = fourierphases[:, i_]
+
+#         ϵs, U = spectrum(H(k); kwargs...) # get spectrum
 #         fd = fermidirac.(real.(ϵs .- μ); T=T)
 
-#         w = kweights[i_]
-#         phases = [fourierphase(-k, δL) for δL in δLs]
-        
-#         @time Tullio.@tullio cuda = false grad = false ρ0[i, j, n] := fd[m] * phases[n] * U[i, m] * conj(U[j, m])
-#         energies[i_] = real(w * sum(ϵs .* fermidirac(ϵs .- μ)))
+#         ## VERSION 1 (fastest on single core and single thread)
+#         ρ0 = getdensitymatrices_Ls(phases, fd, U, w)
 
-#         w .* ρ0
+#         ### VERSION 2
+#         # @views mat = sum(fd[n] .* U[:, n] .* U[:,n]' for n in 1:size(U, 2))
+#         # ρ0 = Array{ComplexF64}(undef, (size(mat,1), size(mat,2), length(phases)))
+#         # for j_=1:M
+#         #     @views ρ0[:,:,j_] .= w .* phases[j_] .* mat
+#         # end 
+        
+#         ### VERSION 3 (second fastest on single core and single thread)
+#         # Tullio.@tullio mat[i, j] := $w * fd[m] * U[i, m] * conj(U[j, m])
+#         # Tullio.@tullio ρ0[i, j, n] := phases[n] * mat[i,j]
+
+#         ### VERSION 4
+#         # Tullio.@tullio ρ0[i, j, n] := $w * fd[m] * phases[n] * U[i, m] * conj(U[j, m])
+
+#         energies[i_] = real(w * sum(ϵs .* fd))
+#         ρ0
 #     end
 
 #     flexibleformat!(ρs, ρsMat, δLs)
@@ -105,7 +144,7 @@ end
 
 import Dagger
 
-function densitymatrix_dagger!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+function densitymatrix_dagger!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
     L = size(ks, 2)
     energies = Dagger.@mutable zeros(Float64, L)
     δLs = collect(keys(ρs))
@@ -136,7 +175,7 @@ function densitymatrix_dagger!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, kwe
         Tullio.@tullio  M[i, j, n] := $w * fd[m] * phases[n] * U[i, m] * conj(U[j, m])
         ρsMat[:] .+= M[:]
 
-        energies[i_] = real(w * sum(ϵs .* fermidirac(ϵs .- μ)))
+        energies[i_] = real(w * sum(ϵs .* fd))
         nothing
     end
 
@@ -146,7 +185,7 @@ function densitymatrix_dagger!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, kwe
     flexibleformat!(ρs, collect(ρsMat), δLs)
     sum(collect(energies)) # return the kinetic part of the gs energy
 end
-# function densitymatrix_dagger!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+# function densitymatrix_dagger!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
 
 #     L = size(ks, 2)
 #     energies = Dagger.@mutable zeros(Float64, L)
@@ -184,14 +223,14 @@ end
 #             ρs[δL][:, :] .+= w .* (M .* fourierphase(-k, δL))
 #         end
 
-#         energies[i_] = real(w * sum(ϵs .* fermidirac(real(ϵs .- μ))))
+#         energies[i_] = real(w * sum(ϵs .* fd))
 #     end
 
 #     sum(energies) # return the kinetic part of the gs energy
 # end
 
 
-function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+function densitymatrix_serial!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
 
     L = size(ks, 2)
     energies = zeros(Float64, L)
@@ -213,7 +252,7 @@ function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, kwe
             ρs[δL][:, :] .+= w .* (M .* fourierphase(-k, δL))
         end
 
-        energies[i_] = real(w * sum(ϵs .* fermidirac(real(ϵs .- μ))))
+        energies[i_] = real(w * sum(ϵs .* fd))
     end
 
     sum(energies) # return the kinetic part of the gs energy
@@ -224,8 +263,18 @@ end
 # KEPT FOR FUTURE REFERENCE:
 ################################################################################
 
+# function densitymatrix!(ρ0::AbstractMatrix, ϵs::AbstractVector, U::AbstractMatrix; φk::ComplexF64=1.0 + 0.0im, T=0.01, kwargs...)
+#     fd = fermidirac.(real.(ϵs); T=T)
+
+#     # note Oct 20 2021: (conj.(U[:,m]) * transpose(U[:,m]))) --> U[:,m] * U[:,m]'))
+#     Tullio.@tullio ρ0[i, j] += fd[m] * φk * U[i, m] * conj(U[j, m])
+#     # TensorOperations.@tensoropt ρ0[i, j] += fd[m] * φk * U[i, m] * conj(U[j, m])
+
+#     ρ0
+# end
+
 ### this is tested and working but does not really perform well:
-# function densitymatrix_multithread!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64 = 0.0; T::Real = 0.01, progressmin::Int = 20, kwargs...)
+# function densitymatrix_multithread!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64 = 0.0; T::Real = 0.01, progressmin::Int = 20, kwargs...)
 #     L = size(ks, 2)
 
 #     energies = zeros(Float64, L)
@@ -290,7 +339,7 @@ end
 #     ρ0
 # end
 
-# function densitymatrix!(ρs::AnyHops, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; kwargs...)
+# function densitymatrix!(ρs::AbstractHops, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; kwargs...)
 
 #     for δL=keys(ρs)
 #         densitymatrix!(ρs[δL], δL, k, ϵs, U; kwargs...)
@@ -299,7 +348,7 @@ end
 # end
 
 #### Nice idea but less performant... large overhead for copying data between processes
-# function densitymatrix_pmap_async!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+# function densitymatrix_pmap_async!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
 #     L = size(ks,2)
 
 #     energies = zeros(Float64, L)
@@ -356,7 +405,7 @@ end
 #     sum(real(energies))/L # return the groundstate energy
 # end
 
-# function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+# function densitymatrix_pmap!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
 #     L = size(ks,2)
 
 #     function spectrumf(k)
@@ -387,7 +436,7 @@ end
 #     energies # return the groundstate energy
 # end
 
-# function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+# function densitymatrix_pmap!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
 #     L = size(ks,2)
 
 #     function spectrumf(k)

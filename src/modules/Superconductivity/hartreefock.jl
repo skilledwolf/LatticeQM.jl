@@ -3,11 +3,11 @@ using ..Meanfield: hartreefock, hartreefock_pairing
 
 import ..Spectrum
 
-function Meanfield.hartreefock(H::BdGOperator{T}, v::AnyHops) where T<:AnyHops
+function Meanfield.hartreefock(H::BdGOperator{T}, v::AbstractHops) where T<:AbstractHops
 
     vMF, ΔMF, ϵMF = hartreefock_pairing(v)
 
-    function H_op(ρ::BdGOperator{T}) where T<:AnyHops
+    function H_op(ρ::BdGOperator{T}) where T<:AbstractHops
 
         ρ0 = Spectrum.getelectronsector(ρ)
         ρΔ = getpairingsector(ρ)
@@ -18,7 +18,7 @@ function Meanfield.hartreefock(H::BdGOperator{T}, v::AnyHops) where T<:AnyHops
         addhops(H,MFOP)
     end
 
-    function E_scalar(ρ::BdGOperator{T}) where T<:AnyHops
+    function E_scalar(ρ::BdGOperator{T}) where T<:AbstractHops
         ρ0 = Spectrum.getelectronsector(ρ)
         ρΔ = getpairingsector(ρ)
 

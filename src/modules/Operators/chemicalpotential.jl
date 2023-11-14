@@ -1,6 +1,6 @@
 import ..Structure: regulargrid
 import ..Structure.Lattices: Lattice, latticedim, countorbitals, allpositions, positions
-import ..TightBinding: Hops, AnyHops, zerokey, hopdim, addhops!
+import ..TightBinding: Hops, AbstractHops, zerokey, hopdim, addhops!
 
 import LinearAlgebra: Diagonal
 

@@ -1,4 +1,4 @@
-const DEFAULT_PRECISION = sqrt(eps())
+const DEFAULT_PRECISION = sqrt(eps())::Float64
 
 import ..Structure
 import ..Structure.Lattices
