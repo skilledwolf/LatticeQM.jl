@@ -256,11 +256,13 @@ import SparseArrays
 
 function trim!(ρ::Hops; kwargs...)
     for δL in keys(ρ)
+
         if SparseArrays.issparse(ρ[δL])
             ρ[δL] = sparse(ρ[δL])
             SparseArrays.dropzeros!(ρ[δL])
         end
-        if all(isapprox.(ρ[δL], 0; kwargs...))
+        
+        if all(isapprox.(ρ[δL], 0; kwargs...)) && δL != zerokey(ρ)
             delete!(ρ.data, δL)
         end
     end
