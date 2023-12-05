@@ -1,5 +1,5 @@
 
-import ..TightBinding: Hops, AnyHops, zerokey
+import ..TightBinding: Hops, AbstractHops, zerokey
 
 import LinearAlgebra: tr, Diagonal
 
@@ -19,7 +19,7 @@ trace(hops::Hops, operators::AbstractVector) = [trace(hops,o) for o=operators]
 function density(ρ::Hops)
     d = trace(ρ)
     @assert isapprox(imag(d),0; atol=sqrt(eps())) "Complex-valued density? Seems unphysical, please check."
-    real(d)
+    real(d)/hopdim(ρ)
 end
 
 

@@ -21,6 +21,11 @@ println("Setting filling...")
 println("Calculating bands...")
 ks = kpath(lat; num_points=100)
 @time bands = getbands(hops, ks, valley; format=:sparse, num_bands=36)
+@time bands = getbands(hops, ks, valley; format=:sparse, num_bands=36)
+
+println("Garbage collecting...")
+# @everywhere GC.gc()
+sleep(2)
 
 # Show bands
 # save(bands, "playground_graphene/bands.h5")

@@ -10,14 +10,19 @@ import LatticeQM.Structure.Lattices
 
 # println("Number of workers: ", nworkers())
 
+# n_angle,  tz = [6, 0.52] # testing
+# n_angle,  tz = [10, 0.52]
+# n_angle, tz, outname = 11, 0.46, "output_n11_fm"
+n_angle, tz, U_hubbard, outname = 3, 0.46, 3.3, "output_n3_fm"
+
 println("Generate lattice...")
-lat = Geometries.honeycomb_twisted(5)
-print("Number of sites: ", Lattices.countorbitals(lat), "\n")
+lat = Geometries.honeycomb_twisted(n_angle)
+println("Number of sites: ", Lattices.countorbitals(lat))
 Lattices.foldPC!(lat)
 sx, sy, sz, sublA, sublB = Operators.getoperator(lat, ["sx", "sy", "sz", "sublatticeAspin", "sublatticeBspin"])
 
 println("Generate lattice Hamiltonian...")
-hops = Operators.graphene(lat; format=:sparse, mode=:spinhalf, tz=0.52)
+hops = Operators.graphene(lat; format=:sparse, mode=:spinhalf, tz=tz)
 Operators.addzeeman!(hops, lat, 1e-5)
 # Operators.addzeeman!(hops, lat, r->sign(r[4]-0.5).*1.5.*[sin(0.0π),0,cos(0.0π)] )
 
@@ -26,20 +31,21 @@ println("Target filling: ", filling)
 
 # Set up interaction
 println("Set up meanfield interaction...")
-v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=2.7) # interaction potential
-ρ_init = Meanfield.initialguess(v, :random, :Z; lat=lat) # initial guess
+v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=U_hubbard) # interaction potential
+# ρ_init = Meanfield.initialguess(v, :random, :Z; lat=lat) # initial guess
+ρ_init = Meanfield.initialguess(v, :ferro; lat=lat) # initial guess
 
 
-println("Create band plot...")
-# Get the bands without mean-field terms
-ks_plot = kpath(lat; num_points=180)
+# println("Create band plot...")
+# # Get the bands without mean-field terms
+# ks_plot = kpath(lat; num_points=180)
 
-Operators.setfilling!(hops, filling; nk=9, multimode=:distributed)
-bands_plot = getbands(hops, ks_plot, sz; format=:sparse, num_bands=36, multimode=:serial)
+# Operators.setfilling!(hops, filling; nk=9, multimode=:distributed)
+# bands_plot = getbands(hops, ks_plot, sz; format=:sparse, num_bands=36, multimode=:serial)
 
-mkpath("output_n5")
-plot(bands_plot; colorbar=true)
-savefig("output_n5/hubbardmeanfield_example1_noninteracting.pdf")
+# mkpath("$outname")
+# plot(bands_plot; colorbar=true)
+# savefig("$outname/hubbardmeanfield_example1_noninteracting.pdf")
 # exit()
 
 
@@ -79,7 +85,8 @@ plot!(p1, title="noninteracting")
 plot!(p2, title="Hubbard meanfield")
 plot(p1,p2, titlefont=font(8))
 
-mkpath("output_n5"); savefig("output_n5/hubbardmeanfield_example1_distributed.pdf")
+mkpath("$outname");
+savefig("$outname/hubbardmeanfield_example1_distributed.pdf");
 
 println("Exiting...")
 sleep(5)
