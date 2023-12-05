@@ -27,7 +27,7 @@ Returns the hopping elements in the format
 
 """
 function gethops(lat::Lattice, args...; format=:auto, kwargs...)
-    hops = autoconversion(Hops(), format)
+    hops = autoconversion(Hops(), Lattices.countorbitals(lat), format)
     hops!(hops, lat, args...; kwargs...)
 end
 
@@ -36,6 +36,24 @@ import ..Structure.Lattices: getneighbordict
 function hops!(hops::Hops, lat::Lattice, t::Function; cellrange=2, vectorized=false, kwargs...)
     R = Lattices.allpositions(lat)
     neighbor_dict = getneighbordict(lat, cellrange)
+    if vectorized
+        vectorizedhops!(hops, R, neighbor_dict, t; kwargs...)
+    else
+        hops!(hops, R, neighbor_dict, t; kwargs...)
+    end
+    TightBinding.trim!(hops)
+    hops
+end
+
+using ..Utils: padvec
+
+function hops!(hops::Hops, lat::Lattice, neighbors::AbstractVector{Vector{Int}}, t::Function; kwargs...)
+    A = Lattices.getA(lat);  neighbor_dict = Dict(δL => padvec(A * δL, Lattices.allspacedim(lat)) for δL in neighbors)
+    hops!(hops, lat, neighbor_dict, t; kwargs...)
+end
+
+function hops!(hops::Hops, lat::Lattice, neighbor_dict::Dict{Vector{Int},Vector{Float64}}, t::Function; cellrange=2, vectorized=false, kwargs...)
+    R = Lattices.allpositions(lat)
     if vectorized
         vectorizedhops!(hops, R, neighbor_dict, t; kwargs...)
     else
@@ -104,5 +122,5 @@ function hoppingmatrix!(M::AbstractMatrix{ComplexF64},
             @assert maxsize < 1  || element_count <= maxsize "The number of elements in the sparse matrix exceeded the specified maxsize."
         end
     end
-    S
+    M
 end

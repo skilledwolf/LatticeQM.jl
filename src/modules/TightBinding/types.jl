@@ -90,8 +90,8 @@ shareddense(hops::SharedDenseHops) = hops
 shareddense(hops::Hops{K,T}) where {K,T<:AbstractMatrix{ComplexF64}} = SharedDenseHops{K}(Dict(k => SharedArray(Matrix{ComplexF64}(v)) for (k, v) in hops.data))
 SharedDenseHops(args...; kwargs...) = shareddense(Hops(args...; kwargs...))
 
-autoconversion(hops::Hops) = (N<MAX_DENSE+1) ? dense(hops) : sparse(hops)
-autoconversion(hops::Hops, type::Symbol) = (type == :auto) ? autoconversion(hops) : (type == :sparse) ? sparse(hops) : dense(hops)
+autoconversion(hops::Hops, N::Int) = (N<MAX_DENSE+1) ? dense(hops) : sparse(hops)
+autoconversion(hops::Hops, N::Int, type::Symbol) = (type == :auto) ? autoconversion(hops, N) : (type == :sparse) ? sparse(hops) : dense(hops)
 
 # Interface to spectrum
 import ..Spectrum
