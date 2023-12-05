@@ -5,7 +5,7 @@ import Tullio # for tensor contractions
 # import TensorOperations # for tensor contractions
 
 import ..Utils: fermidirac
-import ..TightBinding: Hops, AnyHops, dim
+import ..TightBinding: Hops, AbstractHops, dim
 import ..TightBinding: fourierphase
 import ..Structure: Mesh, meshweights
 
@@ -49,7 +49,7 @@ end
 import ..Spectrum: spectrum
 import ..TightBinding: efficientzero, flexibleformat!, fourierphase
 
-function densitymatrix_distributed!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+function densitymatrix_distributed!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
     L = size(ks, 2)
 
     energies = SharedArray(zeros(Float64, L))
@@ -79,7 +79,7 @@ function densitymatrix_distributed!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}
     sum(energies) # return the kinetic part of the gs energy
 end
 
-# function densitymatrix_distributed!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+# function densitymatrix_distributed!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
 #     L = size(ks, 2)
 
 #     energies = SharedArray(zeros(Float64, L))
@@ -105,7 +105,7 @@ end
 
 import Dagger
 
-function densitymatrix_dagger!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+function densitymatrix_dagger!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
     L = size(ks, 2)
     energies = Dagger.@mutable zeros(Float64, L)
     δLs = collect(keys(ρs))
@@ -146,7 +146,7 @@ function densitymatrix_dagger!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, kwe
     flexibleformat!(ρs, collect(ρsMat), δLs)
     sum(collect(energies)) # return the kinetic part of the gs energy
 end
-# function densitymatrix_dagger!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+# function densitymatrix_dagger!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
 
 #     L = size(ks, 2)
 #     energies = Dagger.@mutable zeros(Float64, L)
@@ -191,7 +191,7 @@ end
 # end
 
 
-function densitymatrix_serial!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+function densitymatrix_serial!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
 
     L = size(ks, 2)
     energies = zeros(Float64, L)
@@ -225,7 +225,7 @@ end
 ################################################################################
 
 ### this is tested and working but does not really perform well:
-# function densitymatrix_multithread!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64 = 0.0; T::Real = 0.01, progressmin::Int = 20, kwargs...)
+# function densitymatrix_multithread!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64 = 0.0; T::Real = 0.01, progressmin::Int = 20, kwargs...)
 #     L = size(ks, 2)
 
 #     energies = zeros(Float64, L)
@@ -290,7 +290,7 @@ end
 #     ρ0
 # end
 
-# function densitymatrix!(ρs::AnyHops, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; kwargs...)
+# function densitymatrix!(ρs::AbstractHops, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; kwargs...)
 
 #     for δL=keys(ρs)
 #         densitymatrix!(ρs[δL], δL, k, ϵs, U; kwargs...)
@@ -299,7 +299,7 @@ end
 # end
 
 #### Nice idea but less performant... large overhead for copying data between processes
-# function densitymatrix_pmap_async!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+# function densitymatrix_pmap_async!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
 #     L = size(ks,2)
 
 #     energies = zeros(Float64, L)
@@ -356,7 +356,7 @@ end
 #     sum(real(energies))/L # return the groundstate energy
 # end
 
-# function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+# function densitymatrix_pmap!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
 #     L = size(ks,2)
 
 #     function spectrumf(k)
@@ -387,7 +387,7 @@ end
 #     energies # return the groundstate energy
 # end
 
-# function densitymatrix_pmap!(ρs::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+# function densitymatrix_pmap!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
 #     L = size(ks,2)
 
 #     function spectrumf(k)

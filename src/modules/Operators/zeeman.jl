@@ -1,5 +1,5 @@
 import ..Utils
-import ..TightBinding: Hops, AnyHops, addhops!
+import ..TightBinding: Hops, AbstractHops, addhops!
 import ..Structure.Lattices: Lattice, latticedim, countorbitals, allpositions, positions
 
 import SparseArrays: spzeros

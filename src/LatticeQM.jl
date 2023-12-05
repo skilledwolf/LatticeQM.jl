@@ -38,6 +38,7 @@ module LatticeQM
 
     include("modules/Spectrum.jl")
     import .Spectrum
+    import .Spectrum: dense
     import .Spectrum: getbands
     export Spectrum, getbands
 
@@ -46,6 +47,7 @@ module LatticeQM
     import .TightBinding: DenseHops, SparseHops, Hops, hopdim, addhops!, addhops
     export TightBinding
     export DenseHops, SparseHops, Hops, hopdim, addhops!, addhops
+    export dense, sparse
 
     include("modules/Floquet.jl")
     using .Floquet

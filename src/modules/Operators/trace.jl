@@ -1,5 +1,5 @@
 
-import ..TightBinding: Hops, AnyHops, zerokey
+import ..TightBinding: Hops, AbstractHops, zerokey
 
 import LinearAlgebra: tr, Diagonal
 

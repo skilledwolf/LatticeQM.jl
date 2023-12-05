@@ -1,10 +1,12 @@
-const DEFAULT_PRECISION = sqrt(eps())
+const DEFAULT_PRECISION = sqrt(eps())::Float64
 
 import ..Structure
 import ..Structure.Lattices
 import ..Structure.Lattices: Lattice
 
 import ..TightBinding
+
+import ..TightBinding: autoconversion
 
 TightBinding.Hops(lat::Lattice, args...; kwargs...) = gethops(lat, args...; kwargs...)
 TightBinding.addhops!(hops::Hops, lat::Lattice, t::Function, args...; kwargs...) = TightBinding.addhops!(hops, gethops(lat, t, args...; kwargs...))
@@ -24,32 +26,24 @@ Returns the hopping elements in the format
 `Dict(R => t_R)`
 
 """
-function gethops(lat::Lattice, args...; kwargs...)
-    hops = Hops()
+function gethops(lat::Lattice, args...; format=:auto, kwargs...)
+    hops = autoconversion(Hops(), format)
     hops!(hops, lat, args...; kwargs...)
 end
 
-function hops!(hops::Hops, lat::Lattice, t::Function; cellrange=2, kwargs...)# where {T<:AbstractMatrix{Float64}}
-    # Get neighbor cells
-    neighbors = Lattices.getneighborcells(lat, cellrange; halfspace=true, innerpoints=true, excludeorigin=false)
-    # Iterate the hopping function over orbital pairs and neighbors
-    hops!(hops, lat, neighbors, t; kwargs...)
-    TightBinding.trim!(hops)
-end
-# precompile(hops!, (Hops, Lattice, Function))
+import ..Structure.Lattices: getneighbordict
 
-import ..Utils: padvec
-
-function hops!(hops::Hops, lat::Lattice, neighbors::Vector{Vector{Int}}, t::Function; kwargs...)
+function hops!(hops::Hops, lat::Lattice, t::Function; cellrange=2, vectorized=false, kwargs...)
     R = Lattices.allpositions(lat)
-    d = size(R,1)
-
-    A = Lattices.getA(lat)
-    neighbor_dict = Dict(δL => padvec(A*δL,d) for δL in neighbors)
-
-    hops!(hops, R, neighbor_dict, t; kwargs...)
+    neighbor_dict = getneighbordict(lat, cellrange)
+    if vectorized
+        vectorizedhops!(hops, R, neighbor_dict, t; kwargs...)
+    else
+        hops!(hops, R, neighbor_dict, t; kwargs...)
+    end
+    TightBinding.trim!(hops)
+    hops
 end
-
 
 ###############################################################################
 # Main routines for gethops(...)
@@ -58,159 +52,57 @@ end
 asserthopdim(t0::Number) = 1
 asserthopdim(t0::AbstractMatrix) = size(t0,1)
 
-function hops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; vectorized=false, format=:auto, kwargs...)
-
-    if vectorized # indicates that the function t accepcts the call signature t(R1::Matrix,R2::Matrix)
-        # println("vectorized")
-        vectorizedhops!(hops, R, neighbors, t; kwargs...)
-    else
-        format = (format==:auto) ? TightBinding.decidetype(size(R,1)) : format
-
-        if format==:dense
-            densehops!(hops, R, neighbors, t; kwargs...)
-        elseif format==:sparse
-            sparsehops!(hops, R, neighbors, t; kwargs...)
-        else
-            error("Format `$format` does not exist. Choose `:auto`, `:dense` or `sparse`.")
-        end
-    end
-
-    hops
-end
-
-
-using Distributed
-
-function vectorizedhops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function) #, format=:auto
-    N = size(R,2)
-    # hops = Hops()
-
+function vectorizedhops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function) #, format=:auto    
+    R2 = similar(R)
     for (δL,δa) in neighbors
-        hops[δL] = t(R.+δa, R)
+        R2 .= R .+ δa
+        hops[δL] = t(R2, R)
         hops[-δL] = deepcopy(hops[δL]') # create the Hermitian conjugates
     end
-
-    # ensuretype(hops, format)
     hops
 end
 
-function densehops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function)
+import ..TightBinding: zero_matrix
+
+function hops!(hops::Hops{K,T}, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; kwargs...) where {K,T}
     N = size(R,2)
     d = asserthopdim(t(R[:,1]))::Int
+    V  = Matrix{ComplexF64}(undef, (d, d)) # preallocate memory for the hopping matrix
 
-    # Preallocate memory: avoid unnecessary allocations
-    M  = Matrix{ComplexF64}(undef, (d*N, d*N))
-
-    # hops = Hops()
     for (δL,δa) in neighbors
-        densehoppingmatrix!(M, R.+δa, R, t)
-        hops[δL] = deepcopy(M)
+        # Initialize a zero matrix of type T
+        hops[δL] = zero_matrix(typeof(hops), d*N, d*N)
+        hoppingmatrix!(hops[δL], V, R .+ δa, R, t; kwargs...) # heavy lifting
         hops[-δL] = deepcopy(hops[δL]') # create the Hermitian conjugates
     end
-
     hops
 end
 
-
-function sparsehops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; kwargs...)
-    N = size(R,2)
-    d = asserthopdim(t(R[:,1]))::Int
-
-    # Preallocate memory: important for huge sparse matrices
-    maxind = (N>MAX_DENSE) ? round(Int, MAX_DIAGS * N) : N^2 # semi-arbitrary limit for dense allocation
-    IS = Vector{Int}(undef, maxind*d^2)
-    JS = similar(IS)
-    VS = similar(IS, ComplexF64)
-    V  = Matrix{ComplexF64}(undef, (d, d))
-
-    # hops = Hops()
-    for (δL,δa) in neighbors
-        hops[δL] = sparsehoppingmatrix!(IS, JS, VS, V, R.+δa, R, t; kwargs...) # heavy lifting
-        hops[-δL] = deepcopy(hops[δL]') # create the Hermitian conjugates
-    end
-
-    hops
-end
-
-function densehoppingmatrix!(M::Array{ComplexF64}, Ri::Matrix{Float64}, Rj::Matrix{Float64}, t::Function)
-    N = size(Ri,2) # number of atoms
-    d = div(size(M, 2), N)
-    @assert mod(size(M, 2), d)==0 "Incompatible dimensions."
-
-    # Iterate over atom pairs and calculate the (possibly matrix-valued) hopping amplitudes
-    for i=1:N, j=1:N
-        I = (i-1)*d; J = (j-1)*d
-        @views M[I+1:I+d, J+1:J+d] .= t(Ri[:,i], Rj[:,j])
-    end
-
-    M
-end
-# precompile(densehoppingmatrix!, (Array{ComplexF64}, Matrix{Float64}, Matrix{Float64}, Function))
-
-
-import SparseArrays: sparse, spzeros
-
-# function sparsehoppingmatrix_new(Ri::Matrix{Float64}, Rj::Matrix{Float64}, t::Function)
-#     N = size(Ri,2) # number of atoms
-#     d = div(size(M, 2), N)
-#     @assert mod(size(M, 2), d)==0 "Incompatible dimensions."
-
-#     M = complex(spzeros(N*d,N*d))
-#     maxind = (N>MAX_DENSE) ? round(Int, MAX_DIAGS * N) : N^2
-#     sizehint!(M, maxind)
-
-#     V  = Matrix{ComplexF64}(undef, (d, d))
-
-#     # Iterate over atom pairs and calculate the (possibly matrix-valued) hopping amplitudes
-#     for i=1:N, j=1:N
-#         V[:,:] .= t(Ri[:,i], Rj[:,j])
-
-#         I = (i-1)*d; J = (j-1)*d
-#         for i0=1:d, j0=1:d
-#             if abs(V[i0, j0]) > precision
-#                 continue
-#             end
-#             M[I+i0, J+j0] = V[i0,j0]
-#         end
-#     end
-
-#     M
-# end
-
-function sparsehoppingmatrix!(IS::Vector{Int}, JS::Vector{Int}, VS::Array{ComplexF64}, V::Array{ComplexF64}, Ri::Matrix{Float64}, Rj::Matrix{Float64}, t::Function; precision::Float64=DEFAULT_PRECISION)
-
+function hoppingmatrix!(M::AbstractMatrix{ComplexF64}, 
+                             V::Array{ComplexF64}, 
+                             Ri::Matrix{Float64}, 
+                             Rj::Matrix{Float64}, 
+                             t::Function; 
+                             precision::Float64=DEFAULT_PRECISION,
+                             maxsize::Int=0)
+    
     d = size(V, 2) # bond dimension
-    N = size(Ri,2) # number of atoms
-    maxind = div(length(IS),d^2) # preallocated memory
+    N = size(Ri, 2) # number of atoms
+    element_count = 0
 
-    count = 0 # counter for added matrix elements
-
-    function f!(M, i::Int, j::Int)
-        M[:,:] .= t(Ri[:,i], Rj[:,j])
-        M
-    end
-
-    for i=1:N,j=1:N
-        # @views V[1:d, 1:d] .= t(Ri[:,i], Rj[:,j])
-        f!(V[1:d, 1:d],i,j)
-
-        for i0=1:d, j0=1:d
-            if abs(V[i0, j0]) < precision
-                continue
+    for i = 1:N, j = 1:N
+        @views V[1:d, 1:d] .= t(Ri[:,i], Rj[:,j])  # Update V directly
+        for i0 = 1:d, j0 = 1:d
+            val = V[i0, j0]
+            if abs(val) >= precision
+                row = (i - 1) * d + i0
+                col = (j - 1) * d + j0
+                M[row, col] = val  # Update the sparse matrix directly
+                element_count += 1
             end
 
-            count = count+1
-
-            if count > maxind 
-                error("The tight-binding matrix is not sparse enough for this constructor.")
-            end
-            
-            IS[count] = (i-1)*d + i0
-            JS[count] = (j-1)*d + j0
-            VS[count] = V[i0, j0]
+            @assert maxsize < 1  || element_count <= maxsize "The number of elements in the sparse matrix exceeded the specified maxsize."
         end
     end
-
-    sparse(IS[1:count], JS[1:count], VS[1:count], N*d, N*d)
+    S
 end
-# precompile(sparsehoppingmatrix!, (Vector{Int}, Vector{Int}, Array{ComplexF64}, Array{ComplexF64}, Matrix{Float64}, Matrix{Float64}, Function))

@@ -5,7 +5,7 @@ USER gitpod
 # Install Julia
 RUN sudo apt-get update && \
     sudo apt-get install -y wget curl && \
-    sudo curl -fsSL https://install.julialang.org | sh -s -- --yes --default-channel release
+    sudo curl -fsSL https://install.julialang.org | sh -s -- --yes --default-channel rc
 
 RUN sudo /usr/bin/pip3 install scipy
 

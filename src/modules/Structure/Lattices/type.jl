@@ -180,6 +180,7 @@ latticedim(lat::Lattice) = lat.latticedim
 countorbitals(lat::Lattice) = size(lat.spacecoordinates, 2)
 extraspacedim(lat::Lattice) = length(lat.extralabels) #size(lat.extracoordinates, 1)
 spacedim(lat::Lattice) = size(getA(lat), 1) # used to be latticedim(lat) + extraspacedim(lat)
+allspacedim(lat::Lattice) = spacedim(lat) + extraspacedim(lat)
 
 hasdimension(lat::Lattice, name::String) = haskey(lat.extralabels, name)
 assertdimension(lat::Lattice, name::String) = !hasdimension(lat, name) ? error("No $name coordinates specified.") : nothing

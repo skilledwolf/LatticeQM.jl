@@ -9,7 +9,7 @@ using SharedArrays
 using ProgressMeter
 
 import ..Utils: fermidirac
-using ..TightBinding: Hops, AnyHops, dim
+using ..TightBinding: Hops, AbstractHops, dim
 
 function green(H, ks::AbstractMatrix{Float64}, μ::Float64; kwargs...)
     d = dim(H, ks)
@@ -27,7 +27,7 @@ function green!(G::AbstractMatrix, ϵs::AbstractVector, U::AbstractMatrix; φk::
     G
 end
 
-function green!(G::AnyHops, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; kwargs...)
+function green!(G::AbstractHops, k::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix; kwargs...)
     for δL=keys(G)
         for (ϵ, ψ) in zip(ϵs, eachcol(U))
             G[δL][:] .+= (green(ϵ, ψ; kwargs...) .* fourierphase(-k, δL))[:] # ϵ-μ # -k
@@ -42,7 +42,7 @@ end
 
 import ..Spectrum: spectrum, groundstate_sumk
 
-function green_parallel!(G::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
+function green_parallel!(G::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
     L = size(ks,2)
 
     energies0_k = zeros(Float64, L) #convert(SharedArray, zeros(Float64, L))
@@ -82,7 +82,7 @@ function green_parallel!(G::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64
     sum(energies0_k)/L # return the groundstate energy
 end
 
-function green_serial!(G::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
+function green_serial!(G::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
     L = size(ks,2)
 
     energies0_k = zeros(Float64, L)
@@ -109,5 +109,5 @@ function green_serial!(G::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0
     sum(energies0_k)/L # return the groundstate energy
 end
 
-green!(G::AnyHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; parallel::Bool=false, kwargs...) = (parallel && nprocs()>1) ? green_parallel!(G, H, ks, μ; kwargs...) : green_serial!(G, H, ks, μ; kwargs...)
+green!(G::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; parallel::Bool=false, kwargs...) = (parallel && nprocs()>1) ? green_parallel!(G, H, ks, μ; kwargs...) : green_serial!(G, H, ks, μ; kwargs...)
 
