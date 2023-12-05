@@ -1,33 +1,39 @@
 using ..Structure: regulargrid
 
 # Specialized cases
-solvehartreefock(h, v, ρ_init, filling::Number, args...; kwargs...) = solveselfconsistent(ρ_init, hartreefock(h, v)..., filling, args...; kwargs...)
-solvefock(h, v, ρ_init, filling::Number, args...; kwargs...) = solveselfconsistent(ρ_init, fock(h, v)..., filling, args...; kwargs...)
-solvehartree(h, v, ρ_init, filling::Number, args...; kwargs...) = solveselfconsistent(ρ_init, hartree(h, v), filling, args...; kwargs...)
+solvehartreefock(h::T, v::T, ρ_init::T, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v), filling, args...; kwargs...)
+solvefock(h::T, v::T, ρ_init::T, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=false, fock=true), filling, args...; kwargs...)
+solvehartree(h::T, v::T, ρ_init::T, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=false, fock=true), filling, args...; kwargs...)
 
 # Interface to solveselfconsistent!(ρ0, ...)
-solveselfconsistent(ρ0, ℋ_op, ℋ_scalar, filling::Number, ks; kwargs...) = solveselfconsistent!(deepcopy(ρ0), ℋ_op, ℋ_scalar, filling, ks; kwargs...)
-solveselfconsistent(ρ0, ℋ_op, ℋ_scalar, filling::Number; klin, kwargs...) = solveselfconsistent!(deepcopy(ρ0), ℋ_op, ℋ_scalar, filling; klin=klin, kwargs...)
+solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling::Number, ks; kwargs...) = solveselfconsistent!(deepcopy(ρ0), mf, filling, ks; kwargs...)
+solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling::Number; klin, kwargs...) = solveselfconsistent!(deepcopy(ρ0), mf, filling; klin=klin, kwargs...)
 
 # Interface to solveselfconsistent!(ρ0, ρ1, ...)
-function solveselfconsistent!(ρ0, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, args...; kwargs...)
-    return solveselfconsistent!(ρ0, deepcopy(ρ0), ℋ_op, ℋ_scalar, filling, args...; kwargs...)
-end
+solveselfconsistent!(ρ0, mf::MeanfieldGenerator, filling::Float64, args...; kwargs...) = solveselfconsistent!(ρ0, deepcopy(ρ0), mf, filling, args...; kwargs...)
 
-# Interface to solveselfconsistent!(ρ0, ρ1, ..., ks, ...)
-function solveselfconsistent!(ρ0, ρ1, ℋ_op::Function, ℋ_scalar::Function, filling::Float64; klin::Int, kwargs...)
-    solveselfconsistent!(ρ0, ρ1, ℋ_op, ℋ_scalar, filling, regulargrid(nk=klin^2); kwargs...)
-end
+# Interface to translate klin to solveselfconsistent!(ρ0, ρ1, ..., ks, ...)
+solveselfconsistent!(ρ0, ρ1, mf::MeanfieldGenerator, filling::Float64; klin::Int, kwargs...) = solveselfconsistent!(ρ0, ρ1, mf, filling, regulargrid(nk=klin^2); kwargs...)
 
-mutable struct Hamiltonian{T}
-    h::T
-    μ::Float64
-end
 
 # using JLD
-import Distributed: nprocs
-import ..TightBinding: SharedDenseHops
 import ..Operators: getdensitymatrix!
+
+import ..TightBinding: dense, shareddense
+using ..Utils.Context
+
+function solveselfconsistent!(ρ0::T, ρ1::T, mf::MeanfieldGenerator, filling::Float64, ks; multimode=:global, kwargs...) where {T}
+    c = trycontext(ensurecontext(multimode), SerialContext())
+    solveselfconsistent!(c, ρ0, ρ1, mf::MeanfieldGenerator, filling::Float64, ks; kwargs...)
+end
+
+solveselfconsistent!(::SerialContext, ρ0::T, ρ1::T, args...; kwargs...) where {T<:AbstractHops} = solveselfconsistent!(DummyContext(), dense(ρ0), dense(ρ1), args...; multimode=:serial, kwargs...)
+solveselfconsistent!(::DistributedContext, ρ0::T, ρ1::T, args...; kwargs...) where {T<:AbstractHops} = solveselfconsistent!(DummyContext(), shareddense(ρ0), shareddense(ρ1), args...; multimode=:distributed, kwargs...)
+
+function solveselfconsistent!(::MultiThreadedContext, args...; kwargs...)
+    error("Multithreaded context not implemented yet.")
+end
+
 
 """
     solveselfconsistent!(ρ0, ρ1, ℋ_op, ℋ_scalar, filling, ks; convergenceerror=false, multimode=:serial, checkpoint::String="", hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
@@ -47,35 +53,38 @@ parallel=true might help if diagonalization per k point is very time consuming
 (e.g. for twisted bilayer graphene)
 note that for small problems `parallel=true` may decrease performance (communication overhead)
 """
-function solveselfconsistent!(ρ0::AbstractHops, ρ1::AbstractHops, ℋ_op::Function, ℋ_scalar::Function, filling::Float64, ks;
-    convergenceerror=false, multimode=:serial, checkpoint::String="", callback=(x->nothing), hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
+function solveselfconsistent!(::DummyContext, ρ0::AbstractHops, ρ1::AbstractHops, hartreefock::HartreeFock, filling::Float64, ks;
+    convergenceerror=false, multimode=:serial, checkpoint::String="", callback=(x -> nothing), hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
 
     # if checkpoint != "" && isfile(checkpoint) && hotstart
     #     println("Loading checkpoint file as initial guess: $checkpoint")
     #     ρ0 = JLD.load(checkpoint, "mf")
     # end
 
-    # Turn dense and prepare for distributed computing
-    ρ0 = (multimode==:distributed && nprocs()>1) ? SharedDenseHops(ρ0) : DenseHops(ρ0)
-    ρ1 = (multimode==:distributed && nprocs()>1) ? SharedDenseHops(ρ1) : DenseHops(ρ1)
+    hartreefock(ρ0) # initialize meanfield
 
-    H = Hamiltonian(ℋ_op(ρ0), 0.0)
-
-    function updateH!(H::Hamiltonian, ρ)
+    function updateH!(ρ)
         verbose ? @info("Updating chemical potential for given filling...") : nothing
-        
-        H.h = ℋ_op(ρ) # get updated Hamiltonian
-        H.μ = chemicalpotential(H.h, ks, filling; T=T, multimode=multimode)
-        H
+
+        hartreefock(ρ) # update meanfield (h is updated in-place)
+        hartreefock.μ = chemicalpotential(hartreefock.hMF, ks, filling; T=T, multimode=multimode)
+
+        hartreefock
     end
 
     function update!(ρ1, ρ0)
-        # @time updateH!(H, ρ0)
-        updateH!(H, ρ0)
+        
+        hartreefock(ρ0) # update meanfield (h is updated in-place)
 
-        verbose ? @info("Updating the mean field...") : nothing
-        # @time ϵ0 = getdensitymatrix!(ρ1, H.h, ks, H.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
-        ϵ0 = getdensitymatrix!(ρ1, H.h, ks, H.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
+        verbose ? @info("Updating chemical potential for given filling...") : nothing
+        hartreefock.μ = chemicalpotential(hartreefock.hMF, ks, filling; T=T, multimode=multimode)
+
+
+        verbose ? @info("Updating the mean field density matrix...") : nothing
+        @time ϵ0 = getdensitymatrix!(ρ1, hartreefock.hMF, ks, hartreefock.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
+        hartreefock(ρ0) # update meanfield (h is updated in-place)
+        
+        # ϵ0 = getdensitymatrix!(ρ1, H.h, ks, H.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
 
         callback(ρ1)
 
@@ -84,7 +93,7 @@ function solveselfconsistent!(ρ0::AbstractHops, ρ1::AbstractHops, ℋ_op::Func
         #     JLD.save(checkpoint, "mf", DenseHops(ρ1))
         # end
 
-        ϵ0 + ℋ_scalar(ρ1) # proper ground state energy
+        ϵ0 + hartreefock.ϵMF # proper ground state energy
     end
 
     # Compute the ground state energy for the mean-field fixed point
@@ -93,8 +102,8 @@ function solveselfconsistent!(ρ0::AbstractHops, ρ1::AbstractHops, ℋ_op::Func
     if convergenceerror && !converged
         error("Convergence error.")
     end
-    updateH!(H, ρ1)
+    updateH!(ρ1)
 
-    DenseHops(ρ1), ϵ_GS, H, converged, residual
+
+    dense(ρ1), ϵ_GS, hartreefock, converged, residual
 end
-

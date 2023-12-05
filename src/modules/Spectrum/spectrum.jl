@@ -175,17 +175,8 @@ function bandmatrix_distributed(H, ks; hidebar=false, num_bands::Int=0, kwargs..
         bands[:, j_] .= real.(energies(H(ks[:, j_]); kwargs...))
     end
 
-    # sdata(bands)
     bands
 end
-
-# function bandmatrix_pmap(H, ks; hidebar=false, num_bands::Int=0, kwargs...)
-#     kwargs = num_bands==0 ? kwargs : Dict(kwargs..., :num_bands=>num_bands)
-
-#     bands = hcat((@showprogress (hidebar ? 10^6 : 20) "Computing bands... " pmap(x->real(energies(H(x); kwargs...)), eachcol(ks)))...)
-
-#     bands
-# end
 
 
 function bandmatrix_serial(H, ks, projector; hidebar=false, num_bands::Int=0, kwargs...)
@@ -249,8 +240,8 @@ function bandmatrix_distributed(H, ks, projector; hidebar=false, num_bands::Int=
 
     N = size(ks, 2) # number of k points
     L = length(projector)
-    bands = convert(SharedArray, Matrix{Float64}(undef, (D,N)))
-    obs   = convert(SharedArray, Array{Float64}(undef, (D,N,L)))
+    bands = SharedArray(Matrix{Float64}(undef, (D,N)))
+    obs   = SharedArray(Array{Float64}(undef, (D,N,L)))
 
     @sync @showprogress (hidebar ? 10^6 : 20) "Computing bands... " @distributed for j_=1:N
 #     @showprogress 1 "Computing bands..." for j_=1:N
@@ -262,24 +253,7 @@ function bandmatrix_distributed(H, ks, projector; hidebar=false, num_bands::Int=
         end
     end
 
-    Array(bands), Array(obs)
-end
-
-function bandmatrix_pmap(H, ks, projector; hidebar=false, num_bands::Int=0, kwargs...)
-    projector = handleprojector(projector)
-    kwargs = num_bands==0 ? kwargs : Dict(kwargs..., :num_bands=>num_bands)
-
-    res = (@showprogress (hidebar ? 10^6 : 20) "Computing bands... " pmap(eachcol(ks)) do k
-        ϵs, U = spectrum(H(k); kwargs...)
-        colors = [ P(k, psi, e) for (e,psi) in zip(ϵs, eachcol(U)), P in projector ]
-
-        ϵs, colors
-    end)
-
-    bands = hcat((x[1] for x=res)...)
-    obs = cat((x[2] for x=res)...; dims=3)
-
-    real.(bands), permutedims(obs, [1,3,2])
+    bands, obs
 end
 
 

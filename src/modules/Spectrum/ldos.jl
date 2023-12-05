@@ -23,7 +23,7 @@ function ldos!(n::AbstractVector, H, ks::AbstractMatrix, ωs::AbstractVector; Γ
         ldos!(n0, ϵs, U, ωs; Γ=Γ)
         n0
     end
-    n[:] .= -n ./ L ./ π
+    n[:] .= -n  ./ L ./ π
 end
 
 

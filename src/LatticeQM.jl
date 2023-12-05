@@ -63,14 +63,14 @@ module LatticeQM
 
     include("modules/Meanfield.jl")
     import .Meanfield
-    import .Meanfield: solveselfconsistent, hartreefock, initialguess
+    import .Meanfield: solveselfconsistent, solvehartreefock, HartreeFock, initialguess
     export Meanfield
-    export solveselfconsistent, hartreefock, initialguess
+    export solveselfconsistent, solvehartreefock, HartreeFock, initialguess
 
-    include("modules/Superconductivity.jl")
-    using .Superconductivity
-    export Superconductivity
-    export BdGOperator
+    # include("modules/Superconductivity.jl")
+    # using .Superconductivity
+    # export Superconductivity
+    # export BdGOperator
 
     ### Plotting recipes
     using RecipesBase

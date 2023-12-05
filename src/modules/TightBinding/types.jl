@@ -3,6 +3,7 @@
 ######################################################################################
 
 using LinearAlgebra: dot
+using LinearAlgebra: Hermitian
 
 fourierphase(k,δL) = exp(1.0im * 2π * dot(k, δL))
 
@@ -12,10 +13,9 @@ atleast1d(x::AbstractArray) = x
 fouriersum(hoppings, k) = (k=atleast1d(k); sum(t .* fourierphase(k, δL) for (δL, t) in hoppings))
 # fouriersum(hoppings, k) = (k=atleast1d(k); mapreduce((δL, t) -> t * fourierphase(k, δL), +, hoppings))
 
-function fouriersum(hoppings, k::Real, d::Int)
+function fouriersum(hoppings::Dict{K,T}, k::Real, d::Int) where {K,T}
     N=length(zerokey(hoppings))
-    # K = unique(collect(key[(1:N).!=d] for key=keys(hoppings)))
-    # newhops = Dict(key => zero(getzero(hoppings)) for key in K)
+    newhops = Dict()
 
     for key in keys(hoppings)
         newhops[key[(1:N).!=d]] = zeros(typeof(hoppings[key]), size(hoppings[key]))
@@ -26,15 +26,6 @@ function fouriersum(hoppings, k::Real, d::Int)
     end
 
     newhops
-end
-
-using LinearAlgebra: Hermitian
-
-function getbloch(hoppings,args...)
-    function h(k)
-        Hermitian(fouriersum(hoppings, k,args...))
-    end
-    h
 end
 
 ######################################################################################
@@ -60,9 +51,9 @@ import SparseArrays: SparseMatrixCSC, sparse, spzeros
 # end
 # Hops(T::Type=AbstractMatrix{ComplexF64}, N::Int=2) = Hops{SVector{N,Int},T}(Dict())
 
-abstract type AbstractHops end
+abstract type AbstractHops{K,T} end
 
-struct Hops{K<:AbstractVector{Int} where {N},T<:AbstractMatrix{ComplexF64}} <: AbstractHops
+struct Hops{K<:AbstractVector{Int} where {N},T<:AbstractMatrix{ComplexF64}} <: AbstractHops{K,T}
     data::Dict{K,T}
 end
 
@@ -71,6 +62,8 @@ const SharedDenseHops{K} = Hops{K,SharedMatrix{ComplexF64}}
 const SparseHops{K}      = Hops{K,SparseMatrixCSC{ComplexF64,Int64}}
 
 (H::Hops)(k) = Hermitian(fouriersum(H, k))
+
+fouriersum(hoppings::Hops{K,T}, k::Real, d::Int) where {K,T} = Hops{K,T}(fouriersum(hoppings.data, k, d))
 
 Hops{K,T}(d::AbstractDict=Dict()) where {K<:AbstractVector{Int},T<:AbstractMatrix{ComplexF64}} = Hops(Dict{K,T}(d...))
 

@@ -85,10 +85,10 @@ function densitymatrix_distributed!(ρs::AbstractHops, H, ks::AbstractMatrix{Flo
         w = kweights[i_]
         phases = fourierphases[:, i_] # [fourierphase(-k, δL) for δL in δLs]
 
-        @views ρsMat .+= getdensitymatrices_Ls(phases, fd, U, w)
+        # @views ρsMat .+= getdensitymatrices_Ls(phases, fd, U, w)
         
-        # Tullio.@tullio mat[i,j] := $w * fd[m] * U[i, m] * conj(U[j, m])
-        # Tullio.@tullio ρsMat[i, j, n] += phases[n] * mat[i,j] #* fdw[m] * U[i, m] * conj(U[j, m])
+        Tullio.@tullio mat[i,j] := $w * fd[m] * U[i, m] * conj(U[j, m])
+        Tullio.@tullio ρsMat[i, j, n] += phases[n] * mat[i,j] #* fdw[m] * U[i, m] * conj(U[j, m])
         # Tullio.@tullio ρsMat[i, j, n] += $w * phases[n] * fd[m] * U[i, m] * conj(U[j, m])
         # # ρsMat .= ρsMat .+ TensorOperations.@tensoropt mat[i, j, n] := fdw[m] * phases[n] * U[i, m] * conj(U[j, m])
         # U = nothing

@@ -12,6 +12,9 @@ module Utils
     # include("Utils/legacymacros.jl")
     # export @legacyalias, @legacymoved, @legacyremoved
 
+    include("Utils/Context.jl")
+    import .Context
+
     include("Utils/pycall.jl")
 
     include("Utils/scalar2vector.jl")
