@@ -31,11 +31,7 @@ module Utils
     """
     function padvec(v::AbstractVector, d::Int)
         L = length(v)
-        if L > d
-            error("Vector exceeds specified length $d.")
-        elseif L==d
-            return v
-        end
-        return vcat(v,zeros(d-L))
+        @assert L <= d "Vector exceeds specified length $d."
+        (L==d) ? v : vcat(v,zeros(d-L))
     end
 end

@@ -101,3 +101,18 @@ nearest neighbor cells in reciprocal space.
 """
 getneighborBZ(lat, args...; kwargs...) = getneighborcells(getB(lat), args...; kwargs...)
 
+import ...Utils: padvec
+
+function getneighbordict(lat::Lattice, cellrange::Int, d::Int)
+    neighbors = getneighborcells(lat, cellrange; halfspace=true, innerpoints=true, excludeorigin=false)
+    A = getA(lat)
+    Dict(δL => padvec(A * δL, d) for δL in neighbors)
+end
+
+function getneighbordict(lat::Lattice, cellrange::Int)
+    d = allspacedim(lat)
+    # neighbors = getneighborcells(lat, cellrange; halfspace=true, innerpoints=true, excludeorigin=false)
+    # A = getA(lat)
+    # Dict(δL => A * δL for δL in neighbors)
+    getneighbordict(lat, cellrange, d)
+end

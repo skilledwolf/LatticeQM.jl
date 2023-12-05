@@ -19,11 +19,23 @@ include("eigen_sparse_arpack.jl") # Arpack implementation. Not multi-threading s
 ###################################################################################################
 
 import LinearAlgebra
-import SharedArrays: sdata
+# import SharedArrays: sdata
+import SharedArrays
+import SparseArrays 
 
-eigen_dense(H::AbstractMatrix, args...; kwargs...) = (F=LinearAlgebra.eigen(H, args...; kwargs...); (F.values, F.vectors))
-eigvals_dense(H::AbstractMatrix, args...; kwargs...) = LinearAlgebra.eigvals(H, args...; kwargs...)
-eigvecs_dense(H::AbstractMatrix, args...; kwargs...) = LinearAlgebra.eigvecs(H, args...; kwargs...)
+# Just pass through different dense types
+dense(A::Array) = A
+dense(A::Hermitian{T,Matrix{T}}) where {T} = A
+dense(A::Hermitian{T,SharedArrays.SharedMatrix{T}}) where {T} = A
+
+# Create dense copies for sparse cases
+dense(A::SparseArrays.SparseMatrixCSC) = Array(A)
+dense(A::Hermitian{T,SparseArrays.SparseMatrixCSC{T,K}}) where {T, K} = Hermitian(Array(A))
+
+
+eigen_dense(H::AbstractMatrix, args...; kwargs...) = (F=LinearAlgebra.eigen(dense(H), args...; kwargs...); (F.values, F.vectors))
+eigvals_dense(H::AbstractMatrix, args...; kwargs...) = LinearAlgebra.eigvals(dense(H), args...; kwargs...)
+eigvecs_dense(H::AbstractMatrix, args...; kwargs...) = LinearAlgebra.eigvecs(dense(H), args...; kwargs...)
 
 
 ###################################################################################################

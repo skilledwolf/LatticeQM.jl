@@ -21,6 +21,7 @@ function gethubbard(lat, neighbors=[[0;0]]; mode=:nospin, format=:auto, kwargs..
     connect unit cells. The set of δL's (in units of lattice vectors) is specified by 'neighbors'.
     """
     t(args...) = Hubbard(args...; kwargs...)
+
     ee_exchange = Hops(lat, neighbors, t; format=format)
 
     addspin(ee_exchange, mode)

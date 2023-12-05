@@ -14,7 +14,10 @@ function graphene(lat::Lattice; vectorized=true, mode=:nospin, format=:auto, cel
 
     hops
 end
-precompile(graphene, (Lattice,))
+
+function addgraphene!(hops, lat::Lattice; kwargs...)
+    hops!(hops, lat, t_graphene; kwargs...)
+end
 
 # default parameters taken from PHYSICAL REVIEW B 82, 035409 (2010), Table 1
 function graphene_rhombohedral(lat; spin=false, a=1.0, d=3.0, γ0=-3.16, γ1=0.502, γ2=-0.0171, γ3=-0.377, γ4=-0.099, kwargs...)
@@ -159,10 +162,10 @@ norm2(r) = dot(r,r)
 
 using ..Utils: heaviside
 
-graphene_interlayer(δz, Δ; z, ℓinter) =  δz^2 /Δ^2 * exp(-(Δ-z)/ℓinter)
-graphene_intralayer(δz, Δ; a, ℓintra, ℓz) = (1 - δz^2 /(Δ^2)) * exp(-(Δ-a)/ℓintra -δz^2 /ℓz^2)
+# graphene_interlayer(δz, Δ; z, ℓinter) =  δz^2 /Δ^2 * exp(-(Δ-z)/ℓinter)
+# graphene_intralayer(δz, Δ; a, ℓintra, ℓz) = (1 - δz^2 /(Δ^2)) * exp(-(Δ-a)/ℓintra -δz^2 /ℓz^2)
 
-@inline function t_graphene(r::AbstractVector{Float64}, r0=0; tz::Float64=0.46, t0::Float64=1.0, ℓinter::Float64=0.125, ℓintra::Float64=0.08, z::Float64=3.0, a::Float64=1.0,
+@inline function graphene_hopping(r::AbstractVector{Float64}, r0=0; tz::Float64=0.46, t0::Float64=1.0, ℓinter::Float64=0.125, ℓintra::Float64=0.08, z::Float64=3.0, a::Float64=1.0,
            Δmin::Float64=0.1, Δmax::Float64=5.0)
     r = r .- r0
     @views Δ = sqrt.(sum(abs2,r[1:3]))
@@ -175,85 +178,59 @@ graphene_intralayer(δz, Δ; a, ℓintra, ℓz) = (1 - δz^2 /(Δ^2)) * exp(-(Δ
     end
     result
 end
-precompile(t_graphene, (Vector{Float64}, Float64))
-precompile(t_graphene, (Vector{Float64}, Vector{Float64}))
 
 using ..TightBinding: MAX_DENSE, MAX_DIAGS
 
 switchlin(x::AbstractFloat) =  ifelse(x < 0, zero(x), x)
 
-function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin::Float64=1e-5, tz::Float64=0.46, t0::Float64=1.0,
+function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; kwargs...)
+    N = size(R1,2)
+
+    if N < MAX_DENSE + 1
+        out = zeros(ComplexF64, N,N)
+    else
+        out = spzeros(ComplexF64, N,N)
+        sizehint!(out, round(Int, MAX_DIAGS * N)) # preallocate memory: important for huge sparse matrices
+    end
+
+    addgraphenematrix!(out, R1, R2; kwargs...)
+end
+precompile(t_graphene, (Matrix{Float64}, Matrix{Float64}))
+
+function addgraphenematrix!(out::AbstractMatrix, R1::Matrix{Float64}, R2::Matrix{Float64}; tmin::Float64=1e-5, tz::Float64=0.46, t0::Float64=1.0,
     ℓinter::Float64=0.125, ℓintra::Float64=0.08, z::Float64=3.0, a::Float64=1.0,
     Δmin::Float64=0.1, Δmax::Float64=5.0)
 
-    N = size(R1,2)
-
-    # Preallocate memory: important for huge sparse matrices
-    maxind = (N>MAX_DENSE) ? round(Int, MAX_DIAGS * N) : N^2 # MIN_SPARSITY * N^2 # semi-arbitrary limit for dense allocation
-
-    out = spzeros(ComplexF64, N,N)
-    sizehint!(out, maxind)
+    N = size(R1, 2)
+    @assert N == size(out,1) == size(out,2) == size(R2,2) "Incompatible dimensions."
 
     δR = similar(R1)
+    @fastmath @inbounds for j = 1:N
+        @views δR .= R1 .- R2[:, j]
 
-    @fastmath @inbounds for j=1:N
-        @views δR .= R1 .- R2[:,j]
-
-        for i=1:N
-            @views Δ = sqrt(sum(abs2,δR[1:3,i])) # absolute value of distance vector
+        for i = 1:N
+            @views Δ = sqrt(sum(abs2, δR[1:3, i])) # absolute value of distance vector
 
             if Δmax < Δ || Δ < Δmin # cutoff lengths
                 continue
             end
 
-            δz = δR[3,i]
-            χ = δz^2 /(Δ^2)
+            δz = δR[3, i]
+            χ = δz^2 / (Δ^2)
 
-            v =  -t0 * (1-χ) * exp(-abs(Δ-a)/ℓintra) - tz * χ * exp(-abs(Δ-z)/ℓinter)
+            v = -t0 * (1 - χ) * exp(-abs(Δ - a) / ℓintra) - tz * χ * exp(-abs(Δ - z) / ℓinter)
 
             if abs(v) < tmin # small energy cutoff for hop amplitudes
                 continue
             end
 
-            out[i,j] = v
+            out[i, j] += v
         end
     end
 
     out
 end
-precompile(t_graphene, (Matrix{Float64}, Matrix{Float64}))
-
-# ####
-# # This version is more natural but 4x slower than the fastest implementation
-# ####
-# function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; tmin=1e-7,
-#            kwargs...) #where {T<:AbstractMatrix}
-
-#     N = size(R1,2)
-
-#     # Preallocate memory: important for huge sparse matrices
-#     maxind = (N>MAX_DENSE) ? round(Int, MAX_DIAGS * N) : N^2 # semi-arbitrary limit for dense allocation
-#     IS = Vector{Int}(undef, maxind)
-#     JS = similar(IS)
-#     VS = similar(IS, Float64)
-
-#     δR = similar(R1)
-
-#     t0(args...) = t_graphene(args...; kwargs...)
-
-#     count = 1
-#     @fastmath @inbounds for j=1:N
-#         @views δR .= R1 .- R2[:,j]
-#         for i=1:N
-#             @views v = t0(δR[:,i]) #1.4e-7 * rand() # t(δr)
-#             if abs(v) > tmin
-#                 IS[count], JS[count], VS[count] = i, j, v
-#                 count = count+1
-#             end
-#         end
-#     end
-#     count = count - 1
-
-
-#     @views sparse(IS[1:count],JS[1:count],complex(VS[1:count]), N, N)
-# end
+precompile(addgraphene!, (Matrix{Float64}, Matrix{Float64}, Matrix{Float64}))
+precompile(addgraphene!, (Matrix{ComplexF64}, Matrix{Float64}, Matrix{Float64}))
+precompile(addgraphene!, (SparseMatrixCSC{ComplexF64,Int64}, Matrix{Float64}, Matrix{Float64}))
+precompile(addgraphene!, (SparseMatrixCSC{Float64,Int64}, Matrix{Float64}, Matrix{Float64}))

@@ -3,8 +3,6 @@ import ..Meanfield
 
 import ..Spectrum
 
-
-
 function Meanfield.hartreefock(H::BdGOperator{T}, v::AbstractHops) where T<:AbstractHops
 
     vMF, ΔMF, ϵMF = hartreefock_pairing(v)

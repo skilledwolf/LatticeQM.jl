@@ -6,6 +6,7 @@ module Spectrum
     # using KrylovKit
 
     include("Spectrum/eigen.jl")
+    export dense
 
     include("Spectrum/types.jl")
     # include("Spectrum/expval.jl")
