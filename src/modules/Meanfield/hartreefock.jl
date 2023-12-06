@@ -33,26 +33,17 @@ mutable struct HartreeFock{K, T2, T<:Hops{K,T2}} <: MeanfieldGenerator{T}
     end
 end
 
-# function hMF(hf::HartreeFock)
-#     hmf = deepcopy(hf.h)
-#     for k in union(keys(hf.h), keys(hf.vMF))
-#         if haskey(hmf, k)
-#             hmf[k] .+= hf.vMF[k]
-#         else
-#             hmf[k] = hf.vMF[k]
-#         end
-#     end
-#     hmf
-# end
+hMF(hf::HartreeFock) = hf.hMF
 
-function (hf::HartreeFock{K,T2,T})(ρ::T) where {K,T2,T<:Hops{K,T2}}
+function (hf::MeanfieldGenerator)(ρ) #(ρ::T) where {K,T2,T<:Hops{K,T2}}
     meanfieldOperator!(hf, ρ)
     meanfieldScalar!(hf, ρ)
     hf
 end
 
-function meanfieldOperator!(hf::HartreeFock, ρ)
-    # fill!(hf.hMF, 0.0)
+function initialize_hMF!(hf, ρ)
+    T = eltype(hf.h[zerokey(hf.h)])
+    dim = size(hf.h[zerokey(hf.h)])
     for k in union(keys(hf.h), keys(hf.v), keys(ρ)) # initialize hMF with h
         if haskey(hf.hMF, k)
             if haskey(hf.h, k)
@@ -64,10 +55,14 @@ function meanfieldOperator!(hf::HartreeFock, ρ)
             if haskey(hf.h, k)
                 hf.hMF[k] = hf.h[k]
             else
-                hf.hMF[k] = zero(hf.h[zerokey(hf.h)])
+                hf.hMF[k] = zeros(T, dim)
             end
         end
     end
+end
+
+function meanfieldOperator!(hf::HartreeFock, ρ)
+    initialize_hMF!(hf, ρ) # Call the new initialization function
 
     if hf.fock
         meanfieldOperator_addfock!(hf, ρ)
@@ -103,6 +98,13 @@ function meanfieldOperator_addfock!(hf, ρ)
     nothing
 end
 
+function meanfieldOperator_addfock_pairing!(hf, ρΔ)
+    for L in keys(hf.v)
+        hf.ΔMF[L] .+= hf.v[L] .* conj.(ρΔ[L]) # Fock contribution
+    end
+    nothing
+end
+
 function meanfieldOperator_addhartree!(hf, ρ)
     hf.hMF[zerokey(ρ)] .+= spdiagm(0 => hf.V0 * diag(ρ[zerokey(ρ)])) # Hartree contribution
     nothing
@@ -115,8 +117,14 @@ function meanfieldScalar_hartree(hf, ρs)
     real(energy)
 end
 
-function meanfieldScalar_fock(hf::HartreeFock, ρs)
-    energy = 1 / 2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L, vL) in hf.v)) # Fock contribution
+function meanfieldScalar_fock(hf, ρs)
+    energy = 1/2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L, vL) in hf.v)) # Fock contribution
+    @assert isapprox(imag(energy), 0; atol=sqrt(eps()))
+    real(energy)
+end
+
+function meanfieldScalar_fock_pairing(hf, ρΔ)
+    energy = -1/2 * sum(sum(ρΔ[L] .* conj.(ρΔ[L]) .* vL for (L, vL) in hf.v)) # Fock contribution
     @assert isapprox(imag(energy), 0; atol=sqrt(eps()))
     real(energy)
 end

@@ -29,6 +29,7 @@ module LatticeQM
 
     include("modules/Utils.jl")
     import .Utils
+    import .Utils: dense
 
     ### Base modules
     include("modules/Structure.jl")
@@ -38,7 +39,6 @@ module LatticeQM
 
     include("modules/Spectrum.jl")
     import .Spectrum
-    import .Spectrum: dense
     import .Spectrum: getbands
     export Spectrum, getbands
 
@@ -69,10 +69,10 @@ module LatticeQM
     export Meanfield
     export solveselfconsistent, solvehartreefock, HartreeFock, initialguess
 
-    # include("modules/Superconductivity.jl")
-    # using .Superconductivity
-    # export Superconductivity
-    # export BdGOperator
+    include("modules/Superconductivity.jl")
+    using .Superconductivity
+    export Superconductivity
+    export BdGOperator
 
     ### Plotting recipes
     using RecipesBase

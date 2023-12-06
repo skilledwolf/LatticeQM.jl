@@ -23,15 +23,7 @@ import LinearAlgebra
 import SharedArrays
 import SparseArrays 
 
-# Just pass through different dense types
-dense(A::Array) = A
-dense(A::Hermitian{T,Matrix{T}}) where {T} = A
-dense(A::Hermitian{T,SharedArrays.SharedMatrix{T}}) where {T} = A
-
-# Create dense copies for sparse cases
-dense(A::SparseArrays.SparseMatrixCSC) = Array(A)
-dense(A::Hermitian{T,SparseArrays.SparseMatrixCSC{T,K}}) where {T, K} = Hermitian(Array(A))
-
+import ..Utils: dense
 
 eigen_dense(H::AbstractMatrix, args...; kwargs...) = (F=LinearAlgebra.eigen(dense(H), args...; kwargs...); (F.values, F.vectors))
 eigvals_dense(H::AbstractMatrix, args...; kwargs...) = LinearAlgebra.eigvals(dense(H), args...; kwargs...)
