@@ -12,6 +12,9 @@ module Utils
     # include("Utils/legacymacros.jl")
     # export @legacyalias, @legacymoved, @legacyremoved
 
+    include("Utils/Context.jl")
+    import .Context
+
     include("Utils/pycall.jl")
 
     include("Utils/scalar2vector.jl")
@@ -20,6 +23,17 @@ module Utils
     include("Utils/paulimatrices.jl")
     export σ0, σ1, σ2, σ3, σX, σY, σZ, σUP, σDOWN, σPLUS, σMINUS, σs, spinorrotation
 
+    # Just pass through different dense types
+    import SharedArrays, SparseArrays
+    dense(A::Array) = A
+    dense(A::Hermitian{T,Matrix{T}}) where {T} = A
+    dense(A::Hermitian{T,SharedArrays.SharedMatrix{T}}) where {T} = A
+
+    # Create dense copies for sparse cases
+    dense(A::SparseArrays.SparseMatrixCSC) = Array(A)
+    dense(A::Hermitian{T,SparseArrays.SparseMatrixCSC{T,K}}) where {T,K} = Hermitian(Array(A))
+
+    export dense
 
     """
         padvec(v::AbstractVector, d::Int)

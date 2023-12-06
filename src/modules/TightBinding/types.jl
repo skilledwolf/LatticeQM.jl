@@ -35,7 +35,8 @@ end
 import SharedArrays: SharedArray, SharedMatrix
 import SparseArrays
 import SparseArrays: SparseMatrixCSC, sparse, spzeros
-import ..Spectrum: dense
+import ..Utils
+import ..Utils: dense
 
 # using StaticArrays
 
@@ -75,9 +76,8 @@ Hops(kv::Pair...) = Hops(Dict(k=>v for (k,v) in kv))
 Hops(G::Base.Generator) = Hops(Dict(G...))
 
 # Dense conversion
-import ..Spectrum
-Spectrum.dense(hops::DenseHops) = hops
-Spectrum.dense(hops::Hops{K,T}) where {K,T<:AbstractMatrix{ComplexF64}} = DenseHops{K}(Dict(k => Matrix{ComplexF64}(v) for (k, v) in hops.data))
+Utils.dense(hops::DenseHops) = hops
+Utils.dense(hops::Hops{K,T}) where {K,T<:AbstractMatrix{ComplexF64}} = DenseHops{K}(Dict(k => Matrix{ComplexF64}(v) for (k, v) in hops.data))
 DenseHops(args...; kwargs...) = dense(Hops(args...; kwargs...))
 
 # Sparse conversion
@@ -117,7 +117,7 @@ Base.getindex(H::Hops,i) = Base.getindex(H.data,i)
 Base.setindex!(H::Hops,v,i) = Base.setindex!(H.data,v,i)
 
 Base.empty!(H::Hops) = (Base.empty!(H.data); H)
-Base.empty(H::Hops) = (H2=Base.empty!(deepcopy(H)); H2)
+Base.empty(H::Hops{K,T}) where {K,T} = Hops{K,T}(Dict{K,T}())
 
 function Base.fill!(H::Hops, x)
     for δL in keys(H)
@@ -126,11 +126,9 @@ function Base.fill!(H::Hops, x)
     H
 end
 
-
 zero_matrix(::Type{Hops{K,T}}, N1, N2) where {K,T} = zeros(ComplexF64, N1, N2)
 zero_matrix(::Type{SparseHops{K}}, N1, N2) where {K} = spzeros(ComplexF64, N1, N2)
 zero_matrix(::Type{SharedDenseHops{K}}, N1, N2) where {K} = SharedMatrix(zeros(ComplexF64, N1, N2))
-
 
 function Base.zero(h::Hops{K,T}) where {K,T<:AbstractMatrix{ComplexF64}}
     Hops{K,T}(Dict{K,T}(δL => zero(h[δL]) for δL in keys(h)))
@@ -241,8 +239,8 @@ function addspin(hoppings, mode=:nospin) #::AbstractHops
     hoppings
 end
 
-const MAX_DENSE = 500::Int64
-const MAX_DIAGS = 100::Int64
+const MAX_DENSE = 500::Int
+const MAX_DIAGS = 100::Int
 
 decidetype(hops::Hops) = decidetype(hopdim(hops))
 

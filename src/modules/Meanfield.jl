@@ -9,13 +9,13 @@ module Meanfield
     import ..TightBinding
 
     include("Meanfield/initialguess.jl")
-    export initialguess
+    # export initialguess
+
+    include("Meanfield/hartreefock.jl")
+    # export hartreefock
 
     include("Meanfield/fixedpoint.jl")
     include("Meanfield/selfconsistent.jl")
-    export solveselfconsistent, solvehartreefockmf_k
-
-    include("Meanfield/hartreefock.jl")
-    export hartreefock, hartreefock_k
+    # export solveselfconsistent
 
 end

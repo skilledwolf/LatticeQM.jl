@@ -7,219 +7,125 @@
     using solve_selfconsistent(...).
 """
 
-# function hartreefock(h::Function, v::Hops)
-#     mf, E = hartreefock_k(v)
-#     ℋ(ρ) = k -> (h(k) .+ mf(ρ)(k))
-
-#     ℋ, E
-# end
-
-# function hartreefock_k(v::Hops)
-#     vMF, ϵMF = hartreefock(v)
-#     getbloch(vMF), ϵMF
-# end
-
 import ..TightBinding: zerokey
 
-function hartreefock(h::Hops, v::Hops)
-    vMF, ϵMF = hartreefock(v)
+abstract type MeanfieldGenerator{T} end
 
-    hMF(ρ::Hops) = h + vMF(ρ)
+mutable struct HartreeFock{K, T2, T<:Hops{K,T2}} <: MeanfieldGenerator{T} 
+    h::T
+    v::T
+    μ::Float64
+    V0::T2 # Assuming T2 is Float64, adjust accordingly
+    hMF::T
+    ϵMF::Float64
+    fock::Bool
+    hartree::Bool
 
-    hMF, ϵMF
+    function HartreeFock(h::T, v::T, μ=0.0; hartree=true, fock=true) where {K,T2,T<:Hops{K,T2}}
+        # Extract K and T2 from T if needed inside the constructor
+        # Example: Suppose AbstractHops is defined as AbstractHops{K, T2}
+        # K = Base.parameter_upper_bound(T, 1)
+        # T2 = Base.parameter_upper_bound(T, 2)
+        V0 = sum(v[L] for L in keys(v))
+        hMF = zero(h)  # Pre-allocated for performance
+        ϵMF = 0.0
+        new{K,T2,T}(h, v, μ, V0, hMF, ϵMF, fock, hartree)
+    end
+end
+
+hMF(hf::HartreeFock) = hf.hMF
+
+function (hf::MeanfieldGenerator)(ρ) #(ρ::T) where {K,T2,T<:Hops{K,T2}}
+    meanfieldOperator!(hf, ρ)
+    meanfieldScalar!(hf, ρ)
+    hf
+end
+
+function initialize_hMF!(hf, ρ)
+    T = eltype(hf.h[zerokey(hf.h)])
+    dim = size(hf.h[zerokey(hf.h)])
+    for k in union(keys(hf.h), keys(hf.v), keys(ρ)) # initialize hMF with h
+        if haskey(hf.hMF, k)
+            if haskey(hf.h, k)
+                hf.hMF[k] .= hf.h[k]
+            else
+                hf.hMF[k] .= 0.0
+            end
+        else
+            if haskey(hf.h, k)
+                hf.hMF[k] = hf.h[k]
+            else
+                hf.hMF[k] = zeros(T, dim)
+            end
+        end
+    end
+end
+
+function meanfieldOperator!(hf::HartreeFock, ρ)
+    initialize_hMF!(hf, ρ) # Call the new initialization function
+
+    if hf.fock
+        meanfieldOperator_addfock!(hf, ρ)
+    end
+    if hf.hartree
+        meanfieldOperator_addhartree!(hf, ρ)
+    end
+    nothing
+end
+
+function meanfieldScalar!(hf::HartreeFock, ρs)
+    hf.ϵMF = 0.0
+
+    if hf.fock 
+        hf.ϵMF += meanfieldScalar_fock(hf, ρs)
+    end
+    if hf.hartree
+        hf.ϵMF += meanfieldScalar_hartree(hf, ρs)
+    end
+    nothing
 end
 
 
-function hartreefock(v::Hops)
-    """
-        Expects the real space potential {V(L) | L unit cell vector}.
-        It returns a functional 𝒱[ρ] that builds the mean field hamiltonian
+####################################################################
+# Low-level functions to construct Hartree and Fock contributions
+####################################################################
 
-        This may look harmless but requires a careful derivation.
-    """
-
-    V0 = sum(v[L] for L in keys(v))
-    vmf = empty(v)
-
-    function vMF(ρ::Hops)
-        # empty!(vmf)
-        for L in keys(v)
-            vmf[L] = zero(v[L])
-        end
-
-        for L in keys(v)
-            # note Oct 19 2021: changed from conj.(..) to transpose(...)
-            vmf[L] += -v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
-        end
-
-        vmf[zerokey(ρ)] += spdiagm(0 => V0 * diag(ρ[zerokey(ρ)])) # Hartree contribution
-
-        # addhops!(vmf, Hops(zerokey(ρ) => spdiagm(0 => 2*V0 * diag(ρ[zerokey(ρ)])))) # Hartree contribution
-
-        vmf
+function meanfieldOperator_addfock!(hf, ρ)
+    for L in keys(hf.v)
+        # note Oct 19 2021: changed from conj.(..) to transpose(...)
+        hf.hMF[L] .+= -hf.v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
     end
-
-    function ϵMF(ρs::Hops)
-        vρ = diag(ρs[zerokey(ρs)])
-
-        energy = - 1/2 * (transpose(vρ) * V0 * vρ) # Hartree contribution
-        energy +=  1/2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L,vL) in v)) # Fock contribution
-
-
-        @assert isapprox(imag(energy),0; atol=sqrt(eps()))
-        real(energy)
-    end
-
-    vMF, ϵMF
+    nothing
 end
 
-
-function hartree(h::Hops, v::Hops)
-    vMF, ϵMF = hartree(v)
-
-    hMF(ρ::Hops) = h + vMF(ρ)
-
-    hMF, ϵMF
+function meanfieldOperator_addfock_pairing!(hf, ρΔ)
+    for L in keys(hf.v)
+        hf.ΔMF[L] .+= hf.v[L] .* conj.(ρΔ[L]) # Fock contribution
+    end
+    nothing
 end
 
-
-function hartree(v::Hops)
-    """
-        Expects the real space potential {V(L) | L unit cell vector}.
-        It returns a functional 𝒱[ρ] that builds the mean field hamiltonian
-
-        This may look harmless but requires a careful derivation.
-    """
-
-    V0 = sum(v[L] for L in keys(v))
-    vmf = empty(v)
-
-    function vMF(ρ::Hops)
-        # empty!(vmf)
-        for L in keys(v)
-            vmf[L] = zero(v[L])
-        end
-
-        # for L in keys(v)
-        #     # note Oct 19 2021: changed from conj.(..) to transpose(...)
-        #     vmf[L] += -v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
-        # end
-
-        vmf[zerokey(ρ)] += spdiagm(0 => V0 * diag(ρ[zerokey(ρ)])) # Hartree contribution
-
-        # addhops!(vmf, Hops(zerokey(ρ) => spdiagm(0 => 2*V0 * diag(ρ[zerokey(ρ)])))) # Hartree contribution
-
-        vmf
-    end
-
-    function ϵMF(ρs::Hops)
-        vρ = diag(ρs[zerokey(ρs)])
-
-        energy = - 1/2 * (transpose(vρ) * V0 * vρ) # Hartree contribution
-        # energy +=  1/2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L,vL) in v)) # Fock contribution
-
-
-        @assert isapprox(imag(energy),0; atol=sqrt(eps()))
-        real(energy)
-    end
-
-    vMF, ϵMF
+function meanfieldOperator_addhartree!(hf, ρ)
+    hf.hMF[zerokey(ρ)] .+= spdiagm(0 => hf.V0 * diag(ρ[zerokey(ρ)])) # Hartree contribution
+    nothing
 end
 
-
-function fock(h::Hops, v::Hops)
-    vMF, ϵMF = fock(v)
-
-    hMF(ρ::Hops) = h + vMF(ρ)
-
-    hMF, ϵMF
+function meanfieldScalar_hartree(hf, ρs)
+    vρ = diag(ρs[zerokey(ρs)])
+    energy = -1/2 * (transpose(vρ) * hf.V0 * vρ) # Hartree contribution
+    @assert isapprox(imag(energy), 0; atol=sqrt(eps()))
+    real(energy)
 end
 
-function fock(v::Hops)
-    """
-        Expects the real space potential {V(L) | L unit cell vector}.
-        It returns a functional 𝒱[ρ] that builds the mean field hamiltonian
-
-        This may look harmless but requires a careful derivation.
-    """
-
-    V0 = sum(v[L] for L in keys(v))
-    vmf = empty(v)
-
-    function vMF(ρ::Hops)
-        # empty!(vmf)
-        for L in keys(v)
-            vmf[L] = zero(v[L])
-        end
-
-        for L in keys(v)
-            # note Oct 19 2021: changed from conj.(..) to transpose(...)
-            # note Oct 20 2021: changed it back, but adapted definition in density matrix
-            vmf[L] += -v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
-        end
-
-        vmf
-    end
-
-    function ϵMF(ρs::Hops)
-        vρ = diag(ρs[zerokey(ρs)])
-
-        energy =  1/2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L,vL) in v)) # Fock contribution
-
-
-        @assert isapprox(imag(energy),0; atol=sqrt(eps()))
-        real(energy)
-    end
-
-    vMF, ϵMF
+function meanfieldScalar_fock(hf, ρs)
+    energy = 1/2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L, vL) in hf.v)) # Fock contribution
+    @assert isapprox(imag(energy), 0; atol=sqrt(eps()))
+    real(energy)
 end
 
-
-function hartreefock_pairing(v::Hops)
-    """
-        Expects the real space potential {V(L) | L unit cell vector}.
-        It returns a functional 𝒱[ρ] that builds the mean field hamiltonian
-
-        This may look harmless but requires a careful derivation.
-    """
-
-    V0 = sum(v[L] for L in keys(v))
-    vmf = empty(v)
-    Δmf = empty(v)
-
-    function vMF(ρ::Hops)
-        empty!(vmf)
-
-        for L in keys(v)
-            vmf[L] = -v[L] .* conj.(ρ[L]) # Fock contribution
-        end
-
-        vmf[zerokey(ρ)] += spdiagm(0 => V0 * diag(ρ[zerokey(ρ)])) # Hartree contribution
-        # addhops!(vmf, Hops(zerokey(ρ) => spdiagm(0 => V0 * diag(ρ[zerokey(ρ)])))) # Hartree contribution
-
-        vmf
-    end
-
-    function ΔMF(ρ::Hops)
-        empty!(Δmf)
-
-        for L in keys(v)
-            Δmf[L] = v[L] .* conj.(ρ[L]) # Fock contribution
-        end
-
-        Δmf
-    end
-
-    function ϵMF(ρs::Hops, ρΔs::Hops)
-        vρ = diag(ρs[[0,0]])
-
-        energy = - 1/2 * (transpose(vρ) * V0 * vρ) # Hartree contribution
-        energy +=  1/2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L,vL) in v)) # Fock contribution
-        energy -=  1/2 * sum(sum(ρΔs[L] .* conj.(ρΔs[L]) .* vL for (L,vL) in v)) # pairing contribution
-
-        @assert isapprox(imag(energy),0; atol=sqrt(eps()))
-        real(energy)
-    end
-
-    vMF, ΔMF, ϵMF
+function meanfieldScalar_fock_pairing(hf, ρΔ)
+    energy = -1/2 * sum(sum(ρΔ[L] .* conj.(ρΔ[L]) .* vL for (L, vL) in hf.v)) # Fock contribution
+    @assert isapprox(imag(energy), 0; atol=sqrt(eps()))
+    real(energy)
 end
+

@@ -29,6 +29,7 @@ module LatticeQM
 
     include("modules/Utils.jl")
     import .Utils
+    import .Utils: dense
 
     ### Base modules
     include("modules/Structure.jl")
@@ -38,7 +39,6 @@ module LatticeQM
 
     include("modules/Spectrum.jl")
     import .Spectrum
-    import .Spectrum: dense
     import .Spectrum: getbands
     export Spectrum, getbands
 
@@ -65,9 +65,9 @@ module LatticeQM
 
     include("modules/Meanfield.jl")
     import .Meanfield
-    import .Meanfield: solveselfconsistent, hartreefock, initialguess
+    import .Meanfield: solveselfconsistent, solvehartreefock, HartreeFock, initialguess
     export Meanfield
-    export solveselfconsistent, hartreefock, initialguess
+    export solveselfconsistent, solvehartreefock, HartreeFock, initialguess
 
     include("modules/Superconductivity.jl")
     using .Superconductivity
