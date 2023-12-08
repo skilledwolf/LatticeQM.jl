@@ -1,6 +1,8 @@
 using Distributed
 using ProgressMeter
 
+const PROGRESSBAR_LDOS_DEFAULTLABEL = "LDOS"::String
+
 function ldos!(n::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix, ωs::AbstractVector; Γ::Real=0.1)
     for (ϵ, ψ) in zip(ϵs, eachcol(U))
         for ω in ωs
@@ -10,16 +12,15 @@ function ldos!(n::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix, ωs::A
     n[:] ./= size(ωs)
 end
 
-function ldos!(n::AbstractVector, H, ks::AbstractMatrix, ωs::AbstractVector; Γ::Real=0.1, kwargs...)
+import ..Spectrum
+
+function ldos!(n::AbstractVector, H, ks::AbstractMatrix, ωs::AbstractVector; Γ::Real=0.1, progress_label=PROGRESSBAR_LDOS_DEFAULTLABEL, kwargs...)
     L = size(ks,2)
 
-    function spectrumf(k)
-        spectrum(H(k); kwargs...)
-    end
 
-    n[:] = @sync @showprogress 1 "Computing LDOS..." @distributed (+) for j=1:L
+    n[:] = @sync @showprogress dt=Spectrum.PROGRESSBAR_MINTIME desc=progress_label enabled=Spectrum.PROGRESSBAR_SHOWDEFAULT @distributed (+) for j = 1:L
         n0 = zero(n)
-        ϵs, U = spectrumf(ks[:,j])
+        ϵs, U = Spectrum.spectrum(H(ks[:, j]); kwargs...)
         ldos!(n0, ϵs, U, ωs; Γ=Γ)
         n0
     end

@@ -166,7 +166,7 @@ function hofstadter(hops, lat::Lattice, Q::Int; kwargs...)
 
     @showprogress 2 "Iterating through flux... " for (p,q)=fluxes
         mhops, mlat = Operators.peierlsoutplane(hops, lat, p, q; verbose=false)
-        append!(energies, [vec(bandmatrix(mhops, k0; kwargs...))])
+        append!(energies, [vec(bandmatrix(mhops, k0; kwargs...)[1])])
     end
 
     fluxes = map(x->x[1]//x[2], fluxes)
@@ -351,7 +351,7 @@ end
 
 #     @showprogress 2 "Iterating through flux... " for (p,q)=fluxes
 #         mhops, mlat = Operators.peierlsoutplane2(hops0, lat0, p,q; verbose=false)
-#         append!(energies, [vec(bandmatrix(mhops, k0))])
+#         append!(energies, [vec(bandmatrix(mhops, k0)[1])])
 #     end
 
 #     fluxes = map(x->x[1]//x[2], fluxes)

@@ -12,7 +12,7 @@ cm_BBR = plt.matplotlib.colors.LinearSegmentedColormap.from_list("BBR", colors, 
 
 function plt.plot(bands::LatticeQM.Spectrum.BandData, n::Integer=1; cmap=cm_BBR, clim=nothing, cmode=:symmetric, kwargs...)
     
-    if bands.obs == nothing || n==0
+    if size(bands.obs,3) == 0 || n==0
         bandcolors=:none
         vmin = nothing
         vmax = nothing

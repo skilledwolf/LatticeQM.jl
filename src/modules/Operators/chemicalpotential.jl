@@ -6,14 +6,16 @@ import LinearAlgebra: Diagonal
 
 import SparseArrays: sparse
 
-
 function setfilling!(H, filling; nk=100, kwargs...)
     kgrid = regulargrid(nk=nk)
     setfilling!(H, kgrid, filling; kwargs...)
 end
 
+import ..Utils
+import ..Spectrum
+
 function setfilling!(H, kgrid, filling; kwargs...)
-    μ = chemicalpotential(H, kgrid, filling; kwargs...)
+    μ = Spectrum.chemicalpotential(Utils.dense(H), kgrid, filling; kwargs...)
     addchemicalpotential!(H, -μ)
     μ
 end

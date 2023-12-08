@@ -1,4 +1,4 @@
-import ..TightBinding: expvalf
+
 
 function getoperator(lat::Lattice, name::String, args...; kwargs...)
 
@@ -36,5 +36,7 @@ function getoperator(lat::Lattice, name::String, args...; kwargs...)
 end
 
 getoperator(lat::Lattice, names::AbstractVector{String}, args...; kwargs...) = [getoperator(lat, name, args...; kwargs...) for name=names]
-getprojector(lat::Lattice, name::String, args...; kwargs...) = expvalf(getoperator(lat, name, args...; kwargs...))
-getprojector(lat::Lattice, names::AbstractVector{String}, args...; kwargs...) = [expvalf(getoperator(lat, name, args...; kwargs...)) for name=names]
+
+# import ..TightBinding: expvalf
+# getprojector(lat::Lattice, name::String, args...; kwargs...) = expvalf(getoperator(lat, name, args...; kwargs...))
+# getprojector(lat::Lattice, names::AbstractVector{String}, args...; kwargs...) = [expvalf(getoperator(lat, name, args...; kwargs...)) for name=names]

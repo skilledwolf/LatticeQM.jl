@@ -55,9 +55,9 @@ module LatticeQM
 
     include("modules/Operators.jl")
     import .Operators
-    import .Operators: gethops, getoperator, getprojector, setfilling!
+    import .Operators: gethops, getoperator, setfilling! #, getprojector
     export Operators
-    export gethops, getoperator, getprojector, setfilling!
+    export gethops, getoperator, setfilling! #, getprojector
 
     include("modules/LinearResponse.jl")
     import .LinearResponse

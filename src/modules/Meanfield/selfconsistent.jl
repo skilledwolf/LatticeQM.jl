@@ -61,16 +61,8 @@ function solveselfconsistent!(::DummyContext, ρ0::T1, ρ1::T1, hartreefock::Mea
     #     ρ0 = JLD.load(checkpoint, "mf")
     # end
 
-    hartreefock(ρ0) # initialize meanfield
-
-    function updateH!(ρ)
-        verbose ? @info("Updating chemical potential for given filling...") : nothing
-
-        hartreefock(ρ) # update meanfield (h is updated in-place)
-        hartreefock.μ = chemicalpotential(hMF(hartreefock), ks, filling; T=T, multimode=multimode)
-
-        hartreefock
-    end
+    # println("rho0: ", typeof(ρ0))
+    # println("rho1: ", typeof(ρ1))
 
     function update!(ρ1, ρ0)
         
@@ -82,10 +74,8 @@ function solveselfconsistent!(::DummyContext, ρ0::T1, ρ1::T1, hartreefock::Mea
 
         verbose ? @info("Updating the mean field density matrix...") : nothing
         ϵ0 = getdensitymatrix!(ρ1, hMF(hartreefock), ks, hartreefock.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
-        hartreefock(ρ0) # update meanfield (h is updated in-place)
+        # hartreefock(ρ0) # should actually not be needed here
         
-        # ϵ0 = getdensitymatrix!(ρ1, H.h, ks, H.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
-
         callback(ρ1)
 
         # if checkpoint != ""
@@ -102,7 +92,7 @@ function solveselfconsistent!(::DummyContext, ρ0::T1, ρ1::T1, hartreefock::Mea
     if convergenceerror && !converged
         error("Convergence error.")
     end
-    updateH!(ρ1)
+    hartreefock(ρ1) # update meanfield (h is updated in-place)
 
 
     dense(ρ1), ϵ_GS, hartreefock, converged, residual
