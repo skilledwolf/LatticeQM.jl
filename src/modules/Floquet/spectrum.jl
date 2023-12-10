@@ -57,7 +57,7 @@ end
 
 
 # """
-#     wavefunctions(H, drive::periodicDrive, M::Integer; timespace=false)
+#     geteigvecs(H, drive::periodicDrive, M::Integer; timespace=false)
 
 # Returns a matrix of Floquet eigenstates of a system with time-averaged Hamiltonian H,
 # driven by the periodic potential contained in drive.
@@ -65,10 +65,10 @@ end
 # For a d-dimensional Hamiltonian, the Fourier-space eigenvectors will have length d*(2*M+1).
 # If timespace=true, these eigenvectors are converted back to time space and will have length dim.
 # """
-# function Spectrum.wavefunctions(HF::FloquetOperator; timespace=false)
+# function Spectrum.geteigvecs(HF::FloquetOperator; timespace=false)
 
 #     HFloq = getFloquetHamiltonian(HF)
-#     U = Spectrum.wavefunctions(HFloq)
+#     U = Spectrum.geteigvecs(HFloq)
 
 #     if timespace
 #         U = transformeigvecs(U, HF.M, 0)

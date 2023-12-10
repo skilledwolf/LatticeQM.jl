@@ -1,5 +1,6 @@
-import ..Meanfield
+import LatticeQM.Meanfield
 # using ..Meanfield: hartreefock_pairing
+import LatticeQM.Utils
 
 mutable struct HartreeFockBDG{K,T2,T<:Hops{K,T2}} <: Meanfield.MeanfieldGenerator{T}
     h::T
@@ -26,7 +27,7 @@ mutable struct HartreeFockBDG{K,T2,T<:Hops{K,T2}} <: Meanfield.MeanfieldGenerato
 end
 
 function Meanfield.HartreeFock(h::BdGOperator{T}, v::T, μ=0.0; hartree=true, fock=true) where {K,T2,T<:Hops{K,T2}}
-    h_el = getelectronsector(h)
+    h_el = Utils.getelectronsector(h)
     HartreeFockBDG(h_el, v, μ; hartree=hartree, fock=fock)
 end
 

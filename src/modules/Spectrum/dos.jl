@@ -73,7 +73,9 @@ end
 function dos_serial!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix{<:Real}; Γ::Number, kwargs...)
     L = size(ks,2)
     function ϵs(k)
-        energies(h(k); kwargs...)
+        let h0 = h(k), kwargs = kwargs
+            Eigen.geteigvals(h0; kwargs...)
+        end
     end
 
     @showprogress 6 "Computing DOS... " for k=eachcol(ks) # j=1:L
@@ -86,7 +88,9 @@ end
 function dos_parallel!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix; Γ::Number, kwargs...)
     L = size(ks,2)
     function ϵs(k)
-        energies(h(k); kwargs...)
+        let h0 = h(k), kwargs = kwargs
+            Eigen.geteigvals(h0; kwargs...)
+        end
     end
 
 
@@ -104,7 +108,9 @@ end
 function dos_serial!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix, kweights::AbstractVector; Γ::Number, kwargs...)
     L = size(ks,2)
     function ϵs(k)
-        energies(h(k); kwargs...)
+        let h0=h(k), kwargs=kwargs
+            Eigen.geteigvals(h0; kwargs...)
+        end
     end
 
     @showprogress 6 "Computing DOS... " for (k,w)=zip(eachcol(ks),kweights) # j=1:L
@@ -117,7 +123,9 @@ end
 function dos_parallel!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix, kweights::AbstractVector; Γ::Number, kwargs...)
     L = size(ks,2)
     function ϵs(k)
-        energies(h(k); kwargs...)
+        let h0 = h(k), kwargs = kwargs
+            Eigen.geteigvals(h0; kwargs...)
+        end
     end
 
 
@@ -150,7 +158,7 @@ end
 # # todo: include into dos!(...)
 # function dos_multithread!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; Γ::Number, kwargs...)
 #     L = size(ks,2)
-#     ϵs = energies(h; kwargs...)
+#     ϵs = geteigvals(h; kwargs...)
 
 #     Threads.@threads for k=ProgressBar(eachcol(ks)) # j=1:L
 #         tmp = zero(DOS)
@@ -170,7 +178,7 @@ end
 # function dos_parallel(h, ks::AbstractMatrix{Float64}, frequencies::AbstractVector{Float64}; Γ::Float64, kwargs...)
 #     L = size(ks)[2]
 #
-#     ϵs = energies(h; kwargs...)
+#     ϵs = geteigvals(h; kwargs...)
 #
 #     dos = @sync @showprogress 1 "Computing DOS... " @distributed (+) for j=1:L # over ks
 #         tmpdos = zero(frequencies)

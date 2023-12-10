@@ -9,9 +9,7 @@ fourierphase(k,δL) = exp(1.0im * 2π * dot(k, δL))
 
 atleast1d(x::Number) = [x]
 atleast1d(x::AbstractArray) = x
-
 fouriersum(hoppings, k) = (k=atleast1d(k); sum(t .* fourierphase(k, δL) for (δL, t) in hoppings))
-# fouriersum(hoppings, k) = (k=atleast1d(k); mapreduce((δL, t) -> t * fourierphase(k, δL), +, hoppings))
 
 function fouriersum(hoppings::Dict{K,T}, k::Real, d::Int) where {K,T}
     N=length(zerokey(hoppings))
@@ -38,24 +36,9 @@ import SparseArrays: SparseMatrixCSC, sparse, spzeros
 import ..Utils
 import ..Utils: dense
 
-# using StaticArrays
-
-# struct Hops{K<:StaticArray,T<:AbstractMatrix{ComplexF64}}
-#     data::Dict{K, T}
-# end
-
-# struct Hops{K<:SVector{N,<:Int} where N, T<:AbstractMatrix{ComplexF64}}
-#     data::Dict{K,T}
-# end
-
-# function Hops{K,T}(d::AbstractDict=Dict()) where {K<:SVector{N,<:Int} where {N},T<:AbstractMatrix{ComplexF64}}
-#     return Hops(Dict{K,T}(d...))
-# end
-# Hops(T::Type=AbstractMatrix{ComplexF64}, N::Int=2) = Hops{SVector{N,Int},T}(Dict())
-
 abstract type AbstractHops{K,T} end
 
-struct Hops{K<:AbstractVector{Int} where {N},T<:AbstractMatrix{ComplexF64}} <: AbstractHops{K,T}
+struct Hops{K<:AbstractVector{<:Int}, T<:AbstractMatrix{ComplexF64}} <: AbstractHops{K,T}
     data::Dict{K,T}
 end
 
@@ -63,7 +46,12 @@ const DenseHops{K}       = Hops{K,Matrix{ComplexF64}}
 const SharedDenseHops{K} = Hops{K,SharedMatrix{ComplexF64}}
 const SparseHops{K}      = Hops{K,SparseMatrixCSC{ComplexF64,Int64}}
 
-(H::Hops)(k) = Hermitian(fouriersum(H, k))
+import SparseArrays
+SparseArrays.issparse(hops::Hops) = false
+SparseArrays.issparse(hops::SparseHops) = true 
+
+# (H::Hops{K,T})(k) where {K,T} = (h0::T = fouriersum(H, k); h0) #Hermitian(fouriersum(H, k))
+(H::Hops{K,T})(k) where {K,T} = fouriersum(H.data, k)
 
 fouriersum(hoppings::Hops{K,T}, k::Real, d::Int) where {K,T} = Hops{K,T}(fouriersum(hoppings.data, k, d))
 
@@ -93,9 +81,11 @@ SharedDenseHops(args...; kwargs...) = shareddense(Hops(args...; kwargs...))
 autoconversion(hops::Hops, N::Int) = (N<MAX_DENSE+1) ? dense(hops) : sparse(hops)
 autoconversion(hops::Hops, N::Int, type::Symbol) = (type == :auto) ? autoconversion(hops, N) : (type == :sparse) ? sparse(hops) : dense(hops)
 
-# Interface to spectrum
-import ..Spectrum
-Spectrum.getelectronsector(H::Hops) = H
+import LatticeQM.Utils
+Utils.getelectronsector(H::Hops) = H
+
+import LatticeQM.Spectrum 
+Spectrum.sanatize_distributed_hamiltonian(H::DenseHops) = shareddense(H)
 
 # Size
 Base.size(H::Hops, args...) = Base.size(first(values(H.data)), args...)
@@ -153,10 +143,6 @@ function ishermitian(H::Hops; tol=sqrt(eps()))
 
     return true
 end
-
-getelectronsector(H::Function) = H
-getelectronsector(H::AbstractMatrix) = H
-getelectronsector(H::Hops) = H
 
 zerokey(h::Hops) = zero(first(keys(h)))
 getzero(h::Hops) = h[zerokey(h)]

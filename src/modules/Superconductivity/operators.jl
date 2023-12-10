@@ -1,10 +1,12 @@
-import ..Operators
-using ..Operators: addchemicalpotential!
+import LatticeQM.Operators
+using LatticeQM.Operators: addchemicalpotential!
 
-using ..TightBinding: Hops, zerokey, hopdim
+using LatticeQM.TightBinding: Hops, zerokey, hopdim
 using SparseArrays#: spzeros
 
-import ..Spectrum
+import LatticeQM.Spectrum
+import LatticeQM.Utils
+
 
 Spectrum.dim(h::BdGOperator, args...) = Spectrum.dim(h.h, args...)
 
@@ -26,17 +28,17 @@ end
 
 function electron(H::BdGOperator)
     d = hopdim(H)
-    BdGOperator(Hops(Dict(zerokey(H)=>zero(first(values(Spectrum.getelectronsector(H))))+1.0*I)))
+    BdGOperator(Hops(Dict(zerokey(H) => zero(first(values(Utils.getelectronsector(H)))) + 1.0 * I)))
 end
 
 
 
 function Operators.localdensity(ρ::BdGOperator, lat::Lattices.Lattice)
-    Operators.localdensity(Spectrum.getelectronsector(ρ), lat)
+    Operators.localdensity(Utils.getelectronsector(ρ), lat)
 end
 
 function Operators.localobservables(ρ::BdGOperator, lat::Lattices.Lattice)
-    ρ0 = Spectrum.getelectronsector(ρ)
+    ρ0 = Utils.getelectronsector(ρ)
     M = Operators.localobservables(ρ0, lat)
 
     Δ= Superconductivity.getpairingsector(ρ) * (1im*Operators.getoperator(lat, "sy"))
@@ -46,7 +48,7 @@ function Operators.localobservables(ρ::BdGOperator, lat::Lattices.Lattice)
 end
 
 function Operators.expval(ρ::BdGOperator, args...; kwargs...)
-    ρ0 = Spectrum.getelectronsector(ρ)
+    ρ0 = Utils.getelectronsector(ρ)
     Δ= Superconductivity.getpairingsector(ρ) * (1im*Operators.getoperator(lat, "sy"))
 
     M = Operators.expval(ρ0, args...; kwargs...)

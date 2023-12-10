@@ -82,11 +82,10 @@ function getpairingview(H::BdGOperator{T}) where {T<:Hops}
     Δ1
 end
 
-# Interface to Spectrum
-import ..Spectrum
-import ..Spectrum: getelectronsector
 
-function Spectrum.getelectronsector(H::BdGOperator{T}) where T<:Hops
+import LatticeQM.Utils
+
+function Utils.getelectronsector(H::BdGOperator{T}) where {T<:Hops}
     hops = T(Dict())
     d = hopdim(H)
 

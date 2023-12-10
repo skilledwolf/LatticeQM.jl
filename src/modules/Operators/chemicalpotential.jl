@@ -11,11 +11,19 @@ function setfilling!(H, filling; nk=100, kwargs...)
     setfilling!(H, kgrid, filling; kwargs...)
 end
 
-import ..Utils
-import ..Spectrum
+import LatticeQM.Spectrum
+import LatticeQM.Utils
+import LatticeQM.TightBinding
 
 function setfilling!(H, kgrid, filling; kwargs...)
-    μ = Spectrum.chemicalpotential(Utils.dense(H), kgrid, filling; kwargs...)
+
+    if get(kwargs, :multimode, :serial) == :distributed
+        h0 = TightBinding.shareddense(H)
+    else
+        h0 = Utils.dense(H)
+    end
+
+    μ = Spectrum.chemicalpotential(h0, kgrid, filling; kwargs...)
     addchemicalpotential!(H, -μ)
     μ
 end

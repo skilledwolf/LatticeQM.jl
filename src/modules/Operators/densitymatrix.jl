@@ -55,8 +55,9 @@ end
 ###################################################################################################
 ###################################################################################################
 
-import ..Spectrum: spectrum
-import ..TightBinding: efficientzero, flexibleformat!, fourierphase
+import LatticeQM.Spectrum
+import LatticeQM.Eigen
+import LatticeQM.TightBinding: efficientzero, flexibleformat!, fourierphase
 
 function densitymatrix_distributed!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
     L = size(ks, 2)
@@ -71,7 +72,7 @@ function densitymatrix_distributed!(ρs::AbstractHops, H, ks::AbstractMatrix{Flo
 
     @sync @showprogress dt = Spectrum.PROGRESSBAR_MINTIME desc = PROGRESSBAR_DENSMAT_DEFAULTLABEL enabled = Spectrum.PROGRESSBAR_SHOWDEFAULT @distributed for i_ = 1:L
         k = ks[:, i_]
-        ϵs_k, U_k = spectrum(H(k); kwargs...)
+        ϵs_k, U_k = Eigen.geteigen(H(k); kwargs...)
         fd_k = fermidirac.(real.(ϵs_k .- μ); T=T)
 
         w = kweights[i_]
@@ -111,7 +112,7 @@ function densitymatrix_serial!(ρs::TightBinding.AbstractHops, H, ks::AbstractMa
         k = ks[:, i_]
         w_k = kweights[i_]
 
-        ϵs_k, U_k = Spectrum.spectrum(H(k); kwargs...)
+        ϵs_k, U_k = Eigen.geteigen(H(k); kwargs...)
         fd_k = fermidirac.(real.(ϵs_k .- μ); T=T)
         phases = fourierphases[:, i_]
 
@@ -140,7 +141,7 @@ end
 
 #     function getspectrum(i_)
 #         k = ks[:, i_]
-#         spectrum(H(k); kwargs...)
+#         Eigen.geteigen(H(k); kwargs...)
 #     end
 
 #     # Launch spectrum calculations

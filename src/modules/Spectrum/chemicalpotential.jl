@@ -20,7 +20,8 @@ end
 
 
 # import NLsolve # add 1-2 seconds of load time to the package :(
-import ..Utils: fermidirac#, brentq
+import LatticeQM.Utils
+import LatticeQM.Utils: fermidirac
 
 import Roots
 
@@ -45,16 +46,14 @@ end
 # Interface of chemicalpotential to Hamiltonian type
 ##########################################################################################
 
-getelectronsector(H::Function) = H
-
 function chemicalpotential(H, ks, filling::Real; multimode = :distributed, kwargs...)
-    chemicalpotential(bandmatrix(getelectronsector(H), ks; multimode = multimode, progress_label="Chemical potential")[1], ks, filling; kwargs...)
+    H = Utils.dense(Utils.getelectronsector(H))
+    chemicalpotential(bandmatrix(H, ks; multimode = multimode, progress_label="Chemical potential")[1], ks, filling; kwargs...)
 end
 
 function chemicalpotential(H, ks, fillings::AbstractVector; multimode = :distributed, kwargs...)
-
-    bands = bandmatrix(getelectronsector(H), ks; multimode = multimode)[1] # compute once to determine multiple fillings later on
-
+    H = Utils.dense(Utils.getelectronsector(H))
+    bands = bandmatrix(H, ks; multimode = multimode)[1] # compute once to determine multiple fillings later on
     [chemicalpotential(bands, ks, filling; kwargs...) for filling in fillings]
 end
 
@@ -83,26 +82,25 @@ getfilling(bands::AbstractMatrix, weights::AbstractVector; kwargs...) = sum(weig
 
 function filling(H, ks, μ; multimode = :distributed, kwargs...)
 
-    getfilling(bandmatrix(getelectronsector(H), ks; multimode = multimode)[1], ks; μ = μ, kwargs...)
+    getfilling(bandmatrix(Utils.getelectronsector(H), ks; multimode = multimode)[1], ks; μ = μ, kwargs...)
 end
 
 import ..Structure: regulargrid
 
 function filling(H, μ; multimode = :distributed, nk = 10, kwargs...)
     ks = regulargrid(nk = nk^2)
-
-    getfilling(bandmatrix(getelectronsector(H), ks; multimode = multimode)[1]; μ = μ, kwargs...)
+    getfilling(bandmatrix(Utils.getelectronsector(H), ks; multimode = multimode)[1]; μ = μ, kwargs...)
 end
 
 function fillings(H, ks, μs; kwargs...)
-    bandmatrix = bandmatrix(getelectronsector(H), ks; multimode = multimode)[1]
+    bandmatrix = bandmatrix(Utils.getelectronsector(H), ks; multimode = multimode)[1]
 
     getfillings(bandmatrix, μs, ks; kwargs...)
 end
 
 function fillings(H, μs; nk=10, kwargs...)
     ks = regulargrid(nk = nk^2)
-    bandmatrix = bandmatrix(getelectronsector(H), ks; multimode = multimode)[1]
+    bandmatrix = bandmatrix(Utils.getelectronsector(H), ks; multimode = multimode)[1]
 
     getfillings(bandmatrix, μs, ks; kwargs...)
 end

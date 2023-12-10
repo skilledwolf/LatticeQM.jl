@@ -3,6 +3,8 @@ const plt = PyPlot;
 
 using Statistics: quantile
 
+import LatticeQM.Spectrum
+
 PiYG = plt.get_cmap("PiYG", 12)
 colors = [PiYG(0.0), PiYG(0.125), (0.0,0.0,0.0,1.0), PiYG(0.875), PiYG(1.0)]
 cm_PiBlYG = plt.matplotlib.colors.LinearSegmentedColormap.from_list("PiBlYG", colors, N=50)
@@ -10,7 +12,7 @@ BWR = plt.get_cmap("bwr",12)
 colors = [BWR(0.0), BWR(0.125), (0.0,0.0,0.0,1.0), BWR(0.875), BWR(1.0)]
 cm_BBR = plt.matplotlib.colors.LinearSegmentedColormap.from_list("BBR", colors, N=50)
 
-function plt.plot(bands::LatticeQM.Spectrum.BandData, n::Integer=1; cmap=cm_BBR, clim=nothing, cmode=:symmetric, kwargs...)
+function plt.plot(bands::Spectrum.BandData, n::Integer=1; cmap=cm_BBR, clim=nothing, cmode=:symmetric, kwargs...)
     
     if size(bands.obs,3) == 0 || n==0
         bandcolors=:none
