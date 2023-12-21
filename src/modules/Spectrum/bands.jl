@@ -10,6 +10,23 @@ const PROGRESSBAR_SHOWDEFAULT = true::Bool
 const PROGRESSBAR_BANDMATRIX_DEFAULTKWARGS = Dict(:hidebar => !PROGRESSBAR_SHOWDEFAULT, :progress_label => PROGRESSBAR_DIAG_DEFAULTLABEL)
 
 ################################################################################
+# Spectrum helper, can be specialized by other modules
+################################################################################
+
+function geteigenMapWithBuffer!(h::AbstractMatrix, H, k; kwargs...)
+    h .= H(k)
+    Eigen.geteigen(h; kwargs...)
+end
+
+function getSpectrumMap(H; kwargs...)
+    k -> Eigen.geteigen(H(k); kwargs...)
+end
+
+function getspectrum(H, k; kwargs...)
+    Eigen.geteigen(H(k); kwargs...)
+end
+
+################################################################################
 # dim helper functions (Should maybe be moved to Utils?)
 ################################################################################
 
@@ -136,30 +153,27 @@ end
 
 function bandmatrix_serial!(bands, obs, H, ks, projectors; hidebar=!PROGRESSBAR_SHOWDEFAULT, progress_label=PROGRESSBAR_DIAG_DEFAULTLABEL, kwargs...)
 
+    # spectrum = getSpectrumMap(H, kwargs...)
     # spectrum = let H0 = H, kwargs = kwargs
-    #         k -> Eigen.geteigen(H0(k); kwargs...)
-    #     end
-
-    spectrum = k -> Eigen.geteigen(H(k); kwargs...)
+    #     k -> Eigen.geteigen(H0(k); kwargs...)
+    # end
+    # H0::T = H # captured variable performance issue?
+    # spectrum = k -> Eigen.geteigen(H(k); kwargs...)
 
     @showprogress dt=PROGRESSBAR_MINTIME desc="$(progress_label) (S)" enabled=!hidebar for j_ = axes(bands, 2)
         # Hk::T = H(ks[:, j_])
-        spectrum_k = spectrum(ks[:, j_])
+        spectrum_k = getspectrum(H, ks[:, j_]; kwargs...)
         @views insertbands_bandexpvals_k!(bands[:, j_], obs[:, j_, :], spectrum_k, ks[:, j_], projectors)
     end
     bands, obs
 end
 
-function bandmatrix_distributed!(bands, obs, H, ks, projectors; hidebar=!PROGRESSBAR_SHOWDEFAULT, progress_label=PROGRESSBAR_DIAG_DEFAULTLABEL, kwargs...)
-    # spectrum = let H0 = H, kwargs = kwargs
-    #     k -> Eigen.geteigen(H0(k); kwargs...)
-    # end
+function bandmatrix_distributed!(bands, obs, H::T, ks, projectors; hidebar=!PROGRESSBAR_SHOWDEFAULT, progress_label=PROGRESSBAR_DIAG_DEFAULTLABEL, kwargs...) where {T}
 
-    spectrum = k -> Eigen.geteigen(H(k); kwargs...)
-
+    # spectrum = getSpectrumMap(H, kwargs...)
     @sync @showprogress dt=PROGRESSBAR_MINTIME desc="$(progress_label) (D)" enabled=!hidebar @distributed for j_ = axes(bands, 2)
-        # Hk::T = H(ks[:, j_])
-        @views insertbands_bandexpvals_k!(bands[:, j_], obs[:, j_, :], spectrum(ks[:,j_]), ks[:, j_], projectors)
+        spectrumk = getspectrum(H, ks[:, j_]; kwargs...)
+        @views insertbands_bandexpvals_k!(bands[:, j_], obs[:, j_, :], spectrumk, ks[:, j_], projectors)
     end
     bands, obs
 end
@@ -195,16 +209,11 @@ end
 function bandmatrix_multithreaded!(bands, obs, H, ks, projectors; hidebar=!PROGRESSBAR_SHOWDEFAULT, progress_label=PROGRESSBAR_DIAG_DEFAULTLABEL, kwargs...)
     !hidebar && (p = Progress(size(bands, 2), PROGRESSBAR_MINTIME, "$(progress_label) (MT)"))
 
-    # spectrum = let H0 = H, kwargs = kwargs
-    #     k -> Eigen.geteigen(H0(k); kwargs...)
-    # end
+    # spectrum = getSpectrumMap(H, kwargs...)
 
-    spectrum = k -> Eigen.geteigen(H(k); kwargs...)
-
-    # T = typeof(H(ks[:, 1]))
     Threads.@threads :static for j_ = axes(bands, 2)
-        # Hk::T = H(ks[:, j_])
-        insertbands_bandexpvals_k!(view(bands, :, j_), view(obs, :, j_, :), spectrum(ks[:, j_]), ks[:, j_], projectors)
+        spectrumk = getspectrum(H, ks[:, j_]; kwargs...)
+        insertbands_bandexpvals_k!(view(bands, :, j_), view(obs, :, j_, :), spectrumk, ks[:, j_], projectors)
         !hidebar && next!(p)
     end
     !hidebar && finish!(p)
@@ -249,6 +258,41 @@ plot(bands)
 function getbands(H, ks, projectors...; kwargs...)
     bands, obs = bandmatrix(H, ks, projectors...; kwargs...)
     BandData(bands, obs, ks)
+end
+
+
+################################################################################
+# Calculate bandgap
+################################################################################
+
+import LatticeQM.Structure: regulargrid
+
+function bandgap_filling(H, filling::Real; klin=30, kwargs...)
+    kgrid = regulargrid(; nk=klin^2)
+    bandgap_filling(H, kgrid, filling; kwargs...)
+end
+
+function bandgap_filling(H, ks, filling::Real; multimode=:distributed, kwargs...)
+    # Calculate the gap around in which the Fermi level lies
+    bands = bandmatrix(H, ks; multimode=multimode)[1] # dense diagonalization (default)!
+    μ = chemicalpotential(bands, ks, filling; kwargs...)
+
+    bandgap_energy(bands, μ)
+end
+
+function bandgap(H, μ::Real=0.0; klin=10, multimode=:distributed) # Note: dense diagonalization!
+    # Calculate the gap around in which the Fermi level lies
+    kgrid = regulargrid(; nk=klin^2)
+    bandgap_energy(bandmatrix(H, kgrid; multimode=multimode)[1], μ)
+end
+
+function bandgap_energy(H, ks, μ::Real=0.0, multimode=:distributed) # Note: dense diagonalization!
+    # Calculate the gap around in which the Fermi level lies
+    bandgap_energy(bandmatrix(H, ks; multimode=multimode)[1], μ)
+end
+
+function bandgap_energy(bands::AbstractMatrix, μ::Real)
+    minimum(bands[bands.>=μ]) - maximum(bands[bands.<=μ])
 end
 
 

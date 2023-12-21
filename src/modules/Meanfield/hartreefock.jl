@@ -7,7 +7,7 @@
     using solve_selfconsistent(...).
 """
 
-import ..TightBinding: zerokey
+import LatticeQM.TightBinding: zerokey
 
 abstract type MeanfieldGenerator{T} end
 

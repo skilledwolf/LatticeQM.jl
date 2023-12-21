@@ -4,11 +4,11 @@ using ProgressMeter
 # import Tullio # for tensor contractions
 # import TensorOperations # for tensor contractions
 
-import ..Utils: fermidirac
-import ..TightBinding: Hops, AbstractHops
-import ..Spectrum: dim
-import ..TightBinding: fourierphase
-import ..Structure: Mesh, meshweights
+import LatticeQM.Utils: fermidirac
+import LatticeQM.TightBinding: Hops, AbstractHops
+import LatticeQM.Spectrum: dim
+import LatticeQM.TightBinding: fourierphase
+import LatticeQM.Structure: Mesh, meshweights
 
 const PROGRESSBAR_DENSMAT_DEFAULTLABEL = "Density matrix"::String
 
@@ -59,7 +59,7 @@ import LatticeQM.Spectrum
 import LatticeQM.Eigen
 import LatticeQM.TightBinding: efficientzero, flexibleformat!, fourierphase
 
-function densitymatrix_distributed!(ρs::AbstractHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...)
+function densitymatrix_distributed!(ρs::AbstractHops, H::T1, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, progressmin::Int=20, kwargs...) where {T1}
     L = size(ks, 2)
 
     energies = SharedArray(zeros(Float64, L))
@@ -70,9 +70,14 @@ function densitymatrix_distributed!(ρs::AbstractHops, H, ks::AbstractMatrix{Flo
 
     fourierphases = [fourierphase(-k, δL) for δL in δLs, k in eachcol(ks)]  
 
+    # spectrum = getSpectrumMap(H, kwargs...)
+
     @sync @showprogress dt = Spectrum.PROGRESSBAR_MINTIME desc = PROGRESSBAR_DENSMAT_DEFAULTLABEL enabled = Spectrum.PROGRESSBAR_SHOWDEFAULT @distributed for i_ = 1:L
-        k = ks[:, i_]
-        ϵs_k, U_k = Eigen.geteigen(H(k); kwargs...)
+        
+        # h0::Matrix{ComplexF64} = H(ks[:, i_])
+        # ϵs_k, U_k = Eigen.geteigen(h0; kwargs...)
+        ϵs_k, U_k = Spectrum.getspectrum(H, ks[:, i_]; kwargs...)
+        # ϵs_k, U_k = spectrum(k)
         fd_k = fermidirac.(real.(ϵs_k .- μ); T=T)
 
         w = kweights[i_]
@@ -83,19 +88,61 @@ function densitymatrix_distributed!(ρs::AbstractHops, H, ks::AbstractMatrix{Flo
         for j_ = axes(ρ0, 3)
             ρ0[:, :, j_] .+= w .* phases[j_] .* U_k
         end
+        U_k = nothing
 
         energies[i_] = real(w * sum(ϵs_k .* fd_k))
         # GC.gc() # force garbage collection
     end
 
     flexibleformat!(ρs, ρ0, δLs)
+    ρ0 = nothing
     sum(energies) # return the kinetic part of the gs energy
 end
 
+# function densitymatrix_distributed!(ρs::TightBinding.SharedDenseHops, H::T1, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, kwargs...) where {T1}
 
-import ..Spectrum
+#     L = size(ks, 2)
+#     energies = SharedArray(zeros(Float64, L))
 
-function densitymatrix_serial!(ρs::TightBinding.AbstractHops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, kwargs...)
+#     δLs = keys(ρs)
+#     for δL in δLs
+#         ρs[δL] .= 0.0
+#     end
+
+#     fourierphases = [TightBinding.fourierphase(-k, δL) for δL in δLs, k in eachcol(ks)]
+
+#     # spectrum = let H0::T1 = H, kwargs = kwargs
+#     #     k -> Eigen.geteigen(H0(k); kwargs...)
+#     # end
+
+#     # spectrum = k -> Eigen.geteigen(H(k); kwargs...)
+
+#     @sync @showprogress dt = Spectrum.PROGRESSBAR_MINTIME desc = PROGRESSBAR_DENSMAT_DEFAULTLABEL enabled = Spectrum.PROGRESSBAR_SHOWDEFAULT @distributed for i_ = 1:L
+#         k = ks[:, i_]
+#         w_k = kweights[i_]
+
+#         # ϵs_k, U_k = spectrum(k)
+#         h0::Matrix{ComplexF64} = H(k)
+#         ϵs_k, U_k = Eigen.geteigen(h0; kwargs...)
+#         fd_k = fermidirac.(real.(ϵs_k .- μ); T=T)
+#         phases = fourierphases[:, i_]
+
+#         ρ_k = U_k * Diagonal(fd_k) * U_k'
+
+#         for (n_, δL) in enumerate(δLs)
+#             ρs[δL] .+= w_k .* ρ_k .* phases[n_]
+#         end
+
+#         energies[i_] = real(w_k * sum(ϵs_k .* fd_k))
+#     end
+
+#     sum(energies) # return the kinetic part of the gs energy
+# end
+
+
+import LatticeQM.Spectrum
+
+function densitymatrix_serial!(ρs::TightBinding.Hops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64}, μ::Float64=0.0; T::Real=0.01, kwargs...)
 
     L = size(ks, 2)
     energies = zeros(Float64, L)
@@ -108,11 +155,13 @@ function densitymatrix_serial!(ρs::TightBinding.AbstractHops, H, ks::AbstractMa
     fourierphases = [TightBinding.fourierphase(-k, δL) for δL in δLs, k in eachcol(ks)]
     ρ_k = zeros(ComplexF64, size(H))
 
+    # spectrum = getSpectrumMap(H, kwargs...)
+
     @showprogress dt=Spectrum.PROGRESSBAR_MINTIME desc=PROGRESSBAR_DENSMAT_DEFAULTLABEL enabled=Spectrum.PROGRESSBAR_SHOWDEFAULT for i_ = 1:L
-        k = ks[:, i_]
         w_k = kweights[i_]
 
-        ϵs_k, U_k = Eigen.geteigen(H(k); kwargs...)
+        # ϵs_k, U_k = spectrum(k)
+        ϵs_k, U_k = Spectrum.getspectrum(H, ks[:, i_]; kwargs...)
         fd_k = fermidirac.(real.(ϵs_k .- μ); T=T)
         phases = fourierphases[:, i_]
 

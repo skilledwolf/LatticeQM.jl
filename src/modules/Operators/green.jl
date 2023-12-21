@@ -41,7 +41,7 @@ end
 ###################################################################################################
 
 import LatticeQM.Eigen
-import LatticeQM.Spectrum
+import LatticeQM.Utils
 
 function green_parallel!(G::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
     L = size(ks,2)
@@ -64,7 +64,7 @@ function green_parallel!(G::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Fl
             while done < L
                 (i_, ϵs, U) = take!(channel) # read the result from channel (wait if necessary)
                 green!(G, ks[:,i_], ϵs.-μ, U; T=T)
-                energies0_k[i_] = Spectrum.groundstate_sumk(real(ϵs), μ)
+                energies0_k[i_] = Utils.groundstate_sumk(real(ϵs), μ)
                 done = done+1
             end
         end
@@ -104,7 +104,7 @@ function green_serial!(G::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Floa
         energies_k, U_k = spectrumf(k) #@time
 
         green!(G, k, energies_k.-μ, U_k; T=T)
-        energies0_k[i_] = Spectrum.groundstate_sumk(real(energies_k), μ)
+        energies0_k[i_] = Utils.groundstate_sumk(real(energies_k), μ)
     end
 
     for δL = keys(G)

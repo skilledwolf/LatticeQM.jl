@@ -17,13 +17,13 @@ import LatticeQM.TightBinding
 
 function setfilling!(H, kgrid, filling; kwargs...)
 
-    if get(kwargs, :multimode, :serial) == :distributed
-        h0 = TightBinding.shareddense(H)
-    else
-        h0 = Utils.dense(H)
-    end
+    # if get(kwargs, :multimode, :serial) == :distributed
+    #     h0 = TightBinding.shareddense(H)
+    # else
+    #     h0 = Utils.dense(H)
+    # end
 
-    μ = Spectrum.chemicalpotential(h0, kgrid, filling; kwargs...)
+    μ = Spectrum.chemicalpotential(H, kgrid, filling; kwargs...)
     addchemicalpotential!(H, -μ)
     μ
 end

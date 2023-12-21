@@ -47,13 +47,13 @@ end
 ##########################################################################################
 
 function chemicalpotential(H, ks, filling::Real; multimode = :distributed, kwargs...)
-    H = Utils.dense(Utils.getelectronsector(H))
-    chemicalpotential(bandmatrix(H, ks; multimode = multimode, progress_label="Chemical potential")[1], ks, filling; kwargs...)
+    H0 = Utils.dense(Utils.getelectronsector(H))
+    chemicalpotential(bandmatrix(H0, ks; multimode = multimode, progress_label="Chemical potential")[1], ks, filling; kwargs...)
 end
 
 function chemicalpotential(H, ks, fillings::AbstractVector; multimode = :distributed, kwargs...)
-    H = Utils.dense(Utils.getelectronsector(H))
-    bands = bandmatrix(H, ks; multimode = multimode)[1] # compute once to determine multiple fillings later on
+    H0 = Utils.dense(Utils.getelectronsector(H))
+    bands = bandmatrix(H0, ks; multimode = multimode)[1] # compute once to determine multiple fillings later on
     [chemicalpotential(bands, ks, filling; kwargs...) for filling in fillings]
 end
 

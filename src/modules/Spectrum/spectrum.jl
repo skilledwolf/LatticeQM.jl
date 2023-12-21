@@ -1,29 +1,13 @@
-# __precompile__()
-
 module Spectrum
 
-    using LinearAlgebra
-    # using KrylovKit
+using LinearAlgebra
+import LatticeQM.Eigen
 
-    import LatticeQM.Eigen
+include("types.jl")
+include("bands.jl")
+include("chemicalpotential.jl")
+include("fermisurface.jl")
+include("dos.jl")
+include("berry.jl")
 
-    include("types.jl")
-    # include("expval.jl")
-
-    include("bands.jl")
-    # export getbands, spectrum
-    include("chemicalpotential.jl")
-    # export chemicalpotential
-
-    include("bandgap.jl")
-    include("groundstatesum.jl")
-
-    include("fermisurface.jl")
-
-    include("dos.jl")
-    include("ldos.jl")
-    include("density.jl")
-
-    include("berry.jl")
-
-end
+end # module Spectrum

@@ -9,7 +9,20 @@ fourierphase(k,δL) = exp(1.0im * 2π * dot(k, δL))
 
 atleast1d(x::Number) = [x]
 atleast1d(x::AbstractArray) = x
-fouriersum(hoppings, k) = (k=atleast1d(k); sum(t .* fourierphase(k, δL) for (δL, t) in hoppings))
+
+function fouriersum(hoppings, k)
+    k=atleast1d(k)
+    sum(t .* fourierphase(k, δL) for (δL, t) in hoppings)
+end
+
+function fouriersum!(out::AbstractMatrix, hoppings, k)
+    out .= 0
+    k=atleast1d(k)
+    for (δL, t) in hoppings
+        out .+= t .* fourierphase(k, δL)
+    end
+    out
+end
 
 function fouriersum(hoppings::Dict{K,T}, k::Real, d::Int) where {K,T}
     N=length(zerokey(hoppings))
@@ -33,8 +46,8 @@ end
 import SharedArrays: SharedArray, SharedMatrix
 import SparseArrays
 import SparseArrays: SparseMatrixCSC, sparse, spzeros
-import ..Utils
-import ..Utils: dense
+import LatticeQM.Utils
+# import ..Utils: dense
 
 abstract type AbstractHops{K,T} end
 
@@ -52,10 +65,14 @@ SparseArrays.issparse(hops::SparseHops) = true
 
 # (H::Hops{K,T})(k) where {K,T} = (h0::T = fouriersum(H, k); h0) #Hermitian(fouriersum(H, k))
 (H::Hops{K,T})(k) where {K,T} = fouriersum(H.data, k)
+fouriersum!(out::AbstractMatrix, H::Hops{K,T}, k) where {K,T} = fouriersum!(out, H.data, k)
 
 fouriersum(hoppings::Hops{K,T}, k::Real, d::Int) where {K,T} = Hops{K,T}(fouriersum(hoppings.data, k, d))
 
 # Hops{K,T}(d::AbstractDict) where {K<:AbstractVector{Int},T<:AbstractMatrix{ComplexF64}} = (print("miau"); ) # Hops{K,T}(Dict{K,T}(d...))
+
+# todo: change the logic here:
+# Hops is very flexible, but DenseHops, SparseHops, and SharedDenseHops create unnecessary copies of Hops first
 
 Hops(hops::Hops) = hops
 Hops(T::Type=AbstractMatrix{ComplexF64}, K::Type=Vector{Int}) = Hops{K,T}(Dict{K,T}()) #
@@ -64,14 +81,14 @@ Hops(kv::Pair...) = Hops(Dict(k=>v for (k,v) in kv))
 Hops(G::Base.Generator) = Hops(Dict(G...))
 
 # Dense conversion
-Utils.dense(hops::DenseHops) = hops
-Utils.dense(hops::Hops{K,T}) where {K,T<:AbstractMatrix{ComplexF64}} = DenseHops{K}(Dict(k => Matrix{ComplexF64}(v) for (k, v) in hops.data))
-DenseHops(args...; kwargs...) = dense(Hops(args...; kwargs...))
+Utils.dense(hops::DenseHops) = hops # does not create new instance, pass by reference
+Utils.dense(hops::Hops{K,T}) where {K,T<:AbstractMatrix{ComplexF64}} = DenseHops{K}(Dict(k => Utils.dense(v) for (k, v) in hops.data)) # creates new instances, copies data
+DenseHops(args...; kwargs...) = Utils.dense(Hops(args...; kwargs...)) # uses constructors of Hops to create object, and dense(...) to potentially create yet another copy. This seems wasteful
 
 # Sparse conversion
 SparseArrays.sparse(hops::SparseHops) = hops
 SparseArrays.sparse(hops::Hops{K,T}) where {K,T<:AbstractMatrix{ComplexF64}} = SparseHops{K}(Dict(k => sparse(v) for (k, v) in hops.data))
-SparseHops(args...; kwargs...) = sparse(Hops(args...; kwargs...))
+SparseHops(args...; kwargs...) = sparse(Hops(args...; kwargs...)) # uses constructors of Hops to create object, and sparse(...) to potentially create yet another copy. This seems wasteful
 
 # Shared conversion
 shareddense(hops::SharedDenseHops) = hops
@@ -286,7 +303,7 @@ function efficientformat(ρ::Hops)
     
     keylist = []
     for (i,δL) in enumerate(keys(ρ))
-        A[:,:,i] .= ρ[δL][:,:]
+        A[:,:,i] .= ρ[δL]
         append!(keylist, [δL])
     end
     
@@ -305,14 +322,14 @@ function efficientzero(ρ::Hops)
 end
 
 function flexibleformat(A::AbstractArray, keylist::AbstractVector)
-    Dict(L=>Matrix(m) for (L,m)=zip(keylist, eachslice(A; dims=3)))
+    Dict(L=>m for (L,m)=zip(keylist, eachslice(A; dims=3)))
 end
 
 function flexibleformat!(ρ::Hops, A::AbstractArray, keylist::AbstractVector)
     for (j_,L)=enumerate(keylist)
         # ρ[L][:,:] .= m[:,:]
         # copyto!(ρ[L][:,:], A[:,:,j_])
-        ρ[L][:,:] .= A[:,:,j_]
+        ρ[L] .= A[:,:,j_]
     end
     ρ
 end

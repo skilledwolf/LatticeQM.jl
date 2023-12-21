@@ -1,4 +1,5 @@
 # using JLD
+import LatticeQM.Utils
 import LatticeQM.Structure
 import LatticeQM.Operators
 import LatticeQM.Spectrum
@@ -8,7 +9,7 @@ using LatticeQM.Utils.Context
 # Specialized cases
 solvehartreefock(h::T, v, ρ_init, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v), filling, args...; kwargs...)
 solvefock(h::T, v, ρ_init, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=false, fock=true), filling, args...; kwargs...)
-solvehartree(h::T, v, ρ_init, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=false, fock=true), filling, args...; kwargs...)
+solvehartree(h::T, v, ρ_init, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=true, fock=false), filling, args...; kwargs...)
 
 # Interface to solveselfconsistent!(ρ0, ...)
 solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling::Number, ks; kwargs...) = solveselfconsistent!(deepcopy(ρ0), mf, filling, ks; kwargs...)
@@ -25,7 +26,7 @@ function solveselfconsistent!(ρ0::T, ρ1::T, mf::MeanfieldGenerator, filling::F
     solveselfconsistent!(c, ρ0, ρ1, mf::MeanfieldGenerator, filling::Float64, ks; kwargs...)
 end
 
-solveselfconsistent!(::SerialContext, ρ0::T, ρ1::T, args...; kwargs...) where {T} = solveselfconsistent!(DummyContext(), TightBinding.dense(ρ0), TightBinding.dense(ρ1), args...; multimode=:serial, kwargs...)
+solveselfconsistent!(::SerialContext, ρ0::T, ρ1::T, args...; kwargs...) where {T} = solveselfconsistent!(DummyContext(), Utils.dense(ρ0), Utils.dense(ρ1), args...; multimode=:serial, kwargs...)
 solveselfconsistent!(::DistributedContext, ρ0::T, ρ1::T, args...; kwargs...) where {T} = solveselfconsistent!(DummyContext(), TightBinding.shareddense(ρ0), TightBinding.shareddense(ρ1), args...; multimode=:distributed, kwargs...)
 
 function solveselfconsistent!(::MultiThreadedContext, args...; kwargs...)
@@ -61,27 +62,50 @@ function solveselfconsistent!(::DummyContext, ρ0::T1, ρ1::T1, hartreefock::Mea
     # println("rho0: ", typeof(ρ0))
     # println("rho1: ", typeof(ρ1))
 
-    function update!(ρ1, ρ0)
-        
-        hartreefock(ρ0) # update meanfield (h is updated in-place)
+    update! = let hartreefock = hartreefock, ks = ks, filling = filling, T = T, multimode = multimode, verbose = verbose, callback = callback
+        function f(ρ1, ρ0)
+            hartreefock(ρ0) # update meanfield (h is updated in-place)
 
-        verbose ? @info("Updating chemical potential for given filling...") : nothing
-        hartreefock.μ = Spectrum.chemicalpotential(hMF(hartreefock), ks, filling; T=T, multimode=multimode)
+            verbose ? @info("Updating chemical potential for given filling...") : nothing
+            hartreefock.μ = Spectrum.chemicalpotential(hMF(hartreefock), ks, filling; T=T, multimode=multimode)
 
+            verbose ? @info("Updating the mean field density matrix...") : nothing
+            ϵ0 = Operators.getdensitymatrix!(ρ1, hMF(hartreefock), ks, hartreefock.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
+            # hartreefock(ρ0) # should actually not be needed here
 
-        verbose ? @info("Updating the mean field density matrix...") : nothing
-        ϵ0 = Operators.getdensitymatrix!(ρ1, hMF(hartreefock), ks, hartreefock.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
-        # hartreefock(ρ0) # should actually not be needed here
-        
-        callback(ρ1)
+            callback(ρ1)
 
-        # if checkpoint != ""
-        #     verbose ? @info("Saving intermediate mean field...") : nothing
-        #     JLD.save(checkpoint, "mf", DenseHops(ρ1))
-        # end
+            # if checkpoint != ""
+            #     verbose ? @info("Saving intermediate mean field...") : nothing
+            #     JLD.save(checkpoint, "mf", DenseHops(ρ1))
+            # end
 
-        ϵ0 + hartreefock.ϵMF # proper ground state energy
+            ϵ0 + hartreefock.ϵMF # proper ground state energy
+        end
+        f
     end
+
+    # function update!(ρ1, ρ0)
+        
+    #     hartreefock(ρ0) # update meanfield (h is updated in-place)
+
+    #     verbose ? @info("Updating chemical potential for given filling...") : nothing
+    #     hartreefock.μ = Spectrum.chemicalpotential(hMF(hartreefock), ks, filling; T=T, multimode=multimode)
+
+
+    #     verbose ? @info("Updating the mean field density matrix...") : nothing
+    #     ϵ0 = Operators.getdensitymatrix!(ρ1, hMF(hartreefock), ks, hartreefock.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
+    #     # hartreefock(ρ0) # should actually not be needed here
+        
+    #     callback(ρ1)
+
+    #     # if checkpoint != ""
+    #     #     verbose ? @info("Saving intermediate mean field...") : nothing
+    #     #     JLD.save(checkpoint, "mf", DenseHops(ρ1))
+    #     # end
+
+    #     ϵ0 + hartreefock.ϵMF # proper ground state energy
+    # end
 
     # Compute the ground state energy for the mean-field fixed point
     ϵ_GS, residual, converged = fixedpoint!(update!, ρ1, ρ0; iterations=iterations, tol=tol, verbose=verbose, kwargs...)
@@ -92,5 +116,5 @@ function solveselfconsistent!(::DummyContext, ρ0::T1, ρ1::T1, hartreefock::Mea
     hartreefock(ρ1) # update meanfield (h is updated in-place)
 
 
-    dense(ρ1), ϵ_GS, hartreefock, converged, residual
+    Utils.dense(ρ1), ϵ_GS, hartreefock, converged, residual
 end
