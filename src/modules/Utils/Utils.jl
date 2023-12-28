@@ -29,9 +29,11 @@ module Utils
     dense(A::SharedArrays.SharedArray) = A
     dense(A::Hermitian{T,Matrix{T}}) where {T} = A
     dense(A::Hermitian{T,SharedArrays.SharedMatrix{T}}) where {T} = A
+    dense(A::SubArray) = Array(A) # for now dense creates copies of views instead of returning the view
     # Create dense copies for sparse cases
     dense(A::SparseArrays.SparseMatrixCSC) = Array(A)
     dense(A::Hermitian{T,SparseArrays.SparseMatrixCSC{T,K}}) where {T,K} = Hermitian(Array(A))
+
 
     export dense
 

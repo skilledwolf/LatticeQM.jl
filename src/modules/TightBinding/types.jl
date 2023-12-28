@@ -58,6 +58,7 @@ end
 const DenseHops{K}       = Hops{K,Matrix{ComplexF64}}
 const SharedDenseHops{K} = Hops{K,SharedMatrix{ComplexF64}}
 const SparseHops{K}      = Hops{K,SparseMatrixCSC{ComplexF64,Int64}}
+# const ViewHops{K,T<:SubArray} = Hops{K,T} # todo: run checks
 
 import SparseArrays
 SparseArrays.issparse(hops::Hops) = false

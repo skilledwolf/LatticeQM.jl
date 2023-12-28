@@ -22,9 +22,9 @@ function getSpectrumMap(H; kwargs...)
     k -> Eigen.geteigen(H(k); kwargs...)
 end
 
-function getspectrum(H, k; kwargs...)
-    Eigen.geteigen(H(k); kwargs...)
-end
+# function getspectrum!(H, k; kwargs...)
+#     Eigen.geteigen!(H(k); kwargs...)
+# end
 
 ################################################################################
 # dim helper functions (Should maybe be moved to Utils?)
@@ -59,15 +59,23 @@ handleprojector(projector::AbstractVector{<:AbstractExpvalMap}) = projector
 # Low-level helper functions
 ################################################################################
 
-function assert_realeigvals(ϵs)
-    imag_check = imag.(ϵs) .< IMAG_THRESHOLD
-    @assert all(imag_check) "Imaginary eigenvalues encountered!: $(ϵs[.!imag_check])"
-end
-
 function bandmatrix_size(H, ks; kwargs...)
     D = get(kwargs, :num_bands, dim(H, ks))::Int # check if num_bands is given
     N = size(ks, 2)
     D, N
+end
+
+function bandmatrix_preallocate(H, ks, projectors; kwargs...)
+    D, N = bandmatrix_size(H, ks; kwargs...)
+    L = length(projectors)
+    bands = zeros(Float64, D, N)
+    obs = zeros(Float64, D, N, L)
+    bands, obs
+end
+
+function assert_realeigvals(ϵs)
+    imag_check = imag.(ϵs) .< IMAG_THRESHOLD
+    @assert all(imag_check) "Imaginary eigenvalues encountered!: $(ϵs[.!imag_check])"
 end
 
 function compute_bandexpvals!(obs::AbstractMatrix, projectors::AbstractVector, k, ϵs, U)
@@ -85,14 +93,6 @@ function insertbands_bandexpvals_k!(bands::AbstractVector, obs::AbstractMatrix, 
     assert_realeigvals(ϵs)
     bands .= real.(ϵs)
     compute_bandexpvals!(obs, projectors, k, ϵs, U)
-    bands, obs
-end
-
-function bandmatrix_preallocate(H, ks, projectors; kwargs...)
-    D, N = bandmatrix_size(H, ks; kwargs...)
-    L = length(projectors)
-    bands = zeros(Float64, D, N)
-    obs = zeros(Float64, D, N, L)
     bands, obs
 end
 
@@ -162,7 +162,8 @@ function bandmatrix_serial!(bands, obs, H, ks, projectors; hidebar=!PROGRESSBAR_
 
     @showprogress dt=PROGRESSBAR_MINTIME desc="$(progress_label) (S)" enabled=!hidebar for j_ = axes(bands, 2)
         # Hk::T = H(ks[:, j_])
-        spectrum_k = getspectrum(H, ks[:, j_]; kwargs...)
+        # spectrum_k = getspectrum(H, ks[:, j_]; kwargs...)
+        spectrum_k = Eigen.geteigen!(H(ks[:, j_]); kwargs...)
         @views insertbands_bandexpvals_k!(bands[:, j_], obs[:, j_, :], spectrum_k, ks[:, j_], projectors)
     end
     bands, obs
@@ -172,7 +173,8 @@ function bandmatrix_distributed!(bands, obs, H::T, ks, projectors; hidebar=!PROG
 
     # spectrum = getSpectrumMap(H, kwargs...)
     @sync @showprogress dt=PROGRESSBAR_MINTIME desc="$(progress_label) (D)" enabled=!hidebar @distributed for j_ = axes(bands, 2)
-        spectrumk = getspectrum(H, ks[:, j_]; kwargs...)
+        # spectrumk = getspectrum(H, ks[:, j_]; kwargs...)
+        spectrumk = Eigen.geteigen!(H(ks[:, j_]); kwargs...)
         @views insertbands_bandexpvals_k!(bands[:, j_], obs[:, j_, :], spectrumk, ks[:, j_], projectors)
     end
     bands, obs
@@ -212,7 +214,8 @@ function bandmatrix_multithreaded!(bands, obs, H, ks, projectors; hidebar=!PROGR
     # spectrum = getSpectrumMap(H, kwargs...)
 
     Threads.@threads :static for j_ = axes(bands, 2)
-        spectrumk = getspectrum(H, ks[:, j_]; kwargs...)
+        # spectrumk = getspectrum(H, ks[:, j_]; kwargs...)
+        spectrumk = Eigen.geteigen!(H(ks[:, j_]); kwargs...)
         insertbands_bandexpvals_k!(view(bands, :, j_), view(obs, :, j_, :), spectrumk, ks[:, j_], projectors)
         !hidebar && next!(p)
     end

@@ -26,8 +26,40 @@ function solveselfconsistent!(ρ0::T, ρ1::T, mf::MeanfieldGenerator, filling::F
     solveselfconsistent!(c, ρ0, ρ1, mf::MeanfieldGenerator, filling::Float64, ks; kwargs...)
 end
 
+using SharedArrays
+import LatticeQM.Utils
+
 solveselfconsistent!(::SerialContext, ρ0::T, ρ1::T, args...; kwargs...) where {T} = solveselfconsistent!(DummyContext(), Utils.dense(ρ0), Utils.dense(ρ1), args...; multimode=:serial, kwargs...)
-solveselfconsistent!(::DistributedContext, ρ0::T, ρ1::T, args...; kwargs...) where {T} = solveselfconsistent!(DummyContext(), TightBinding.shareddense(ρ0), TightBinding.shareddense(ρ1), args...; multimode=:distributed, kwargs...)
+function solveselfconsistent!(::DistributedContext, ρ0::T, ρ1::T, args...; kwargs...) where {T} 
+    # workaround to fix memory allocation bug in julia 1.5 to 1.10
+    # It is a somewhat hacky solution for now, but it reduces the memory allocation dramatically.
+    # Before, every call to getdensitymatrix! would allocate a new shared array on disk for the density matrix,
+    # bombarding both the file system and RAM, elluding the garbage collector.
+
+    ρ0 = Utils.dense(ρ0)
+    ρ1 = Utils.dense(ρ1)
+
+    Ls = keys(ρ0)
+    N = length(ρ0)
+    Ns = size(ρ0)
+    ρ0_backed = SharedArray(zeros(ComplexF64, Ns..., N))
+    for (l_, L) in enumerate(Ls)
+        ρ0_backed[:, :, l_] .= ρ0[L]
+    end
+
+    Ls = keys(ρ1)
+    N = length(ρ1)
+    Ns = size(ρ1)
+    ρ1_backed = SharedArray(zeros(ComplexF64, Ns..., N))
+    for (l_, L) in enumerate(Ls)
+        ρ1_backed[:, :, l_] .= ρ1[L]
+    end
+
+    ρ0 = Hops(Dict(l => view(ρ0_backed, :, :, n_) for (n_, l) in enumerate(keys(ρ0))))
+    ρ1 = Hops(Dict(l => view(ρ1_backed, :, :, n_) for (n_, l) in enumerate(keys(ρ1))))
+
+    solveselfconsistent!(DummyContext(), ρ0, ρ1, args...; multimode=:distributed, kwargs...)
+end
 
 function solveselfconsistent!(::MultiThreadedContext, args...; kwargs...)
     error("Multithreaded context not implemented yet.")
@@ -61,10 +93,13 @@ function solveselfconsistent!(::DummyContext, ρ0::T1, ρ1::T1, hartreefock::Mea
 
     # println("rho0: ", typeof(ρ0))
     # println("rho1: ", typeof(ρ1))
+    # println("typeof hartreefock_object: ", typeof(hartreefock))
+    # println("sparsity: ", sum(abs.(hartreefock.h[[0, 0]]) .> 1e-8) / length(hartreefock.h[[0, 0]]))
 
     update! = let hartreefock = hartreefock, ks = ks, filling = filling, T = T, multimode = multimode, verbose = verbose, callback = callback
         function f(ρ1, ρ0)
             hartreefock(ρ0) # update meanfield (h is updated in-place)
+            println("sparsity: ", sum(abs.(hartreefock.hMF[[0, 0]]) .> 1e-9) / length(hartreefock.hMF[[0, 0]]))
 
             verbose ? @info("Updating chemical potential for given filling...") : nothing
             hartreefock.μ = Spectrum.chemicalpotential(hMF(hartreefock), ks, filling; T=T, multimode=multimode)

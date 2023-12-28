@@ -52,9 +52,12 @@ eigvals_dense(M; kwargs...) = LinearAlgebra.eigvals(dense(M); kwargs...)
 eigvecs_dense(M; kwargs...) = LinearAlgebra.eigvecs(dense(M); kwargs...)
 eigen_dense(M; kwargs...) = LinearAlgebra.eigen(dense(M); kwargs...)
 
+eigen_dense!(M; kwargs...) = LinearAlgebra.eigen!(dense(M); kwargs...)
+
 geteigvals(args...; format=:dense, kwargs...) = (format == :sparse) ? eigvals_sparse(args...; kwargs...) : eigvals_dense(args...; kwargs...)
 geteigvecs(args...; format=:dense, kwargs...) = (format == :sparse) ? eigvecs_sparse(args...; kwargs...) : eigvecs_dense(args...; kwargs...)
 geteigen(args...; format=:dense, kwargs...) = (format == :sparse) ? eigen_sparse(args...; kwargs...) : eigen_dense(args...; kwargs...)
+geteigen!(args...; format=:dense, kwargs...) = (format == :sparse) ? eigen_sparse(args...; kwargs...) : eigen_dense!(args...; kwargs...)
 
 # function geteigvals(h; format=:dense, kwargs...)
 #     if format == :sparse

@@ -15,7 +15,7 @@ mutable struct HartreeFock{K, T2, T<:Hops{K,T2}} <: MeanfieldGenerator{T}
     h::T
     v::T
     μ::Float64
-    V0::T2 # Assuming T2 is Float64, adjust accordingly
+    V0::T2 
     hMF::T
     ϵMF::Float64
     fock::Bool
@@ -55,7 +55,7 @@ function initialize_hMF!(hf, ρ)
             if haskey(hf.h, k)
                 hf.hMF[k] = hf.h[k]
             else
-                hf.hMF[k] = zeros(T, dim)
+                hf.hMF[k] = zeros(T, dim) # NOTE: for sparse operators, this will fail, but should not be reached usually?
             end
         end
     end
@@ -70,6 +70,9 @@ function meanfieldOperator!(hf::HartreeFock, ρ)
     if hf.hartree
         meanfieldOperator_addhartree!(hf, ρ)
     end
+
+    # @todo: Potentially we should add a trimming stage here
+    # for sparse matrices (i.e., drop entries numerically close to 0)
     nothing
 end
 
