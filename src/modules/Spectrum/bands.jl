@@ -143,7 +143,8 @@ function bandmatrix(H, ks, projectors...; multimode=:distributed, kwargs...)
     if multimode == :distributed && nprocs() > 1
         H = sanatize_distributed_hamiltonian(H)
         bands, obs = SharedArray(bands), SharedArray(obs) # convert to shared arrays
-        return bandmatrix_distributed!(bands, obs, H, ks, projectors; kwargs...)
+        # return bandmatrix_distributed!(bands, obs, H, ks, projectors; kwargs...)
+        return bandmatrix_pmap!(bands, obs, H, ks, projectors; kwargs...)
     elseif multimode == :multithreaded && Threads.nthreads() > 1 && get(kwargs, :format, :dense) != :sparse #Arpack.eigs is not thread-safe
         return bandmatrix_multithreaded!(bands, obs, H, ks, projectors; kwargs...)
     else 
@@ -176,6 +177,17 @@ function bandmatrix_distributed!(bands, obs, H::T, ks, projectors; hidebar=!PROG
         # spectrumk = getspectrum(H, ks[:, j_]; kwargs...)
         spectrumk = Eigen.geteigen!(H(ks[:, j_]); kwargs...)
         @views insertbands_bandexpvals_k!(bands[:, j_], obs[:, j_, :], spectrumk, ks[:, j_], projectors)
+    end
+    bands, obs
+end
+
+function bandmatrix_pmap!(bands, obs, H::T, ks, projectors; hidebar=!PROGRESSBAR_SHOWDEFAULT, progress_label=PROGRESSBAR_DIAG_DEFAULTLABEL, kwargs...) where {T}
+
+    @showprogress dt=PROGRESSBAR_MINTIME desc="$(progress_label) (D)" enabled=!hidebar pmap(axes(bands, 2)) do j_
+        # spectrumk = getspectrum(H, ks[:, j_]; kwargs...)
+        spectrumk = Eigen.geteigen!(H(ks[:, j_]); kwargs...)
+        @views insertbands_bandexpvals_k!(bands[:, j_], obs[:, j_, :], spectrumk, ks[:, j_], projectors)
+        nothing
     end
     bands, obs
 end

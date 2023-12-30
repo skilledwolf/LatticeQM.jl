@@ -58,7 +58,10 @@ end
 const DenseHops{K}       = Hops{K,Matrix{ComplexF64}}
 const SharedDenseHops{K} = Hops{K,SharedMatrix{ComplexF64}}
 const SparseHops{K}      = Hops{K,SparseMatrixCSC{ComplexF64,Int64}}
-# const ViewHops{K,T<:SubArray} = Hops{K,T} # todo: run checks
+const SubarrayHops{K} = Hops{K,<:SubArray} # todo: run checks
+
+gethopsview(h::Hops) = Hops(Dict(L => view(M, :, :) for (L, M) in h))
+gethopsview(h::SubarrayHops) = h
 
 import SparseArrays
 SparseArrays.issparse(hops::Hops) = false
@@ -158,7 +161,6 @@ function ishermitian(H::Hops; tol=sqrt(eps()))
             return false   
         end
     end
-
     return true
 end
 
