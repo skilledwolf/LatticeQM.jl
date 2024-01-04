@@ -16,7 +16,10 @@ solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling::Number, ks; kwargs...)
 solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling::Number; klin, kwargs...) = solveselfconsistent!(deepcopy(ρ0), mf, filling; klin=klin, kwargs...)
 
 # Interface to solveselfconsistent!(ρ0, ρ1, ...)
-solveselfconsistent!(ρ0, mf::MeanfieldGenerator, filling::Float64, args...; kwargs...) = solveselfconsistent!(ρ0, deepcopy(ρ0), mf, filling, args...; kwargs...)
+function solveselfconsistent!(ρ0, mf::MeanfieldGenerator, filling::Float64, args...; kwargs...)
+    sanitize!(ρ0)
+    solveselfconsistent!(ρ0, deepcopy(ρ0), mf, filling, args...; kwargs...)
+end
 
 # Interface to translate klin to solveselfconsistent!(ρ0, ρ1, ..., ks, ...)
 solveselfconsistent!(ρ0, ρ1, mf::MeanfieldGenerator, filling::Float64; klin::Int, kwargs...) = solveselfconsistent!(ρ0, ρ1, mf, filling, Structure.regulargrid(nk=klin^2); kwargs...)
@@ -46,6 +49,15 @@ function solveselfconsistent!(::MultiThreadedContext, args...; kwargs...)
     error("Multithreaded context not implemented yet.")
 end
 
+sanitize!(X) = X # dummy function, supply dispatch for your type
+function sanitize!(ρ::TightBinding.Hops)
+    if !TightBinding.ishermitian(ρ)
+        @info "Initial guess is not hermitian, symmetrizing it now."
+        TightBinding.hermitianize!(ρ)
+    end
+    ρ
+end
+
 """
     solveselfconsistent!(ρ0, ρ1, ℋ_op, ℋ_scalar, filling, ks; convergenceerror=false, multimode=:serial, checkpoint::String="", hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
     solveselfconsistent!(ρ0, ℋ_op, ℋ_scalar, filling, ks; kwargs...)
@@ -71,6 +83,10 @@ function solveselfconsistent!(::DummyContext, ρ0::T1, ρ1::T1, hartreefock::Mea
     #     println("Loading checkpoint file as initial guess: $checkpoint")
     #     ρ0 = JLD.load(checkpoint, "mf")
     # end
+
+    sanitize!(ρ0)
+    sanitize!(ρ1)
+    @assert TightBinding.ishermitian(ρ0) "Initial guess for density matrix must be hermitian."
 
     function update!(ρ1, ρ0)
         hartreefock(ρ0) # update meanfield (h is updated in-place)
