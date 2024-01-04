@@ -19,11 +19,11 @@ import ..Structure: Lattices
 
 function Operators.addchemicalpotential!(H::BdGOperator, lat::Lattices.Lattice, μ; kwargs...)
     d = hopdim(H)
-
     chemhops = Hops(zerokey(H)=>zeros(ComplexF64,d,d))
     Operators.addchemicalpotential!(chemhops, lat, μ; kwargs...)
 
-    addhops!(H, BdGOperator(chemhops))
+    # addhops!(H, BdGOperator(chemhops))
+    addelectronsector!(H,BdGOperator(chemhops))
 end
 
 function electron(H::BdGOperator)

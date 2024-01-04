@@ -34,35 +34,11 @@ function solveselfconsistent!(::DistributedContext, ρ0::T, ρ1::T, args...; kwa
     # workaround to fix memory allocation bug in julia 1.5 to 1.10
     # It is a somewhat hacky solution for now, but it reduces the memory allocation dramatically.
     # Before, every call to getdensitymatrix! would allocate a new shared array on disk for the density matrix,
-    # bombarding both the file system and RAM, elluding the garbage collector.
-
-    # ρ0 = Utils.dense(ρ0)
-    # ρ1 = Utils.dense(ρ1)
-
-    # Ls = keys(ρ0)
-    # N = length(ρ0)
-    # Ns = size(ρ0)
-    # ρ0_backed = SharedArray(zeros(ComplexF64, Ns..., N))
-    # for (l_, L) in enumerate(Ls)
-    #     ρ0_backed[:, :, l_] .= ρ0[L]
-    # end
-
-    # Ls = keys(ρ1)
-    # N = length(ρ1)
-    # Ns = size(ρ1)
-    # ρ1_backed = SharedArray(zeros(ComplexF64, Ns..., N))
-    # for (l_, L) in enumerate(Ls)
-    #     ρ1_backed[:, :, l_] .= ρ1[L]
-    # end
-
-    # ρ0 = Hops(Dict(l => view(ρ0_backed, :, :, n_) for (n_, l) in enumerate(keys(ρ0))))
-    # ρ1 = Hops(Dict(l => view(ρ1_backed, :, :, n_) for (n_, l) in enumerate(keys(ρ1))))
-
+    # bombarding both the file system and RAM and elluding the garbage collector.
     ρ0 = TightBinding.shareddense(ρ0)
     ρ1 = TightBinding.shareddense(ρ1)
     ρ0_views = TightBinding.gethopsview(ρ0)
     ρ1_views = TightBinding.gethopsview(ρ1)
-
     solveselfconsistent!(DummyContext(), ρ0_views, ρ1_views, args...; multimode=:distributed, kwargs...)
 end
 
@@ -96,24 +72,11 @@ function solveselfconsistent!(::DummyContext, ρ0::T1, ρ1::T1, hartreefock::Mea
     #     ρ0 = JLD.load(checkpoint, "mf")
     # end
 
-    # println("rho0: ", typeof(ρ0))
-    # println("rho1: ", typeof(ρ1))
-    # println("typeof hartreefock_object: ", typeof(hartreefock))
-    # println("sparsity: ", sum(abs.(hartreefock.h[[0, 0]]) .> 1e-8) / length(hartreefock.h[[0, 0]]))
-
     function update!(ρ1, ρ0)
         hartreefock(ρ0) # update meanfield (h is updated in-place)
         # println("sparsity: ", sum(abs.(hartreefock.hMF[[0, 0]]) .> 1e-9) / length(hartreefock.hMF[[0, 0]]))
 
         verbose ? @info("Updating chemical potential for given filling...") : nothing
-        # println("type of hartreefock.h: ", typeof(hartreefock.h))
-        # println("type of hMF: ", typeof(hartreefock.hMF))
-        # println("size of hMF: ", size(hartreefock.hMF))
-        # println("stored elements of hMF: ", nnz(hartreefock.hMF(rand(2))))
-        # println("non-zero elements of hMF: ", count(!iszero, hartreefock.hMF(rand(2))))
-        # println("type of ks: ", typeof(ks))
-        # println("size of ks: ", size(ks))
-        # println("----")
         hartreefock.μ = Spectrum.chemicalpotential(hMF(hartreefock), ks, filling; T=T, multimode=multimode)
 
         verbose ? @info("Updating the mean field density matrix...") : nothing

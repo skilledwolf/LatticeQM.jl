@@ -17,7 +17,7 @@ import LatticeQM.Structure.Lattices
 # n_angle, tz, outname = 3, 0.46, "output_n11_fm"
 # n_angle, tz, outname, U_hubbard = 6, 0.52, "output_testing", 2.6
 # n_angle, tz, outname, U_hubbard = 10, 0.52, "output_n10_fm3", 2.2
-n_angle, tz, outname, U_hubbard = 10, 0.52, "output_n10_fm4", 2.6
+n_angle, tz, outname, U_hubbard = 10, 0.52, "output_n10_fm4", 2.7
 
 
 multimode = (nworkers() > 1) ? :distributed : :multithreaded
@@ -51,7 +51,11 @@ v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=U_hubbard) # interaction poten
 # Get the bands without mean-field terms
 ks_plot = kpath(lat; num_points=100)
 
+# @info "... setting filling"
+@everywhere (hops = $hops, ks_plot = $ks_plot, sz = $sz)
 Operators.setfilling!(hops, filling; nk=9^2, multimode=multimode)
+
+# @info "... getting bands (sparse)"
 bands_plot = getbands(hops, ks_plot, sz; format=:sparse, num_bands=36, multimode=multimode)
 
 mkpath("$outname")
@@ -61,15 +65,11 @@ savefig("$outname/hubbardmeanfield_example1_noninteracting.pdf")
 
 
 @info "Run mean field..."
-# @everywhere using LatticeQM
-# @everywhere hops = dense($hops)
-# @everywhere v = dense($v)
-# @everywhere hops = $hops
-# @everywhere v = $v
-
+@everywhere using LatticeQM
+@everywhere (hops = $hops, v = $v)
 # hops = TightBinding.shareddense(hops)
-# v = TightBinding.shareddense(v)
 # ρ_init = TightBinding.shareddense(ρ_init)
+
 ρ_sol, ϵ_GS, HMF, converged, residue = Meanfield.solvehartreefock( # run the calculation
     hops, v, ρ_init, filling; klin=6, iterations=6, tol=5e-3,# p_norm=Inf,
     T=0.002, β=0.93, show_trace=true, verbose=false, multimode=multimode

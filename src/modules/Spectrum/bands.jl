@@ -1,35 +1,19 @@
 using Distributed
+using SharedArrays
 using ProgressMeter
 import SparseArrays
 import LatticeQM.Eigen
 
-const IMAG_THRESHOLD = 1e-7::Float64
+const IMAG_THRESHOLD = 1e-9::Float64
 const PROGRESSBAR_MINTIME = 1::Int
 const PROGRESSBAR_DIAG_DEFAULTLABEL = "Diagonalization"::String
 const PROGRESSBAR_SHOWDEFAULT = true::Bool
 const PROGRESSBAR_BANDMATRIX_DEFAULTKWARGS = Dict(:hidebar => !PROGRESSBAR_SHOWDEFAULT, :progress_label => PROGRESSBAR_DIAG_DEFAULTLABEL)
 
-################################################################################
-# Spectrum helper, can be specialized by other modules
-################################################################################
-
-function geteigenMapWithBuffer!(h::AbstractMatrix, H, k; kwargs...)
-    h .= H(k)
-    Eigen.geteigen(h; kwargs...)
-end
-
-function getSpectrumMap(H; kwargs...)
-    k -> Eigen.geteigen(H(k); kwargs...)
-end
-
-# function getspectrum!(H, k; kwargs...)
-#     Eigen.geteigen!(H(k); kwargs...)
-# end
 
 ################################################################################
 # dim helper functions (Should maybe be moved to Utils?)
 ################################################################################
-
 dim(A::AbstractMatrix, x=0) = size(A,1)
 dim(f::Function, x::Number) = size(f(x), 1)
 dim(f::Function, x::AbstractVector) = size(f(first(x)), 1)
@@ -59,18 +43,34 @@ handleprojector(projector::AbstractVector{<:AbstractExpvalMap}) = projector
 # Low-level helper functions
 ################################################################################
 
+function compute_chunks(total_length, num_chunks)
+    chunk_size = ceil(Int, total_length / num_chunks)
+    return [(1+(i-1)*chunk_size):min(i * chunk_size, total_length) for i in 1:num_chunks]
+end
+
 function bandmatrix_size(H, ks; kwargs...)
-    D = get(kwargs, :num_bands, dim(H, ks))::Int # check if num_bands is given
-    N = size(ks, 2)
-    D, N
+    num_bands = get(kwargs, :num_bands, dim(H, ks))::Int # check if num_bands is given
+    num_k = size(ks, 2)
+    num_bands, num_k
 end
 
 function bandmatrix_preallocate(H, ks, projectors; kwargs...)
-    D, N = bandmatrix_size(H, ks; kwargs...)
-    L = length(projectors)
-    bands = zeros(Float64, D, N)
-    obs = zeros(Float64, D, N, L)
+    num_bands, num_k = bandmatrix_size(H, ks; kwargs...)
+    num_expvals = length(projectors)
+    bands = zeros(Float64, num_bands, num_k)
+    obs = zeros(Float64, num_bands, num_k, num_expvals)
     bands, obs
+end
+
+function bandmatrix_Hcache(H, ks)
+    D = dim(H, ks)
+    zeros(ComplexF64, D, D)
+end
+
+function bandmatrix_Ucache(H, ks; kwargs...)
+    D = dim(H, ks)
+    num_bands, num_k = bandmatrix_size(H, ks; kwargs...)
+    zeros(ComplexF64, D, num_bands, num_k)
 end
 
 function assert_realeigvals(ϵs)
@@ -87,9 +87,9 @@ end
 
 insertbands!(bands::AbstractVector, ϵs::AbstractVector) = (assert_realeigvals(ϵs); bands .= real.(ϵs); bands)
 
-function insertbands_bandexpvals_k!(bands::AbstractVector, obs::AbstractMatrix, spectrum_k, k, projectors)
+function insertbands_bandexpvals_k!(bands::AbstractVector, obs::AbstractMatrix, ϵs, U, k, projectors)
     # ϵs, U = Eigen.geteigen(H; kwargs...)
-    ϵs, U = spectrum_k
+    # ϵs, U = spectrum_k
     assert_realeigvals(ϵs)
     bands .= real.(ϵs)
     compute_bandexpvals!(obs, projectors, k, ϵs, U)
@@ -130,108 +130,101 @@ bands, obs = bandmatrix(h, ks.points, valley)
 
 ```
 """
-function bandmatrix(H, ks, projectors...; multimode=:distributed, kwargs...)
-
-    # if multimode == :multithreaded && Threads.nthreads() > 1 && get(kwargs, :format, :dense) != :sparse #Arpack.eigs is not thread-safe
-    #     return bandmatrix_multithreaded(H, ks, projectors...; kwargs...)
-    # end
+function bandmatrix(H, ks, projectors...; multimode=:distributed, progress_label=PROGRESSBAR_DIAG_DEFAULTLABEL, hidebar=!PROGRESSBAR_SHOWDEFAULT, kwargs...)
 
     ks = Structure.points(ks) # sanatize ks to be a matrix
     projectors = handleprojector(projectors...) # sanatize projectors
     bands, obs = bandmatrix_preallocate(H, ks, projectors; kwargs...)
 
+    progressbar = Progress(size(ks, 2); dt=PROGRESSBAR_MINTIME, desc=progress_label, enabled=!hidebar)
+
     if multimode == :distributed && nprocs() > 1
         H = sanatize_distributed_hamiltonian(H)
         bands, obs = SharedArray(bands), SharedArray(obs) # convert to shared arrays
-        # return bandmatrix_distributed!(bands, obs, H, ks, projectors; kwargs...)
-        return bandmatrix_pmap!(bands, obs, H, ks, projectors; kwargs...)
+        # bandmatrix_distributed!(bands, obs, H, ks, projectors, progressbar; kwargs...)
+        bandmatrix_pmap!(bands, obs, H, ks, projectors, progressbar; kwargs...)
     elseif multimode == :multithreaded && Threads.nthreads() > 1 && get(kwargs, :format, :dense) != :sparse #Arpack.eigs is not thread-safe
-        return bandmatrix_multithreaded!(bands, obs, H, ks, projectors; kwargs...)
+        bandmatrix_multithreaded!(bands, obs, H, ks, projectors, progressbar; kwargs...)
     else 
-        return bandmatrix_serial!(bands, obs, H, ks, projectors; kwargs...)
+        bandmatrix_serial!(bands, obs, H, ks, projectors, progressbar; kwargs...)
     end
+    finish!(progressbar)
+
+    bands, obs
 end
 
-function bandmatrix_serial!(bands, obs, H, ks, projectors; hidebar=!PROGRESSBAR_SHOWDEFAULT, progress_label=PROGRESSBAR_DIAG_DEFAULTLABEL, kwargs...)
+function bandmatrix_serial!(bands, obs, H, ks, projectors, progressbar=nothing; progress_channel=nothing, kwargs...)
 
-    # spectrum = getSpectrumMap(H, kwargs...)
-    # spectrum = let H0 = H, kwargs = kwargs
-    #     k -> Eigen.geteigen(H0(k); kwargs...)
-    # end
-    # H0::T = H # captured variable performance issue?
-    # spectrum = k -> Eigen.geteigen(H(k); kwargs...)
+    Hcache = bandmatrix_Hcache(H, ks) # local cache
+    Ucache = bandmatrix_Ucache(H, ks) # local cache
 
-    @showprogress dt=PROGRESSBAR_MINTIME desc="$(progress_label) (S)" enabled=!hidebar for j_ = axes(bands, 2)
-        # Hk::T = H(ks[:, j_])
-        # spectrum_k = getspectrum(H, ks[:, j_]; kwargs...)
-        spectrum_k = Eigen.geteigen!(H(ks[:, j_]); kwargs...)
-        @views insertbands_bandexpvals_k!(bands[:, j_], obs[:, j_, :], spectrum_k, ks[:, j_], projectors)
+    for j_ = axes(ks, 2)
+        Hcache .= H(ks[:, j_])
+        energies_k, Ucache = Eigen.geteigen!(Hcache; kwargs...) # Hermitian(Hcache)
+        @views insertbands_bandexpvals_k!(bands[:, j_], obs[:, j_, :], energies_k, Ucache, ks[:, j_], projectors)
+
+        !isnothing(progress_channel) && put!(progress_channel, true)
+        !isnothing(progressbar) && ProgressMeter.next!(progressbar)
+    end
+    Hcache = nothing
+    Ucache = nothing
+    GC.gc() # eagerly collect garbage, especially for the local caches
+    bands, obs
+end
+
+function bandmatrix_distributed!(bands::SharedArray, obs::SharedArray, H, ks, projectors, progressbar::ProgressMeter.AbstractProgress; kwargs...)
+    channel = RemoteChannel(() -> Channel{Bool}(), 1)
+    @sync begin
+        @async while take!(channel)
+            ProgressMeter.next!(progressbar)
+        end
+
+        @async begin
+            bandmatrix_distributed!(bands, obs, H, ks, projectors; progress_channel=channel, kwargs...)
+            put!(channel, false)
+        end
     end
     bands, obs
 end
 
-function bandmatrix_distributed!(bands, obs, H::T, ks, projectors; hidebar=!PROGRESSBAR_SHOWDEFAULT, progress_label=PROGRESSBAR_DIAG_DEFAULTLABEL, kwargs...) where {T}
+function bandmatrix_distributed!(bands::SharedArray, obs::SharedArray, H, ks, projectors; num_chunks=:auto, kwargs...)
+    nks = size(ks, 2)
+    num_chunks = num_chunks == :auto ? nworkers() : num_chunks
+    chunks = compute_chunks(nks, num_chunks)
 
-    # spectrum = getSpectrumMap(H, kwargs...)
-    @sync @showprogress dt=PROGRESSBAR_MINTIME desc="$(progress_label) (D)" enabled=!hidebar @distributed for j_ = axes(bands, 2)
-        # spectrumk = getspectrum(H, ks[:, j_]; kwargs...)
-        spectrumk = Eigen.geteigen!(H(ks[:, j_]); kwargs...)
-        @views insertbands_bandexpvals_k!(bands[:, j_], obs[:, j_, :], spectrumk, ks[:, j_], projectors)
+    @sync @distributed for j_=1:num_chunks
+        chunk = chunks[j_]
+        @views bandmatrix_serial!(bands[:, chunk], obs[:, chunk, :], H, ks[:, chunk], projectors; kwargs...)
     end
+    GC.gc()
+
     bands, obs
 end
 
-function bandmatrix_pmap!(bands, obs, H::T, ks, projectors; hidebar=!PROGRESSBAR_SHOWDEFAULT, progress_label=PROGRESSBAR_DIAG_DEFAULTLABEL, kwargs...) where {T}
+function bandmatrix_pmap!(bands::SharedArray, obs::SharedArray, H, ks, projectors, progressbar; num_chunks=:auto, kwargs...)
+    nks = size(ks, 2)
+    num_chunks = num_chunks == :auto ? nworkers() : num_chunks
+    chunks = compute_chunks(nks, num_chunks)
 
-    @showprogress dt=PROGRESSBAR_MINTIME desc="$(progress_label) (D)" enabled=!hidebar pmap(axes(bands, 2)) do j_
-        # spectrumk = getspectrum(H, ks[:, j_]; kwargs...)
-        spectrumk = Eigen.geteigen!(H(ks[:, j_]); kwargs...)
-        @views insertbands_bandexpvals_k!(bands[:, j_], obs[:, j_, :], spectrumk, ks[:, j_], projectors)
-        nothing
+    progress_pmap(chunks, progress=progressbar) do chunk
+        @views bandmatrix_serial!(bands[:, chunk], obs[:, chunk, :], H, ks[:, chunk], projectors; kwargs...)
     end
+    GC.gc()
+
     bands, obs
 end
 
-# function bandmatrix_multithreaded(H, ks, projectors...; hidebar=!PROGRESSBAR_SHOWDEFAULT, progress_label=PROGRESSBAR_DIAG_DEFAULTLABEL, kwargs...)
-#     ks = Structure.points(ks) # sanatize ks to be a matrix
-#     projectors = handleprojector(projectors...) # sanatize projectors
+function bandmatrix_multithreaded!(bands::AbstractArray, obs::AbstractArray, H, ks, projectors, progressbar; num_chunks=:auto, kwargs...)
+    nks = size(ks, 2)
+    num_chunks = num_chunks == :auto ? Threads.nthreads() : num_chunks
+    chunks = compute_chunks(nks, num_chunks)
 
-#     tasks_per_thread = 1
-#     chunks = Iterators.partition(axes(ks,2), size(ks,2) ÷ (Threads.nthreads()*tasks_per_thread))
-
-#     !hidebar && (p = Progress(length(chunks), PROGRESSBAR_MINTIME, "$(progress_label) (MT)"))
-#     tasks = map(chunks) do chunk
-#         Threads.@spawn begin
-#             bands, obs = bandmatrix_preallocate(H, ks[:,chunk], projectors; kwargs...)
-#             bandmatrix_serial!(bands, obs, H, ks, projectors; kwargs...)
-#             !hidebar && next!(p)
-#             bands, obs
-#         end
-#     end
-#     finish!(p)
-#     ## Combine results
-#     bands, obs = bandmatrix_preallocate(H, ks[:, chunk], projectors; kwargs...)
-
-#     for t in enumerate(tasks)
-#         (i, (bands_, obs_)) = fetch(t)
-#         bands[:,chunks[i]] .= bands_
-#         obs[:,chunks[i],:] .= obs_
-#     end
-#     bands, obs
-# end
-
-function bandmatrix_multithreaded!(bands, obs, H, ks, projectors; hidebar=!PROGRESSBAR_SHOWDEFAULT, progress_label=PROGRESSBAR_DIAG_DEFAULTLABEL, kwargs...)
-    !hidebar && (p = Progress(size(bands, 2), PROGRESSBAR_MINTIME, "$(progress_label) (MT)"))
-
-    # spectrum = getSpectrumMap(H, kwargs...)
-
-    Threads.@threads :static for j_ = axes(bands, 2)
-        # spectrumk = getspectrum(H, ks[:, j_]; kwargs...)
-        spectrumk = Eigen.geteigen!(H(ks[:, j_]); kwargs...)
-        insertbands_bandexpvals_k!(view(bands, :, j_), view(obs, :, j_, :), spectrumk, ks[:, j_], projectors)
-        !hidebar && next!(p)
+    Threads.@threads for j_ = 1:num_chunks
+        chunk = chunks[j_]
+        @views bandmatrix_serial!(bands[:, chunk], obs[:, chunk, :], H, ks[:, chunk], projectors, progressbar; kwargs...)
     end
-    !hidebar && finish!(p)
+    GC.gc()
+
     bands, obs
 end
 
@@ -309,114 +302,3 @@ end
 function bandgap_energy(bands::AbstractMatrix, μ::Real)
     minimum(bands[bands.>=μ]) - maximum(bands[bands.<=μ])
 end
-
-
-################################################################################
-# Dagger parallelization
-################################################################################
-
-# import Dagger
-# function bandmatrix_distributed(H, ks; hidebar=false, num_bands::Int=0, kwargs...)
-#     kwargs = num_bands == 0 ? kwargs : Dict(kwargs..., :num_bands => num_bands)
-#     D = (num_bands > 0) ? num_bands : size(H(first(eachcol(ks))), 1) # matrix dimension
-
-#     N = size(ks, 2)
-#     bands = Dagger.@mutable zeros(Float64, D, N)
-
-#     results = [(Dagger.@spawn (j_, geteigvals(H(ks[:, j_]); kwargs...))) for j_ = 1:N]
-#     t = Dagger.spawn((bands, results) -> begin
-#             for (j_, result) = results
-#                 bands[:, j_] .= real.(fetch(result))
-#             end
-#         end, bands, results)
-#     wait(t)
-
-#     collect(bands)
-# end
-# function bandmatrix_distributed(H, ks; hidebar=false, num_bands::Int=0, kwargs...)
-#     kwargs = num_bands == 0 ? kwargs : Dict(kwargs..., :num_bands => num_bands)
-#     D = (num_bands > 0) ? num_bands : size(H(first(eachcol(ks))), 1) # matrix dimension
-
-#     N = size(ks, 2) # no. of k points
-#     bands = Dagger.@mutable zeros(Float64, D, N)
-
-#     # @time geteigvals(H(ks[:, 2]))
-
-#     # @time bands = begin
-#     #     ts = []
-#     #     for j_ = 1:N
-#     #         hk = Dagger.@spawn H(ks[:, j_])
-#     #         en = Dagger.@spawn geteigvals(hk; kwargs...)
-
-#     #         t = Dagger.spawn((bands, energies, j_) -> begin
-#     #             bands[:, j_] .= real.(energies)
-#     #             nothing
-#     #         end, bands, en, j_)
-#     #         push!(ts, t)
-#     #     end
-#     #     wait.(ts)
-#     #     collect(bands)
-#     # end
-
-#     # @time begin
-#     #     results = [(Dagger.@spawn (j_, geteigvals(H(ks[:, j_]); kwargs...))) for j_ = 1:N]
-#     #     # ts = [Dagger.spawn((bands, energies, j_) -> begin
-#     #     #     bands[:, j_] .= real.(energies)
-#     #     #     nothing
-#     #     # end, bands, result, j_) for (j_, result)=results]
-#     #     # wait.(ts)
-#     #     t = Dagger.spawn((bands, results) -> begin
-#     #             for (j_, result) = results
-#     #                 bands[:, j_] .= real.(fetch(result))
-#     #             end
-#     #         end, bands, results)
-#     #     wait(t)
-#     #     bands = collect(bands)
-#     # end
-
-
-#     results = [(Dagger.@spawn (j_, geteigvals(H(ks[:,j_]); kwargs...))) for j_=1:N]
-#     t = Dagger.spawn((bands, results) -> begin
-#         for (j_,result) = results 
-#             bands[:, j_] .= real.(fetch(result))
-#         end
-#     end, bands, results)
-#     wait(t)
-#     bands = collect(bands)
-
-#     # println("norm ", LinearAlgebra.norm(bands))
-#     # println("BANDMATRIX DONE")
-#     # println("Stopping workers ...")
-#     # println(workers())
-#     # rmprocs(workers())
-#     # exit()
-
-#     bands
-# end
-
-# function bandmatrix_distributed(H, ks, projector; hidebar=false, num_bands::Int=0, kwargs...)
-#     projector = handleprojector(projector)
-#     kwargs = num_bands == 0 ? kwargs : Dict(kwargs..., :num_bands => num_bands)
-#     D = (num_bands > 0) ? num_bands : size(H(first(eachcol(ks))), 1) # matrix dimension
-
-#     N = size(ks, 2) # no. of k points
-#     L = length(projector)
-#     bands = Dagger.@mutable zeros(Float64, D, N)
-#     obs = Dagger.@mutable zeros(Float64, D, N, L)
-
-#     results = [(Dagger.@spawn (j_, geteigen(H(ks[:, j_]); kwargs...))) for j_ = 1:N]
-#     t = Dagger.spawn((bands, obs, results) -> begin
-#             for (j_, result) = results
-#                 ϵs, U = fetch(result)
-#                 bands[:, j_] .= real.(ϵs)
-
-#                 for i_ = 1:size(U, 2), n_ = 1:L
-#                     obs[i_, j_, n_] = projector[n_](ks[:, j_], U[:, i_], ϵs[i_])
-#                 end
-#             end
-#         end, bands, obs, results)
-#     wait(t)
-
-#     collect(bands), collect(obs)
-# end
-

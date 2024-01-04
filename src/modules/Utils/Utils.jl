@@ -40,7 +40,8 @@ module Utils
 
     getelectronsector(H::Function) = H
     getelectronsector(H::AbstractMatrix) = H
-    
+    copyelectronsector(H::Function) = H
+    copyelectronsector(H::AbstractMatrix) = copy(H)
 
     """
         padvec(v::AbstractVector, d::Int)

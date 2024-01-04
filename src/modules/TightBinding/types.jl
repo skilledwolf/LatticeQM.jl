@@ -99,11 +99,12 @@ shareddense(hops::SharedDenseHops) = hops
 shareddense(hops::Hops{K,T}) where {K,T<:AbstractMatrix{ComplexF64}} = SharedDenseHops{K}(Dict(k => SharedArray(Matrix{ComplexF64}(v)) for (k, v) in hops.data))
 SharedDenseHops(args...; kwargs...) = shareddense(Hops(args...; kwargs...))
 
-autoconversion(hops::Hops, N::Int) = (N<MAX_DENSE+1) ? dense(hops) : sparse(hops)
-autoconversion(hops::Hops, N::Int, type::Symbol) = (type == :auto) ? autoconversion(hops, N) : (type == :sparse) ? sparse(hops) : dense(hops)
-
 import LatticeQM.Utils
+autoconversion(hops::Hops, N::Int) = (N < MAX_DENSE + 1) ? Utils.dense(hops) : sparse(hops)
+autoconversion(hops::Hops, N::Int, type::Symbol) = (type == :auto) ? autoconversion(hops, N) : (type == :sparse) ? sparse(hops) : Utils.dense(hops)
+
 Utils.getelectronsector(H::Hops) = H
+Utils.copyelectronsector(H::Hops) = deepcopy(H)
 
 import LatticeQM.Spectrum 
 Spectrum.sanatize_distributed_hamiltonian(H::DenseHops) = shareddense(H)
@@ -164,6 +165,19 @@ function ishermitian(H::Hops; tol=sqrt(eps()))
     return true
 end
 
+function hermitianize!(H::Hops) # hermitian means H[R] = H[-R]'
+    Hkeys = keys(H)
+    for R in Hkeys
+        if haskey(H, -R)
+            @. H[R] = (H[R] + H[-R]')/2
+            @. H[-R] = H[R]'
+        else 
+            H[-R] = H[R]'
+        end
+    end
+    H
+end
+
 zerokey(h::Hops) = zero(first(keys(h)))
 getzero(h::Hops) = h[zerokey(h)]
 setzero!(h::Hops, M::AbstractMatrix) = (h[zerokey(h)].=M; h)
@@ -172,7 +186,7 @@ hopdim(hops::Hops) = size(hops,1)
 
 Base.:+(h1::Hops, h2::Hops) = addhops(h1,h2)
 Base.:-(h1::Hops, h2::Hops) = addhops(h1,(-1)*h2)
-addhops!(hops::Hops, newhops::Hops...) = (merge!(+, hops.data, map(x->x.data,newhops)...); hops)
+addhops!(hops::Hops, newhops::Hops...) = (mergewith!(+, hops.data, map(x->x.data,newhops)...); hops)
 addhops(hops::Hops, newhops::Hops...) = (H=deepcopy(hops); addhops!(H,newhops...)) #merge(+, hops, newhops...)
 
 Base.:*(h::Hops, s::Number) = multiplyhops(h,s)
