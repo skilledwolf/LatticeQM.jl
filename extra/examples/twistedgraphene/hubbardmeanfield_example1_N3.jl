@@ -50,6 +50,9 @@ v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=U_hubbard) # interaction poten
 
 
 println("Run selfconsistent solver...")
+hops = TightBinding.shareddense(hops)
+v = TightBinding.shareddense(v)
+ρ_init = TightBinding.shareddense(ρ_init)
 ρ_sol, ϵ_GS, HMF, converged, residue = Meanfield.solvehartreefock( # run the calculation
     hops, v, ρ_init, filling; klin=6, iterations=25, tol=1e-3,# p_norm=Inf,
     T=0.002, β=0.93, show_trace=true, clear_trace=true, verbose=true, multimode=:distributed
@@ -74,7 +77,7 @@ bands = getbands(hops, ks, sz; format=:sparse, num_bands=36, multimode=:distribu
 p1 = plot(bands; markersize=1, size=(600,200), colorbar=true)
 
 # Get the bands with mean-field terms
-hmf = HMF.h
+hmf = HMF.hMF
 Operators.setfilling!(hmf, filling; nk=9, multimode=:distributed)
 bands_mf = getbands(hmf, ks, sz; format=:sparse, num_bands=36, multimode=:distributed)
 # bands_mf.bands .-= HMF.μ # shift chemical potential to zero

@@ -27,7 +27,7 @@ function opticalconductivity(frequencies::AbstractVector, H, J1, J2; klin, kwarg
 end
 
 
-import ..Spectrum
+import LatticeQM.Eigen
 using SharedArrays
 using ProgressMeter
 
@@ -38,7 +38,7 @@ function opticalconductivity(frequencies::AbstractVector, H, J1, J2, ks::Abstrac
 #     ks = points(ks)
     N = size(ks, 2)
     function spectrumf(k)
-        Spectrum.spectrum(H(k); kwargs...)
+        Eigen.geteigen(H(k); kwargs...)
     end
 
 #     OC = SharedArray(complex(zero(frequencies)))

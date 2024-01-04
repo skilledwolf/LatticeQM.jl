@@ -1,6 +1,8 @@
 import LinearAlgebra: det, norm, I, svd
 import SharedArrays: SharedArray
 
+import LatticeQM.Spectrum
+import LatticeQM.Eigen
 
 """
     statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
@@ -16,7 +18,9 @@ function statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
     indices = collect(Iterators.product(1:NX, 1:NY))
 
     function wavefunctionsf(k)
-        wavefunctions(H(k))
+        let h0 = H(k), kwargs = kwargs
+            Eigen.geteigvecs(h0; kwargs...)
+        end
     end
     
     M1 = size(wavefunctionsf(zeros(2)), 2) # dimension of Hilbert space
@@ -38,7 +42,9 @@ end
 
 function statesgrid1D(H, NX::Int, bandindices::AbstractArray=[])
     function wavefunctionsf(k)
-        wavefunctions(H(k))
+        let h0 = H(k), kwargs = kwargs
+            Eigen.geteigvecs(h0; kwargs...)
+        end
     end
 
     M1 = size(wavefunctionsf(zeros(1)), 2) # dimension of hilbert space
@@ -106,7 +112,7 @@ end
 Convenience method for `berry(statesgrid)`.
 """
 function berry(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[1])
-    # wavefunctions(k::Vector) -> Matrix{Complex}
+    # geteigvecs(k::Vector) -> Matrix{Complex}
     kgrid, midkgrid, statesgrid0 = statesgrid(H, NX, NY, bandindices)
     midkgrid, berry(statesgrid0)
 end
@@ -122,7 +128,9 @@ It builds little plaquettes along the path between the kpoints[:,i] and kpoints[
 function berryalongpath(H, kpoints)
 
     function wavefunctionsf(k)
-        wavefunctions(H(k))
+        let h0 = H(k), kwargs = kwargs
+            Eigen.geteigvecs(h0; kwargs...)
+        end
     end
 
     N = size(kpoints,2) # number of k points
@@ -252,7 +260,7 @@ function Wilson1D(statesgrid::AbstractArray{ComplexF64,3}, j0::Int=0)
         # F *= statesgrid[mymod(j0+j_,NY), :, :]' * statesgrid[mymod(j0+j_+1,NY), :, :]
     end
 
-    en, U = spectrum(F)
+    en, U = Eigen.geteigen(F)
     en = angle.(en)./(2π)
     perm = sortperm(en)
 

@@ -34,7 +34,7 @@ Base.getindex(data::Mesh, range::AbstractRange) = (getindex(data, i) for i in ra
 points(ks::AbstractMatrix) = ks
 points(mesh::Mesh) = mesh.points
 points(ks::AbstractVector{<:AbstractVector}) = hcat(ks...)
-points(ks::Paths.DiscretePath) = ks
+points(ks::Paths.DiscretePath) = ks.points
 
 ################################################################################
 ################################################################################

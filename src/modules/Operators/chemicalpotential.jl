@@ -6,14 +6,24 @@ import LinearAlgebra: Diagonal
 
 import SparseArrays: sparse
 
-
 function setfilling!(H, filling; nk=100, kwargs...)
     kgrid = regulargrid(nk=nk)
     setfilling!(H, kgrid, filling; kwargs...)
 end
 
+import LatticeQM.Spectrum
+import LatticeQM.Utils
+import LatticeQM.TightBinding
+
 function setfilling!(H, kgrid, filling; kwargs...)
-    μ = chemicalpotential(H, kgrid, filling; kwargs...)
+
+    # if get(kwargs, :multimode, :serial) == :distributed
+    #     h0 = TightBinding.shareddense(H)
+    # else
+    #     h0 = Utils.dense(H)
+    # end
+
+    μ = Spectrum.chemicalpotential(H, kgrid, filling; kwargs...)
     addchemicalpotential!(H, -μ)
     μ
 end

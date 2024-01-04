@@ -64,14 +64,23 @@ function addsublatticeimbalance!(hops, lat::Lattice, Δ::Real; kwargs...)
     nothing
 end
 
-valley(args...; kwargs...) = addvalley!(Hops(), args...; kwargs...)
-function addvalley!(hops, lat::Lattice, fz::Function=x->sign(x[3]+1e-3); spinhalf=false, kwargs...)
+function valley(lat, args...; spinhalf=false, kwargs...) 
+    h=Hops()
+    addvalley!(h, lat, args...; kwargs...)
+
+    if spinhalf
+        h = addspin(h, :spinhalf)
+    end
+    
+    autoconversion(h, Lattices.countorbitals(lat))
+end
+
+function addvalley!(hops, lat::Lattice, fz::Function=x->sign(x[3]+1e-3); kwargs...)
     @assert Lattices.countorbitals(lat) > 1 #latticedim(lat) == 2
 
     t20 = √3/9
     f(R) = sign(R[4]-0.5)
-
-    addhaldane!(hops, lat, x-> t20 * f(x) * fz(x); spinhalf=spinhalf, kwargs...)
+    addhaldane!(hops, lat, x-> t20 * f(x) * fz(x); kwargs...)
 end
 
 include("haldane.jl")

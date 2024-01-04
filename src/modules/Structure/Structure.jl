@@ -16,19 +16,19 @@ module Structure
 ################################################################################
 ################################################################################
 
-    include("Structure/rotate.jl")
+    include("rotate.jl")
 
-    include("Structure/Paths.jl")
+    include("Paths.jl")
     import .Paths
 
-    include("Structure/grid.jl")
+    include("grid.jl")
 
-    include("Structure/Lattices.jl")
+    include("Lattices.jl")
     import .Lattices
     import .Lattices: Lattice, kpath
     export Lattice, kpath
 
-    include("Structure/Geometries.jl")
+    include("Geometries.jl")
     import .Geometries
 
 ################################################################################

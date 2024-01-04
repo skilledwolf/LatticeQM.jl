@@ -21,7 +21,7 @@ function addhaldane!(hops, lat::Lattice, t2::Function; mode=:auto, kwargs...)
     end
 end
 
-function addhaldane_naive!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=false, cellrange=1, mode=:none, zmode=:none)
+function addhaldane_naive!(hops, lat::Lattice, t2::Function; ϕ=π/2, cellrange=1, mode=:none, zmode=:none)
 
     d=1    
     cross2D(x, y) = x[1] * y[2] - x[2] * y[1] # needed later on in this scope
@@ -66,9 +66,6 @@ function addhaldane_naive!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=f
         end
     end
 
-    if spinhalf
-        hops = addspin(hops, :spinhalf)
-    end
     hops
 end
 
@@ -78,7 +75,7 @@ import ..TightBinding
 import ..Structure
 import ..Utils: cKDTree
 
-function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=false, cellrange=1, mode=:none, zmode=:none)
+function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, cellrange=1, mode=:none, zmode=:none)
 
     cross2D(x, y) = x[1] * y[2] - x[2] * y[1] # needed later on in this scope
 
@@ -133,10 +130,6 @@ function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, spinhalf=fa
             end
         end
         # h[-R] = deepcopy(transpose(h[R]))
-    end
-
-    if spinhalf
-        hops = TightBinding.addspin(hops, :spinhalf)
     end
 
     hops
