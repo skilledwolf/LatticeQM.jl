@@ -1,6 +1,83 @@
 using Distributed
 # using SharedArrays
-import ..Structure: regulargrid
+import LatticeQM.Structure: regulargrid
+
+using Distributed
+using ProgressMeter
+
+import LatticeQM.Eigen
+import LatticeQM.Spectrum
+
+const PROGRESSBAR_LDOS_DEFAULTLABEL = "LDOS"::String
+
+##########################################################################################
+# Density
+##########################################################################################
+
+function density_at_k!(n::AbstractVector{Float64}, spectrum_k, μ::Float64)
+    ϵs, U = spectrum_k
+    for (ϵ, ψ) in zip(ϵs, eachcol(U))
+        if ϵ <= μ
+            n .+= abs2.(ψ)
+        end
+    end
+    n
+end
+
+function density(H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; format=:dense, kwargs...)
+    spectrum(k) = Eigen.geteigen(H(k); format=format)
+    n = zeros(Float64, size(hamiltonian(ks[:, 1]), 1))
+    density!(n, spectrum, ks, μ; kwargs...)
+end
+
+function density!(n::AbstractVector{Float64}, spectrum::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0)
+    n .= zero(n)
+    L = size(ks, 2)
+
+    n .= @distributed (+) for j = 1:L # @todo: this should be paralellized
+        n0 = zero(n)    ## <-- it annoys me that I don't know how to get around this allocation
+        density_at_k!(n0, spectrum(ks[:, j]), μ)
+        n0 .= n0 ./ L
+    end
+    n
+end
+
+##########################################################################################
+# LDOS
+##########################################################################################
+
+function ldos!(n::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix, ωs::AbstractVector; Γ::Real=0.1)
+    for (ϵ, ψ) in zip(ϵs, eachcol(U))
+        for ω in ωs
+            n[:] .+= imag(abs2.(ψ) ./ (ω + 1.0im * Γ - ϵ))
+        end
+    end
+    n[:] ./= size(ωs)
+end
+
+function ldos!(n::AbstractVector, H, ks::AbstractMatrix, ωs::AbstractVector; Γ::Real=0.1, progress_label=PROGRESSBAR_LDOS_DEFAULTLABEL, kwargs...)
+    L = size(ks, 2)
+
+
+    n[:] = @sync @showprogress dt = Spectrum.PROGRESSBAR_MINTIME desc = progress_label enabled = Spectrum.PROGRESSBAR_SHOWDEFAULT @distributed (+) for j = 1:L
+        n0 = zero(n)
+        ϵs, U = Eigen.geteigen(H(ks[:, j]); kwargs...)
+        ldos!(n0, ϵs, U, ωs; Γ=Γ)
+        n0
+    end
+    n[:] .= -n ./ L ./ π
+end
+
+ldos(H, ks, frequency::Real; kwargs...) = ldos(H, ks, [frequency]; kwargs...)
+function ldos(H, ks, frequencies::AbstractVector; format=:sparse, kwargs...)
+    n = zeros(Float64, dim(H, ks))
+    ldos!(n, H, ks, frequencies; format=format, kwargs...)
+    n
+end
+
+##########################################################################################
+# DOS
+##########################################################################################
 
 """
     getdos(h, emin::Float64, emax::Float64, num=500; kwargs...)
@@ -73,7 +150,9 @@ end
 function dos_serial!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix{<:Real}; Γ::Number, kwargs...)
     L = size(ks,2)
     function ϵs(k)
-        energies(h(k); kwargs...)
+        let h0 = h(k), kwargs = kwargs
+            Eigen.geteigvals(h0; kwargs...)
+        end
     end
 
     @showprogress 6 "Computing DOS... " for k=eachcol(ks) # j=1:L
@@ -86,7 +165,9 @@ end
 function dos_parallel!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix; Γ::Number, kwargs...)
     L = size(ks,2)
     function ϵs(k)
-        energies(h(k); kwargs...)
+        let h0 = h(k), kwargs = kwargs
+            Eigen.geteigvals(h0; kwargs...)
+        end
     end
 
 
@@ -104,7 +185,9 @@ end
 function dos_serial!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix, kweights::AbstractVector; Γ::Number, kwargs...)
     L = size(ks,2)
     function ϵs(k)
-        energies(h(k); kwargs...)
+        let h0=h(k), kwargs=kwargs
+            Eigen.geteigvals(h0; kwargs...)
+        end
     end
 
     @showprogress 6 "Computing DOS... " for (k,w)=zip(eachcol(ks),kweights) # j=1:L
@@ -117,7 +200,9 @@ end
 function dos_parallel!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix, kweights::AbstractVector; Γ::Number, kwargs...)
     L = size(ks,2)
     function ϵs(k)
-        energies(h(k); kwargs...)
+        let h0 = h(k), kwargs = kwargs
+            Eigen.geteigvals(h0; kwargs...)
+        end
     end
 
 
@@ -133,7 +218,7 @@ function dos_parallel!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix, 
     DOS
 end
 
-import ..Structure: Mesh, meshweights
+import LatticeQM.Structure: Mesh, meshweights
 
 function dos_serial!(DOS, h, frequencies::AbstractVector, kgrid::Mesh; kwargs...)
     ks = kgrid.points
@@ -146,40 +231,6 @@ function dos_parallel!(DOS, h, frequencies::AbstractVector, kgrid::Mesh; kwargs.
     kweights = meshweights(kgrid)
     dos_parallel!(DOS, h, frequencies, ks, kweights; kwargs...)
 end
-
-# # todo: include into dos!(...)
-# function dos_multithread!(DOS, h, ks::AbstractMatrix{<:Real}, frequencies::AbstractVector{<:Number}; Γ::Number, kwargs...)
-#     L = size(ks,2)
-#     ϵs = energies(h; kwargs...)
-
-#     Threads.@threads for k=ProgressBar(eachcol(ks)) # j=1:L
-#         tmp = zero(DOS)
-#         dos!(tmp, ϵs(k), frequencies; broadening=Γ)
-
-#         lock(DOS) do 
-#             DOS[:] .+= tmp[:]
-#         end
-#     end
-#     DOS ./= L
-
-#     DOS
-# end
-
-
-
-# function dos_parallel(h, ks::AbstractMatrix{Float64}, frequencies::AbstractVector{Float64}; Γ::Float64, kwargs...)
-#     L = size(ks)[2]
-#
-#     ϵs = energies(h; kwargs...)
-#
-#     dos = @sync @showprogress 1 "Computing DOS... " @distributed (+) for j=1:L # over ks
-#         tmpdos = zero(frequencies)
-#         dos!(tmpdos, ϵs(ks[:,j]), frequencies; broadening=Γ)
-#         tmpdos
-#     end
-#
-#     dos / L / π
-# end
 
 # using HCubature
 #

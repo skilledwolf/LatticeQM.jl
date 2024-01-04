@@ -8,12 +8,13 @@ using Distributed
 using SparseArrays, SharedArrays
 using ProgressMeter
 
-import ..TightBinding: expvalf, AbstractHops, dim
+import ..TightBinding: AbstractHops
 import ..Spectrum
+import ..Spectrum: dim
 
-include("Floquet/types.jl") 
-include("Floquet/hamiltonian.jl") 
-include("Floquet/spectrum.jl")
+include("types.jl") 
+include("hamiltonian.jl") 
+include("spectrum.jl")
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 end

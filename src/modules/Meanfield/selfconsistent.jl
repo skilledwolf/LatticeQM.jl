@@ -1,39 +1,62 @@
-using ..Structure: regulargrid
+# using JLD
+import LatticeQM.Utils
+import LatticeQM.Structure
+import LatticeQM.Operators
+import LatticeQM.Spectrum
+import LatticeQM.TightBinding
+using LatticeQM.Utils.Context
 
 # Specialized cases
 solvehartreefock(h::T, v, ρ_init, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v), filling, args...; kwargs...)
 solvefock(h::T, v, ρ_init, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=false, fock=true), filling, args...; kwargs...)
-solvehartree(h::T, v, ρ_init, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=false, fock=true), filling, args...; kwargs...)
+solvehartree(h::T, v, ρ_init, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=true, fock=false), filling, args...; kwargs...)
 
 # Interface to solveselfconsistent!(ρ0, ...)
 solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling::Number, ks; kwargs...) = solveselfconsistent!(deepcopy(ρ0), mf, filling, ks; kwargs...)
 solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling::Number; klin, kwargs...) = solveselfconsistent!(deepcopy(ρ0), mf, filling; klin=klin, kwargs...)
 
 # Interface to solveselfconsistent!(ρ0, ρ1, ...)
-solveselfconsistent!(ρ0, mf::MeanfieldGenerator, filling::Float64, args...; kwargs...) = solveselfconsistent!(ρ0, deepcopy(ρ0), mf, filling, args...; kwargs...)
+function solveselfconsistent!(ρ0, mf::MeanfieldGenerator, filling::Float64, args...; kwargs...)
+    sanitize!(ρ0)
+    solveselfconsistent!(ρ0, deepcopy(ρ0), mf, filling, args...; kwargs...)
+end
 
 # Interface to translate klin to solveselfconsistent!(ρ0, ρ1, ..., ks, ...)
-solveselfconsistent!(ρ0, ρ1, mf::MeanfieldGenerator, filling::Float64; klin::Int, kwargs...) = solveselfconsistent!(ρ0, ρ1, mf, filling, regulargrid(nk=klin^2); kwargs...)
-
-
-# using JLD
-import ..Operators: getdensitymatrix!
-
-import ..TightBinding: dense, shareddense
-using ..Utils.Context
+solveselfconsistent!(ρ0, ρ1, mf::MeanfieldGenerator, filling::Float64; klin::Int, kwargs...) = solveselfconsistent!(ρ0, ρ1, mf, filling, Structure.regulargrid(nk=klin^2); kwargs...)
 
 function solveselfconsistent!(ρ0::T, ρ1::T, mf::MeanfieldGenerator, filling::Float64, ks; multimode=:global, kwargs...) where {T}
     c = trycontext(ensurecontext(multimode), SerialContext())
     solveselfconsistent!(c, ρ0, ρ1, mf::MeanfieldGenerator, filling::Float64, ks; kwargs...)
 end
 
-solveselfconsistent!(::SerialContext, ρ0::T, ρ1::T, args...; kwargs...) where {T} = solveselfconsistent!(DummyContext(), dense(ρ0), dense(ρ1), args...; multimode=:serial, kwargs...)
-solveselfconsistent!(::DistributedContext, ρ0::T, ρ1::T, args...; kwargs...) where {T} = solveselfconsistent!(DummyContext(), shareddense(ρ0), shareddense(ρ1), args...; multimode=:distributed, kwargs...)
+using SharedArrays
+import LatticeQM.Utils
+
+solveselfconsistent!(::SerialContext, ρ0::T, ρ1::T, args...; kwargs...) where {T} = solveselfconsistent!(DummyContext(), Utils.dense(ρ0), Utils.dense(ρ1), args...; multimode=:serial, kwargs...)
+function solveselfconsistent!(::DistributedContext, ρ0::T, ρ1::T, args...; kwargs...) where {T} 
+    # workaround to fix memory allocation bug in julia 1.5 to 1.10
+    # It is a somewhat hacky solution for now, but it reduces the memory allocation dramatically.
+    # Before, every call to getdensitymatrix! would allocate a new shared array on disk for the density matrix,
+    # bombarding both the file system and RAM and elluding the garbage collector.
+    ρ0 = TightBinding.shareddense(ρ0)
+    ρ1 = TightBinding.shareddense(ρ1)
+    ρ0_views = TightBinding.gethopsview(ρ0)
+    ρ1_views = TightBinding.gethopsview(ρ1)
+    solveselfconsistent!(DummyContext(), ρ0_views, ρ1_views, args...; multimode=:distributed, kwargs...)
+end
 
 function solveselfconsistent!(::MultiThreadedContext, args...; kwargs...)
     error("Multithreaded context not implemented yet.")
 end
 
+sanitize!(X) = X # dummy function, supply dispatch for your type
+function sanitize!(ρ::TightBinding.Hops)
+    if !TightBinding.ishermitian(ρ)
+        @info "Initial guess is not hermitian, symmetrizing it now."
+        TightBinding.hermitianize!(ρ)
+    end
+    ρ
+end
 
 """
     solveselfconsistent!(ρ0, ρ1, ℋ_op, ℋ_scalar, filling, ks; convergenceerror=false, multimode=:serial, checkpoint::String="", hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
@@ -61,30 +84,19 @@ function solveselfconsistent!(::DummyContext, ρ0::T1, ρ1::T1, hartreefock::Mea
     #     ρ0 = JLD.load(checkpoint, "mf")
     # end
 
-    hartreefock(ρ0) # initialize meanfield
-
-    function updateH!(ρ)
-        verbose ? @info("Updating chemical potential for given filling...") : nothing
-
-        hartreefock(ρ) # update meanfield (h is updated in-place)
-        hartreefock.μ = chemicalpotential(hMF(hartreefock), ks, filling; T=T, multimode=multimode)
-
-        hartreefock
-    end
+    sanitize!(ρ0)
+    sanitize!(ρ1)
+    @assert TightBinding.ishermitian(ρ0) "Initial guess for density matrix must be hermitian."
 
     function update!(ρ1, ρ0)
-        
         hartreefock(ρ0) # update meanfield (h is updated in-place)
+        # println("sparsity: ", sum(abs.(hartreefock.hMF[[0, 0]]) .> 1e-9) / length(hartreefock.hMF[[0, 0]]))
 
         verbose ? @info("Updating chemical potential for given filling...") : nothing
-        hartreefock.μ = chemicalpotential(hMF(hartreefock), ks, filling; T=T, multimode=multimode)
-
+        hartreefock.μ = Spectrum.chemicalpotential(hMF(hartreefock), ks, filling; T=T, multimode=multimode)
 
         verbose ? @info("Updating the mean field density matrix...") : nothing
-        ϵ0 = getdensitymatrix!(ρ1, hMF(hartreefock), ks, hartreefock.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
-        hartreefock(ρ0) # update meanfield (h is updated in-place)
-        
-        # ϵ0 = getdensitymatrix!(ρ1, H.h, ks, H.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
+        ϵ0 = Operators.getdensitymatrix!(ρ1, hMF(hartreefock), ks, hartreefock.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
 
         callback(ρ1)
 
@@ -102,8 +114,7 @@ function solveselfconsistent!(::DummyContext, ρ0::T1, ρ1::T1, hartreefock::Mea
     if convergenceerror && !converged
         error("Convergence error.")
     end
-    updateH!(ρ1)
+    hartreefock(ρ1) # update meanfield (h is updated in-place)
 
-
-    dense(ρ1), ϵ_GS, hartreefock, converged, residual
+    Utils.dense(ρ1), ϵ_GS, hartreefock, converged, residual
 end

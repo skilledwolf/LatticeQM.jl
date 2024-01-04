@@ -43,7 +43,7 @@ end
 function fermisurfacedensity(H, args...; broadening=:auto, lat=nothing, num_points=15, kwargs...)
 
     kgrid = regulargrid(; nk=num_points^2)
-    bands = bandmatrix(H, kgrid; kwargs...)
+    bands = bandmatrix(H, kgrid; kwargs...)[1]
 
     density = fermisurfacedensity_fromdata(bands, args...; broadening=broadening)
 

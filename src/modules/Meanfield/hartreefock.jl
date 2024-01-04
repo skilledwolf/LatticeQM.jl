@@ -7,7 +7,7 @@
     using solve_selfconsistent(...).
 """
 
-import ..TightBinding: zerokey
+import LatticeQM.TightBinding: zerokey
 
 abstract type MeanfieldGenerator{T} end
 
@@ -15,7 +15,7 @@ mutable struct HartreeFock{K, T2, T<:Hops{K,T2}} <: MeanfieldGenerator{T}
     h::T
     v::T
     μ::Float64
-    V0::T2 # Assuming T2 is Float64, adjust accordingly
+    V0::T2 
     hMF::T
     ϵMF::Float64
     fock::Bool
@@ -33,7 +33,12 @@ mutable struct HartreeFock{K, T2, T<:Hops{K,T2}} <: MeanfieldGenerator{T}
     end
 end
 
-hMF(hf::HartreeFock) = hf.hMF
+function hMF(hf::HartreeFock)
+    h0 = hf.hMF
+    @assert TightBinding.ishermitian(h0)
+    h0
+    # hf.hMF
+end
 
 function (hf::MeanfieldGenerator)(ρ) #(ρ::T) where {K,T2,T<:Hops{K,T2}}
     meanfieldOperator!(hf, ρ)
@@ -41,24 +46,34 @@ function (hf::MeanfieldGenerator)(ρ) #(ρ::T) where {K,T2,T<:Hops{K,T2}}
     hf
 end
 
+
 function initialize_hMF!(hf, ρ)
-    T = eltype(hf.h[zerokey(hf.h)])
-    dim = size(hf.h[zerokey(hf.h)])
-    for k in union(keys(hf.h), keys(hf.v), keys(ρ)) # initialize hMF with h
-        if haskey(hf.hMF, k)
-            if haskey(hf.h, k)
-                hf.hMF[k] .= hf.h[k]
-            else
-                hf.hMF[k] .= 0.0
-            end
-        else
-            if haskey(hf.h, k)
-                hf.hMF[k] = hf.h[k]
-            else
-                hf.hMF[k] = zeros(T, dim)
-            end
-        end
+
+    for k in keys(hf.hMF)
+        hf.hMF[k] .= 0 # reset hMF to zero
     end
+
+    TightBinding.addhops!(hf.hMF, hf.h)
+
+    # T = eltype(hf.h[zerokey(hf.h)])
+    # dim = size(hf.h[zerokey(hf.h)])
+    # for k in union(keys(hf.h), keys(hf.v), keys(ρ)) # initialize hMF with h
+    #     if haskey(hf.hMF, k)
+    #         if haskey(hf.h, k)
+    #             hf.hMF[k] .= hf.h[k]
+    #         else
+    #             hf.hMF[k] .= 0
+    #         end
+    #     else
+    #         if haskey(hf.h, k)
+    #             hf.hMF[k] = hf.h[k]
+    #         else
+    #             # error("Implementation error: We should better not reach this part...")
+    #             hf.hMF[k] = zeros(T, dim) # NOTE: for sparse operators, this will fail, but should not be reached usually?
+    #         end
+    #     end
+    # end
+    nothing 
 end
 
 function meanfieldOperator!(hf::HartreeFock, ρ)
@@ -70,6 +85,9 @@ function meanfieldOperator!(hf::HartreeFock, ρ)
     if hf.hartree
         meanfieldOperator_addhartree!(hf, ρ)
     end
+
+    # @todo: Potentially we should add a trimming stage here
+    # for sparse matrices (i.e., drop entries numerically close to 0)
     nothing
 end
 

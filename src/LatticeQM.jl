@@ -22,61 +22,62 @@ See folder `examples` of the package.
 """
 module LatticeQM
 
-    # using ElasticArrays
-    using SparseArrays, LinearAlgebra
+# using ElasticArrays
+using SparseArrays, LinearAlgebra
 
-    # using KPM # this is one of my packages
+# using KPM # this is one of my packages, removed dependency
 
-    include("modules/Utils.jl")
-    import .Utils
-    import .Utils: dense
+include("modules/Utils/Utils.jl")
+import .Utils
+import .Utils: dense
 
-    ### Base modules
-    include("modules/Structure.jl")
-    import .Structure
-    import .Structure: kpath, Geometries, Lattices
-    export Structure, Geometries, Lattices, kpath
+include("modules/Eigen/Eigen.jl")
+import .Eigen
 
-    include("modules/Spectrum.jl")
-    import .Spectrum
-    import .Spectrum: getbands
-    export Spectrum, getbands
+### Base modules
+include("modules/Structure/Structure.jl")
+import .Structure
+import .Structure: kpath, Geometries, Lattices
+export Structure, Geometries, Lattices, kpath
 
-    include("modules/TightBinding.jl")
-    import .TightBinding
-    import .TightBinding: DenseHops, SparseHops, Hops, hopdim, addhops!, addhops
-    export TightBinding
-    export DenseHops, SparseHops, Hops, hopdim, addhops!, addhops
-    export dense, sparse
+include("modules/Spectrum/Spectrum.jl")
+import .Spectrum
+import .Spectrum: getbands
+export Spectrum, getbands
 
-    include("modules/Floquet.jl")
-    using .Floquet
-    export Floquet
+include("modules/TightBinding/TightBinding.jl")
+import .TightBinding
+import .TightBinding: DenseHops, SparseHops, Hops, hopdim, addhops!, addhops
+export TightBinding
+export DenseHops, SparseHops, Hops, hopdim, addhops!, addhops
+export dense, sparse
 
-    include("modules/Operators.jl")
-    import .Operators
-    import .Operators: gethops, getoperator, getprojector, setfilling!
-    export Operators
-    export gethops, getoperator, getprojector, setfilling!
+include("modules/Floquet/Floquet.jl")
+using .Floquet
+export Floquet
 
-    include("modules/LinearResponse.jl")
-    import .LinearResponse
-    export LinearResponse
+include("modules/Operators/Operators.jl")
+import .Operators
+import .Operators: gethops, getoperator, setfilling! #, getprojector
+export Operators
+export gethops, getoperator, setfilling! #, getprojector
 
-    include("modules/Meanfield.jl")
-    import .Meanfield
-    import .Meanfield: solveselfconsistent, solvehartreefock, HartreeFock, initialguess
-    export Meanfield
-    export solveselfconsistent, solvehartreefock, HartreeFock, initialguess
+include("modules/LinearResponse/LinearResponse.jl")
+import .LinearResponse
+export LinearResponse
 
-    include("modules/Superconductivity.jl")
-    using .Superconductivity
-    export Superconductivity
-    export BdGOperator
+include("modules/Meanfield/Meanfield.jl")
+import .Meanfield
+import .Meanfield: solveselfconsistent, solvehartreefock, HartreeFock, initialguess
+export Meanfield
+export solveselfconsistent, solvehartreefock, HartreeFock, initialguess
 
-    ### Plotting recipes
-    using RecipesBase
-    include("plotting/Lattice.jl")
-    include("plotting/Bands.jl")
+include("modules/Superconductivity/Superconductivity.jl")
+using .Superconductivity
+export Superconductivity
+export BdGOperator
 
-end
+include("modules/Plotting/Plotting.jl")
+using .Plotting
+
+end # module LatticeQM
