@@ -87,10 +87,7 @@ Hops(G::Base.Generator) = Hops(Dict(G...))
 # Dense conversion
 Utils.dense(hops::DenseHops) = hops # does not create new instance, pass by reference
 Utils.dense(hops::Hops{K,T}) where {K,T<:AbstractMatrix{ComplexF64}} = DenseHops{K}(Dict(k => Utils.dense(v) for (k, v) in hops.data)) # creates new instances, copies data
-<<<<<<< HEAD
 Utils.densecopy(hops::Hops{K,T}) where {K,T<:AbstractMatrix{ComplexF64}} = DenseHops{K}(Dict(k => Utils.densecopy(v) for (k, v) in hops.data))
-=======
->>>>>>> origin/master
 DenseHops(args...; kwargs...) = Utils.dense(Hops(args...; kwargs...)) # uses constructors of Hops to create object, and dense(...) to potentially create yet another copy. This seems wasteful
 
 # Sparse conversion
