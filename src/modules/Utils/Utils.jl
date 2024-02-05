@@ -34,8 +34,11 @@ module Utils
     dense(A::SparseArrays.SparseMatrixCSC) = Array(A)
     dense(A::Hermitian{T,SparseArrays.SparseMatrixCSC{T,K}}) where {T,K} = Hermitian(Array(A))
 
+<<<<<<< HEAD
     densecopy(A::Array) = Array(A)
     densecopy(A::SubArray) = Array(A)
+=======
+>>>>>>> origin/master
 
     export dense
 

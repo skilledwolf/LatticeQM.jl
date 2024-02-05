@@ -1,28 +1,24 @@
 
-# using AppleAccelerate
 using Distributed
+# using AppleAccelerate
 
-# using LoopVectorization
-using LinearAlgebra
-LinearAlgebra.BLAS.set_num_threads(1) # set number of threads for BLAS
+@everywhere begin
+  using LinearAlgebra#, MKL
+  LinearAlgebra.BLAS.set_num_threads(1) # set number of threads for BLAS
+  using LatticeQM
+end
 
 using Plots
-using LatticeQM
 import LatticeQM.Structure.Lattices
 
-# @info "Number of workers: $(nworkers())"
-# @info "Number of threads: $(Threads.nthreads())"
-
-# n_angle, tz, outname = 11, 0.46, "output_n11_fm"
-# n_angle, tz, outname = 3, 0.46, "output_n11_fm"
-# n_angle, tz, outname, U_hubbard = 6, 0.52, "output_testing", 2.6
-# n_angle, tz, outname, U_hubbard = 10, 0.52, "output_n10_fm3", 2.2
-n_angle, tz, outname, U_hubbard = 10, 0.52, "output_n10_fm4", 2.7
-
+# n_angle, tz, outname, U_hubbard, guess = 11, 0.46, "output_n11_fm", 2.5, :ferro
+# n_angle, tz, outname, U_hubbard, guess = 6, 0.52, "output_testing", 2.6, :ferro
+# n_angle, tz, outname, U_hubbard, guess = 10, 0.52, "output_n10_fm3", 2.2, :ferro
+# n_angle, tz, outname, U_hubbard, guess = 10, 0.52, "output_n10_fm4", 2.8, :ferro
+# n_angle, tz, outname, U_hubbard, guess = 13, 0.39, "output_n13_fm5", 2.8, :ferro
+n_angle, tz, outname, U_hubbard, guess = 13, 0.39, "output_n13_random", 2.4, :random
 
 multimode = (nworkers() > 1) ? :distributed : :multithreaded
-# multimode=:multithreaded 
-# multimode = :distributed 
 
 @info "Generate lattice..."
 lat = Geometries.honeycomb_twisted(n_angle)
@@ -42,17 +38,14 @@ println("Target filling: ", filling)
 v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=U_hubbard) # interaction potential
 
 # ρ_init = Meanfield.initialguess(v, :random, :Z; lat=lat) # initial guess
-ρ_init = Meanfield.initialguess(v, :ferro; lat=lat) # initial guess
-
-# println("Size of hamiltonian object (mb): ", sizeof(hops.data)/1e6)
-# println("Size of hamiltonian object (mb): ", sum(sizeof(Matrix(M)) for (key, M) in hops.data) / 1e6)
+ρ_init = Meanfield.initialguess(v, guess; lat=lat) # initial guess
 
 @info "Band plot..."
 # Get the bands without mean-field terms
 ks_plot = kpath(lat; num_points=100)
 
 # @info "... setting filling"
-@everywhere (hops = $hops, ks_plot = $ks_plot, sz = $sz)
+@everywhere (hops = $hops, ks_plot = $ks_plot, sz = $sz, v=$v)
 Operators.setfilling!(hops, filling; nk=9^2, multimode=multimode)
 
 # @info "... getting bands (sparse)"
@@ -60,20 +53,16 @@ bands_plot = getbands(hops, ks_plot, sz; format=:sparse, num_bands=36, multimode
 
 mkpath("$outname")
 plot(bands_plot; colorbar=true)
-savefig("$outname/hubbardmeanfield_example1_noninteracting.pdf")
+savefig("$outname/bands_nonint.pdf")
 # exit()
 
 
 @info "Run mean field..."
-@everywhere using LatticeQM
-@everywhere (hops = $hops, v = $v)
-# hops = TightBinding.shareddense(hops)
-# ρ_init = TightBinding.shareddense(ρ_init)
-
 ρ_sol, ϵ_GS, HMF, converged, residue = Meanfield.solvehartreefock( # run the calculation
-    hops, v, ρ_init, filling; klin=6, iterations=6, tol=5e-3,# p_norm=Inf,
+    hops, v, ρ_init, filling; klin=9, iterations=16, tol=5e-3,# p_norm=Inf,
     T=0.002, β=0.93, show_trace=true, verbose=false, multimode=multimode
 )
+@everywhere GC.gc()
 # exit()
 
 @info "Magnetization..."
@@ -89,13 +78,15 @@ println("Create band plot...")
 # Get the bands without mean-field terms
 ks = kpath(lat; num_points=170)
 
-Operators.setfilling!(hops, filling; nk=9, multimode=multimode)
+Operators.setfilling!(hops, filling; nk=9^2, multimode=multimode)
 bands = getbands(hops, ks, sz; format=:sparse, num_bands=36, multimode=multimode)
 p1 = plot(bands; markersize=1, size=(600,200), colorbar=true)
 
 # Get the bands with mean-field terms
 hmf = Meanfield.hMF(HMF)
 Operators.addchemicalpotential!(hmf, -HMF.μ)
+
+@everywhere (hmf=$hmf)
 bands_mf = getbands(hmf, ks, sz; format=:sparse, num_bands=36, multimode=multimode)
 p2 = plot(bands_mf; markersize=1, size=(600,200), colorbar=true)
 
@@ -105,7 +96,7 @@ plot!(p2, title="Hubbard meanfield")
 plot(p1,p2, titlefont=font(8))
 
 mkpath("$outname");
-savefig("$outname/hubbardmeanfield_example1_distributed.pdf");
+savefig("$outname/bands_meanfield.pdf");
 
 println("Exiting...")
 # sleep(5)

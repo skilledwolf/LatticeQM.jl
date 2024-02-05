@@ -116,5 +116,10 @@ function solveselfconsistent!(::DummyContext, ρ0::T1, ρ1::T1, hartreefock::Mea
     end
     hartreefock(ρ1) # update meanfield (h is updated in-place)
 
+<<<<<<< HEAD
     Utils.densecopy(ρ1), ϵ_GS, hartreefock, converged, residual
 end 
+=======
+    Utils.dense(ρ1), ϵ_GS, hartreefock, converged, residual
+end
+>>>>>>> origin/master
