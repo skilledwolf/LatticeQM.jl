@@ -129,8 +129,12 @@ function setrandom!(ρ::Hops, kind=:nonlocal)
         setzero!(ρ, M)
     elseif kind==:nonlocal
         for L in keys(ρ)
-            M = rand(ComplexF64, N, N); M = (M+M')/2
-            ρ[L][:] .= M[:]
+            ρ[L] .= 0
+        end
+        for L in keys(ρ)
+            M = rand(ComplexF64, N, N); #M = (M+M')/2
+            ρ[L] .+= M
+            ρ[-L] .+= M'
         end
     elseif kind==:XY || kind==:xy
         M = mapspindensitymatrix(:randomXY, n)

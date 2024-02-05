@@ -143,6 +143,7 @@ function bandmatrix(H, ks, projectors...; multimode=:distributed, progress_label
         bands, obs = SharedArray(bands), SharedArray(obs) # convert to shared arrays
         # bandmatrix_distributed!(bands, obs, H, ks, projectors, progressbar; kwargs...)
         bandmatrix_pmap!(bands, obs, H, ks, projectors, progressbar; kwargs...)
+        bands, obs = sdata(bands), sdata(obs) # convert back to normal arrays
     elseif multimode == :multithreaded && Threads.nthreads() > 1 && get(kwargs, :format, :dense) != :sparse #Arpack.eigs is not thread-safe
         bandmatrix_multithreaded!(bands, obs, H, ks, projectors, progressbar; kwargs...)
     else 
