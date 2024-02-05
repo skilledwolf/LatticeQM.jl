@@ -1,8 +1,5 @@
 import LatticeQM.Meanfield
-# using ..Meanfield: hartreefock_pairing
 import LatticeQM.Utils
-
-
 
 mutable struct HartreeFockBDG{K,T2,T<:Hops{K,T2}} <: Meanfield.MeanfieldGenerator{T}
     h::T
