@@ -3,13 +3,13 @@ import SparseArrays
 import LinearAlgebra: Hermitian
 import SparseArrays: SparseMatrixCSC
 
-sanatize_hermitian_sparse(H::AbstractMatrix) = H
-sanatize_hermitian_sparse(H::Hermitian{T1,SparseMatrixCSC{T1,T2}}) where {T1,T2} = SparseMatrixCSC(H)
+sanitize_hermitian_sparse(H::AbstractMatrix) = H
+sanitize_hermitian_sparse(H::Hermitian{T1,SparseMatrixCSC{T1,T2}}) where {T1,T2} = SparseMatrixCSC(H)
 
-eigmax_sparse(H; kwargs...) = Arpack.eigs(sanatize_hermitian_sparse(H); nev=1, which=:LR, kwargs...)[1][1]
-eigmin_sparse(H; kwargs...) = Arpack.eigs(sanatize_hermitian_sparse(H); nev=1, which=:SR, kwargs...)[1][1]
+eigmax_sparse(H; kwargs...) = Arpack.eigs(sanitize_hermitian_sparse(H); nev=1, which=:LR, kwargs...)[1][1]
+eigmin_sparse(H; kwargs...) = Arpack.eigs(sanitize_hermitian_sparse(H); nev=1, which=:SR, kwargs...)[1][1]
 
-eigen_sparse(M; num_bands::Int, sigma::Float64=1e-8, which=:LM, kwargs...) = Arpack.eigs(sanatize_hermitian_sparse(M); nev=num_bands, sigma=sigma, which=which, kwargs...)
+eigen_sparse(M; num_bands::Int, sigma::Float64=1e-8, which=:LM, kwargs...) = Arpack.eigs(sanitize_hermitian_sparse(M); nev=num_bands, sigma=sigma, which=which, kwargs...)
 eigvals_sparse(args...; kwargs...) = (eigen_sparse(args...; kwargs...))[1]
 eigvecs_sparse(args...; kwargs...) = (eigen_sparse(args...; kwargs...))[2]
 

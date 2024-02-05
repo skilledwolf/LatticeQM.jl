@@ -113,6 +113,7 @@ import ..Utils
 import SparseArrays 
 import ..TightBinding
 Utils.dense(H::BdGOperator) = (h0 = Utils.dense(H.h); BdGOperator{typeof(h0)}(h0))
+Utils.densecopy(H::BdGOperator) = (h0 = Utils.densecopy(H.h); BdGOperator{typeof(h0)}(h0))
 SparseArrays.sparse(H::BdGOperator) = (h0 = SparseArrays.sparse(H.h); BdGOperator{typeof(h0)}(h0))
 TightBinding.shareddense(H::BdGOperator) = (h0 = TightBinding.shareddense(H.h); BdGOperator{typeof(h0)}(h0))
 
