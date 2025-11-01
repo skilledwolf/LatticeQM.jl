@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Tutorial 3: Haldane Model &amp; Topology · LatticeQM.jl</title><meta name="title" content="Tutorial 3: Haldane Model &amp; Topology · LatticeQM.jl"/><meta property="og:title" content="Tutorial 3: Haldane Model &amp; Topology · LatticeQM.jl"/><meta property="twitter:title" content="Tutorial 3: Haldane Model &amp; Topology · LatticeQM.jl"/><meta name="description" content="Documentation for LatticeQM.jl."/><meta property="og:description" content="Documentation for LatticeQM.jl."/><meta property="twitter:description" content="Documentation for LatticeQM.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">LatticeQM.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../getting_started/">Getting Started</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../">Overview</a></li><li><a class="tocitem" href="../structure/">Tutorial 1: Structure &amp; Geometry</a></li><li><a class="tocitem" href="../bands/">Tutorial 2: Band Structures</a></li><li class="is-active"><a class="tocitem" href>Tutorial 3: Haldane Model &amp; Topology</a><ul class="internal"><li><a class="tocitem" href="#Learning-goals"><span>Learning goals</span></a></li><li><a class="tocitem" href="#Prerequisites"><span>Prerequisites</span></a></li><li><a class="tocitem" href="#Workflow-outline"><span>Workflow outline</span></a></li><li><a class="tocitem" href="#Live-example"><span>Live example</span></a></li><li><a class="tocitem" href="#Berry-curvature-map"><span>Berry curvature map</span></a></li><li><a class="tocitem" href="#Phase-diagram-(coarse-grid)"><span>Phase diagram (coarse grid)</span></a></li><li><a class="tocitem" href="#Ribbon-dispersion"><span>Ribbon dispersion</span></a></li><li><a class="tocitem" href="#Nested-Wilson-Loops-(SSHSSH-snapshot)"><span>Nested Wilson Loops (SSH×SSH snapshot)</span></a></li><li><a class="tocitem" href="#Validation-checklist"><span>Validation checklist</span></a></li><li><a class="tocitem" href="#Suggested-extensions"><span>Suggested extensions</span></a></li></ul></li><li><a class="tocitem" href="../twisted_bilayers/">Tutorial 4: Twisted Bilayer Graphene</a></li><li><a class="tocitem" href="../hofstadter/">Tutorial 5: Hofstadter Butterfly</a></li><li><a class="tocitem" href="../meanfield/">Tutorial 6: Mean-field Self-Consistency</a></li><li><a class="tocitem" href="../floquet/">Tutorial 7: Floquet Dynamics</a></li><li><a class="tocitem" href="../superconductivity/">Tutorial 8: Superconductivity (BdG)</a></li></ul></li><li><span class="tocitem">Concept Guides</span><ul><li><a class="tocitem" href="../../guides/geometry/">Geometry &amp; Lattices</a></li><li><a class="tocitem" href="../../guides/operators/">Operators &amp; Hamiltonians</a></li><li><a class="tocitem" href="../../guides/observables/">Observables &amp; Spectral Analysis</a></li><li><a class="tocitem" href="../../guides/meanfield/">Mean-field &amp; Superconductivity</a></li><li><a class="tocitem" href="../../guides/floquet/">Floquet Workflows</a></li></ul></li><li><a class="tocitem" href="../../advanced/">Advanced Workflows</a></li><li><a class="tocitem" href="../../contributing/">Contributor Guide</a></li><li><a class="tocitem" href="../../api/">API Reference</a></li><li><a class="tocitem" href="../../publications/">Publications</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Tutorial 3: Haldane Model &amp; Topology</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Tutorial 3: Haldane Model &amp; Topology</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/skilledwolf/LatticeQM.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/skilledwolf/LatticeQM.jl/blob/master/extra/docs/src/tutorials/hall_effect.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Tutorial-3-—-Haldane-Model-and-Topology"><a class="docs-heading-anchor" href="#Tutorial-3-—-Haldane-Model-and-Topology">Tutorial 3 — Haldane Model &amp; Topology</a><a id="Tutorial-3-—-Haldane-Model-and-Topology-1"></a><a class="docs-heading-anchor-permalink" href="#Tutorial-3-—-Haldane-Model-and-Topology" title="Permalink"></a></h1><p><strong>Notebook</strong>: <code>extra/tutorial/Tutorial3_Haldane.ipynb</code></p><p>Explore how to induce topological gaps in graphene-like systems and compute observables that diagnose Chern insulating phases.</p><h2 id="Learning-goals"><a class="docs-heading-anchor" href="#Learning-goals">Learning goals</a><a id="Learning-goals-1"></a><a class="docs-heading-anchor-permalink" href="#Learning-goals" title="Permalink"></a></h2><ul><li>Introduce complex next-nearest-neighbour hoppings via <code>Operators.addhaldane!</code>.</li><li>Study phase diagrams by sweeping Haldane mass and onsite potentials.</li><li>Evaluate Berry curvature and Chern numbers with <code>Spectrum</code> utilities.</li><li>Visualise chiral edge states on ribbon geometries.</li></ul><h2 id="Prerequisites"><a class="docs-heading-anchor" href="#Prerequisites">Prerequisites</a><a id="Prerequisites-1"></a><a class="docs-heading-anchor-permalink" href="#Prerequisites" title="Permalink"></a></h2><ul><li>Outcomes from Tutorial 2 (band-structure workflows).</li><li>Optional: knowledge of topological band theory terminology.</li></ul><h2 id="Workflow-outline"><a class="docs-heading-anchor" href="#Workflow-outline">Workflow outline</a><a id="Workflow-outline-1"></a><a class="docs-heading-anchor-permalink" href="#Workflow-outline" title="Permalink"></a></h2><ol><li><strong>Model setup</strong> — Build a honeycomb lattice and baseline graphene Hamiltonian.</li><li><strong>Haldane term</strong> — Apply <code>Operators.addhaldane!(hops, lat, φ; spinhalf=true)</code> and optionally stack with sublattice imbalance.</li><li><strong>Parameter scans</strong> — Use simple loops or <code>range</code> objects to inspect phase transitions. Store observables with <code>@save</code> or by writing CSV/JSON.</li><li><strong>Topological invariants</strong> — Invoke <code>Spectrum.chern(hops, ks; ...)</code> or related helpers to compute Chern numbers.</li><li><strong>Ribbon perspective</strong> — Transform to ribbon geometries (see <code>extra/examples/graphene/ribbon_haldane.jl</code>) and plot edge-localised states.</li></ol><h2 id="Live-example"><a class="docs-heading-anchor" href="#Live-example">Live example</a><a id="Live-example-1"></a><a class="docs-heading-anchor-permalink" href="#Live-example" title="Permalink"></a></h2><pre><code class="language-julia hljs">figdir = joinpath(pwd(), &quot;figures&quot;)
+mkpath(figdir)
+nothing</code></pre><pre><code class="language-julia hljs">cherns = Spectrum.getcherns(hops, 15, 15)
+println(&quot;Chern numbers (lowest two) = &quot;, cherns[1:2])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chern numbers (lowest two) = [1.0, -1.0]</code></pre><pre><code class="language-julia hljs">p = plot(
+    getbands(hops, ks, [valley]);
+    ylabel=&quot;ε/t&quot;,
+    marker=:none,
+    size=(420, 260),
+    title=&quot;Haldane model band structure&quot;,
+    colorbar=true,
+    colorbar_title=&quot;valley&quot;
+)
+savefig(p, joinpath(figdir, &quot;haldane_bands.svg&quot;))
+nothing</code></pre><p><img src="../figures/haldane_bands.svg" alt/></p><h2 id="Berry-curvature-map"><a class="docs-heading-anchor" href="#Berry-curvature-map">Berry curvature map</a><a id="Berry-curvature-map-1"></a><a class="docs-heading-anchor-permalink" href="#Berry-curvature-map" title="Permalink"></a></h2><pre><code class="language-julia hljs">kgrid, berry = Spectrum.berry(hops, 20, 20, [1])
+vals = filter(!isnan, abs.(berry[:]))
+maxval = isempty(vals) ? 1.0 : Statistics.quantile(vals, 0.98)
+p = scatter(
+    (Structure.Lattices.getB(lat) * hcat(reshape(kgrid, :, 1)...))[1, :],
+    (Structure.Lattices.getB(lat) * hcat(reshape(kgrid, :, 1)...))[2, :];
+    marker_z = vec(berry),
+    markerstrokewidth=0,
+    markersize=3,
+    colorbar=true,
+    clims=(-maxval, maxval),
+    markercolor=:RdBu,
+    xlabel=&quot;k₁&quot;,
+    ylabel=&quot;k₂&quot;,
+    size=(360, 280),
+    legend=false,
+    aspect_ratio=:equal
+)
+savefig(p, joinpath(figdir, &quot;haldane_berry.svg&quot;))
+nothing</code></pre><p><img src="../figures/haldane_berry.svg" alt/></p><h2 id="Phase-diagram-(coarse-grid)"><a class="docs-heading-anchor" href="#Phase-diagram-(coarse-grid)">Phase diagram (coarse grid)</a><a id="Phase-diagram-(coarse-grid)-1"></a><a class="docs-heading-anchor-permalink" href="#Phase-diagram-(coarse-grid)" title="Permalink"></a></h2><pre><code class="language-julia hljs">using LaTeXStrings
+phi_vals = LinRange(-π, π, 25)
+m_vals = LinRange(-1.2, 1.2, 25)
+h0 = Operators.graphene(lat; mode=:nospin, format=:dense)
+C = fill(0.0, length(phi_vals), length(m_vals))
+for (i, ϕ) in enumerate(phi_vals), (j, Δ) in enumerate(m_vals)
+    local_model = deepcopy(h0)
+    Operators.addsublatticeimbalance!(local_model, lat, Δ)
+    Operators.addhaldane!(local_model, lat, 0.2; ϕ=ϕ)
+    C[i, j] = sum(Spectrum.berry(local_model, 10, 10, [1])[2])
+end
+p = heatmap(
+    phi_vals ./ π,
+    m_vals,
+    transpose(round.(C; digits=2));
+    xlabel=L&quot;\phi/\pi&quot;,
+    ylabel=L&quot;m/t_2&quot;,
+    colorbar_title=&quot;Chern&quot;,
+    size=(420, 240),
+    color=:seismic
+)
+savefig(p, joinpath(figdir, &quot;haldane_phase.svg&quot;))
+nothing</code></pre><p><img src="../figures/haldane_phase.svg" alt/></p><h2 id="Ribbon-dispersion"><a class="docs-heading-anchor" href="#Ribbon-dispersion">Ribbon dispersion</a><a id="Ribbon-dispersion-1"></a><a class="docs-heading-anchor-permalink" href="#Ribbon-dispersion" title="Permalink"></a></h2><pre><code class="language-julia hljs">N = 20
+lat_ribbon = Structure.Lattices.reduceto1D(Geometries.honeycomb(), [[1, 1] [N, -N]])
+h_ribbon = Operators.graphene(lat_ribbon; mode=:nospin, format=:dense, cellrange=1)
+Operators.addhaldane!(h_ribbon, lat_ribbon, 0.25)
+position = Operators.positionalong(lat_ribbon, Structure.Lattices.basis(lat_ribbon, 2); rescale=true, center=true)
+ks_ribbon = kpath(lat_ribbon; num_points=140)
+bands_ribbon = getbands(h_ribbon, ks_ribbon, position)
+p = plot(
+    bands_ribbon, 1;
+    ylabel=&quot;ε/t&quot;,
+    colorbar_title=&quot;transverse position&quot;,
+    csymmetric=true,
+    markersize=1.5,
+    size=(450, 260)
+)
+savefig(p, joinpath(figdir, &quot;haldane_ribbon.svg&quot;))
+nothing</code></pre><p><img src="../figures/haldane_ribbon.svg" alt/></p><h2 id="Nested-Wilson-Loops-(SSHSSH-snapshot)"><a class="docs-heading-anchor" href="#Nested-Wilson-Loops-(SSHSSH-snapshot)">Nested Wilson Loops (SSH×SSH snapshot)</a><a id="Nested-Wilson-Loops-(SSHSSH-snapshot)-1"></a><a class="docs-heading-anchor-permalink" href="#Nested-Wilson-Loops-(SSHSSH-snapshot)" title="Permalink"></a></h2><pre><code class="language-julia hljs">using LatticeQM.Structure.Lattices: Lattice, addbasis!, addorbital!, addextra!
+function SSHxSSH(t1X, t2X, t1Y, t2Y)
+    lat = Lattice()
+    addbasis!(lat, [1, 0]); addbasis!(lat, [0, 1]); addextra!(lat, &quot;sublattice&quot;)
+    addorbital!(lat, [0,   0,   2]); addorbital!(lat, [1/2, 0,   4])
+    addorbital!(lat, [0, 1/2,   3]); addorbital!(lat, [1/2, 1/2, 1])
+    lat.specialpoints = LatticeQM.Geometries.kdict_sq
+    h = DenseHops()
+    h[[0,0]] = zeros(ComplexF64, 4, 4)
+    h[[0,0]][3,1] = t1X; h[[0,0]][2,3] = -t1Y; h[[0,0]][4,2] = t1X; h[[0,0]][1,4] = t1Y
+    h[[0,0]] += h[[0,0]]&#39;
+    h[[1,0]] = zeros(ComplexF64, 4, 4); h[[1,0]][3,1] = t2X; h[[1,0]][2,4] = t2X; h[[-1,0]] = h[[1,0]]&#39;
+    h[[0,1]] = zeros(ComplexF64, 4, 4); h[[0,1]][2,3] = -t2Y; h[[0,1]][4,1] = t2Y; h[[0,-1]] = h[[0,1]]&#39;
+    lat, h
+end
+latSSH, hSSH = SSHxSSH(0.5, 1.0, 0.5, 1.0)
+pol1, U1, pol2, U2 = Spectrum.NestedWilson2D(hSSH, 60, 60, 1:2)
+p = plot(scatter(collect(1:length(pol1[:,1])), pol1[:,1]; ms=3.0, label=&quot;1&quot;),
+         scatter(collect(1:length(pol1[:,2])), pol1[:,2]; ms=3.0, label=&quot;2&quot;);
+         size=(420, 260), xlabel=&quot;k₂ index&quot;, ylabel=&quot;polarisation k₁&quot;)
+savefig(p, joinpath(figdir, &quot;sshxssh_wilson.svg&quot;))
+nothing</code></pre><p><img src="../figures/sshxssh_wilson.svg" alt/></p><h2 id="Validation-checklist"><a class="docs-heading-anchor" href="#Validation-checklist">Validation checklist</a><a id="Validation-checklist-1"></a><a class="docs-heading-anchor-permalink" href="#Validation-checklist" title="Permalink"></a></h2><ul><li>Confirm Chern numbers match the expected ±1 quantisation when phases wrap.</li><li>Create plots of Berry curvature hotspots and verify symmetry.</li><li>Compare ribbon spectra with bulk band gaps for consistency.</li></ul><h2 id="Suggested-extensions"><a class="docs-heading-anchor" href="#Suggested-extensions">Suggested extensions</a><a id="Suggested-extensions-1"></a><a class="docs-heading-anchor-permalink" href="#Suggested-extensions" title="Permalink"></a></h2><ul><li>Couple the model to linear-response routines in <code>LinearResponse</code> to compute Hall conductivities.</li><li>Introduce disorder or electric fields to study robustness of edge channels.</li><li>Export topological markers for later visualisation using scripts in <code>extra/examples/</code>.</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../bands/">« Tutorial 2: Band Structures</a><a class="docs-footer-nextpage" href="../twisted_bilayers/">Tutorial 4: Twisted Bilayer Graphene »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Saturday 1 November 2025 16:25">Saturday 1 November 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

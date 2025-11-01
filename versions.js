@@ -1,5 +1,5 @@
 var DOC_VERSIONS = [
-  "dev",
+  "master",
 ];
-var DOCUMENTER_NEWEST = "dev";
-var DOCUMENTER_STABLE = "dev";
+var DOCUMENTER_NEWEST = "master";
+var DOCUMENTER_STABLE = "master";
