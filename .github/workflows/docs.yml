@@ -20,9 +20,14 @@ jobs:
       - name: Instantiate docs env
         run: |
           julia --project=extra/docs -e 'using Pkg; Pkg.instantiate()'
-      - name: Ensure PyCall builds (use system Python)
+      - name: Ensure PyCall installed and built (system Python)
         run: |
-          julia --project=extra/docs -e 'using Pkg; ENV["PYTHON"] = "python3"; try Pkg.build("PyCall") catch e; @warn("PyCall build", e) end'
+          julia --project=extra/docs -e '
+            using Pkg;
+            try Pkg.add("PyCall") catch e; @warn("PyCall add", e) end;
+            ENV["PYTHON"] = "python3";
+            try Pkg.build("PyCall") catch e; @warn("PyCall build", e) end;
+          '
       - name: Build docs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
