@@ -1,4 +1,16 @@
-push!(LOAD_PATH, joinpath(@__DIR__, "..", "..", "src"))
+using Pkg
+if get(ENV, "CI", "false") == "true"
+    # In CI, load package via Pkg (added by workflow) so deps are resolved
+    try
+        Pkg.develop(PackageSpec(path = joinpath(@__DIR__, "..", "..")))
+        Pkg.instantiate()
+    catch
+    end
+else
+    # Local builds can load from source directly
+    push!(LOAD_PATH, joinpath(@__DIR__, "..", "..", "src"))
+end
+
 using Documenter
 using Documenter.Remotes
 using LatticeQM
