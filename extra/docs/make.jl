@@ -59,6 +59,7 @@ makedocs(
 )
 
 deploydocs(
-    repo = Remotes.GitHub("skilledwolf", "LatticeQM.jl"),
+    repo = "github.com/skilledwolf/LatticeQM.jl",
     devbranch = "master",
+    deploy_config = Documenter.GitHubActions(),
 )
