@@ -16,4 +16,13 @@ Pkg.add(url="https://gitlab.com/skilledwolf/LatticeQM.jl.git")
 
 ## Acknowledgements
 - I thank Dr. Oded Zilberberg and Dr. Gianni Blatter for their guidance and support as my thesis advisors; I developed the package in the course of my PhD research. 
-- Tobias Kästli (@vigoleis) developed the Floquet module as part of his Master's project and authored the accompanying tutorial.
+- Tobias Kästli (@vigoleis) contributed the Floquet module as part of his Master's project and authored the accompanying tutorial.
+IMPORTANT: This GitLab mirror is frozen (read‑only).
+
+Active development has moved to GitHub:
+https://github.com/skilledwolf/LatticeQM.jl
+
+Please open issues and pull requests on GitHub. This repository remains as an
+archived mirror for reference.
+
+---
