@@ -17,6 +17,15 @@ jobs:
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.julia-version }}
+      - name: Configure PyCall to use Conda and install scipy
+        run: |
+          julia --project=. -e '
+            using Pkg;
+            Pkg.add(["PyCall","Conda"]);
+            ENV["PYTHON"] = ""; # use Conda-managed Python for PyCall
+            Pkg.build("PyCall");
+            using Conda; Conda.add("scipy");
+          '
       - name: Cache artifacts
         uses: actions/cache@v4
         with:
