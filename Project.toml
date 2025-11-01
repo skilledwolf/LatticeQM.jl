@@ -1,7 +1,7 @@
 name = "LatticeQM"
 uuid = "606d2a7e-9b17-11e9-1c5c-455b84f60309"
 license = "AGPL-3.0-only"
-version = "0.7.1"
+version = "0.8.0"
 authors = ["Tobias Wolf"]
 
 [deps]
