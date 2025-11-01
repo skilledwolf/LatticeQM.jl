@@ -33,10 +33,10 @@ changes you make inside the container persist on the host filesystem.
 
 ## Option C — Native Julia installation
 1. Install the latest stable Julia release (≥1.10 recommended).
-2. Add the package using either SSH or HTTPS:
+2. Add the package from the General registry:
    ```julia
    using Pkg
-   Pkg.add(url="https://gitlab.com/skilledwolf/LatticeQM.jl.git")
+   Pkg.add("LatticeQM")
    ```
    For development work use `Pkg.develop(path="/path/to/LatticeQM")`.
 3. Instantiate dependencies in the project environment:
