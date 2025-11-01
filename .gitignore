@@ -4,6 +4,32 @@ extra/docs/html/*
 extra/docs/build/*
 extra/docs_old/*
 
+## Internal planning and public-release TODOs (not tracked)
+TODO_PUBLIC_RELEASE.md
+docs/DocumentationRoadmap.md
+
+## Draft docs pages not yet tracked (explicitly ignored)
+extra/docs/src/advanced/
+extra/docs/src/api.md
+extra/docs/src/contributing.md
+extra/docs/src/guides/geometry.md
+extra/docs/src/guides/meanfield.md
+extra/docs/src/guides/observables.md
+extra/docs/src/guides/operators.md
+extra/docs/src/tutorials/bands.md
+extra/docs/src/tutorials/hall_effect.md
+extra/docs/src/tutorials/hofstadter.md
+extra/docs/src/tutorials/index.md
+extra/docs/src/tutorials/meanfield.md
+
+## Experimental notebooks to keep untracked
+extra/examples/twistedgraphene/parallelization_tests.ipynb
+extra/tutorial/Tutorial4_Twisted2.ipynb
+extra/tutorial/Tutorial4_Twisted3.ipynb
+
+## Jupyter checkpoint folders
+**/.ipynb_checkpoints/**
+
 extra/examples/**/*.pdf
 extra/examples/**/*.jld
 extra/examples/**/*.jld2

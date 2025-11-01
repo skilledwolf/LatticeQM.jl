@@ -7,7 +7,15 @@ superlattice(lat::Lattice, superperiods::Vector{Int}, args...) = superlattice(la
 """
     superlattice(lat::Lattice, superperiods; kwargs...)
 
-Build superlattice geometry, i.e., build a larger supercell at it's new lattice vectors.
+Construct a superlattice from `lat`.
+
+- `superperiods`: either a vector of integers (scales each direct basis vector)
+  or an integer matrix `S` whose columns define the linear transformation of the
+  primitive basis, i.e. the new basis is `A * S`.
+
+Copies atoms into the new supercell and returns a new `Lattice` with updated
+coordinates and `specialpoints` preserved. Extra coordinates (e.g. sublattice,
+layer, z) are replicated.
 """
 function superlattice(lat::Lattice, superperiods::Matrix{Int}; kwargs...)
 
@@ -31,7 +39,11 @@ function superlattice(lat::Lattice, superperiods::Matrix{Int}; kwargs...)
 end
 
 """
-This is a low-level function. Not meant for end-users.
+    superlattice(lat::Lattice, S::Matrix{Int}, supercellints::Matrix{Int}; kwargs...)
+
+Low‑level constructor where the integer coordinates inside one supercell are
+pre‑computed and provided as `supercellints` (columns). Not intended for
+general users.
 """
 function superlattice(lat::Lattice, superperiods::Matrix{Int}, supercellints::Matrix{Int}; kwargs...)
 
@@ -79,21 +91,38 @@ end
 
 repeat(lat::Lattice, repeat=[0:0,0:0]) = repeat!(deepcopy(lat), repeat)
 
+"""
+    repeat(spacecoordinates[, Λ], repeat=[0:0, 0:0])
+
+Tile a set of point coordinates by integer translations of the lattice. Returns
+the concatenated coordinate matrix.
+
+Arguments
+- `spacecoordinates::AbstractMatrix`: columns are point positions in Cartesian
+  space.
+- `Λ::AbstractMatrix` (optional): direct lattice basis (defaults to 2D identity).
+- `repeat::Vector{<:AbstractRange}`: ranges along a1 and a2, e.g. `[0:1, 0:1]` for 2×2.
+
+Example
+```julia
+coords2x2 = repeat(coords, A, [0:1, 0:1])
+```
+"""
 function repeat(spacecoordinates::AbstractMatrix, Λ=Matrix{Float64}(I, 2, 2), repeat=[0:0,0:0])
-"""
-Translates all points in "atom" by lattice vectors as defined by the "repeat" list of iterator.
-"""
     @assert size(spacecoordinates,2) == 2 # only implemented for 2d lattices at the moment
     Λsuper = [Λ * [i; j] for i=repeat[1] for j=repeat[2]]
-    spacecoordinates_super = hcat([spacecoordinates.+v for v in Λsuper]...)
+    spacecoordinates_super = hcat([spacecoordinates .+ v for v in Λsuper]...)
 end
 
 sortextraposition!(lat::Lattice, name::String) = sortposition!(lat,name) # alias for backwards compatibility
+"""
+    sortposition!(lat, name::String[, sortfunc])
+
+Sort orbitals by an extra coordinate `name` (e.g. `"z"`, `"sublattice"`). Useful
+for layered plots so that layers appear in front/back order. Returns the
+permutation applied.
+"""
 function sortposition!(lat::Lattice, name::String, sortfunc=(x->x))
-"""
-Sorts all coordinates in the lattice according to extraposition "name" (e.g. z coordinates or sublattice).
-This is useful for example when plotting, such that layers get plotted one on top of each other (even in supercells).
-"""
 
     perm = sortperm(sortfunc(vec(extracoordinates(lat,name))))
 
@@ -102,11 +131,13 @@ This is useful for example when plotting, such that layers get plotted one on to
 
     perm
 end
+"""
+    sortposition!(lat, index::Int[, sortfunc])
+
+Index‑based variant of `sortposition!`, using the `index`‑th extra coordinate.
+Returns the permutation applied.
+"""
 function sortposition!(lat::Lattice, index::Int, sortfunc=(x->x))
-"""
-Sorts all coordinates in the lattice according to extraposition "name" (e.g. z coordinates or sublattice).
-This is useful for example when plotting, such that layers get plotted one on top of each other (even in supercells).
-"""
 
     perm = sortperm(sortfunc(vec(coordinates(lat,index))))
 
@@ -117,12 +148,25 @@ This is useful for example when plotting, such that layers get plotted one on to
 end
 
 
+"""
+    crop2unitcell!(lat)
+
+Remove orbitals whose fractional coordinates fall outside `[0,1)` along the
+primitive directions. Operates in place and returns `lat`.
+"""
 function crop2unitcell!(lat::Lattice)#, lat1::Lattice)
     indices = [i for (i,a) in enumerate(eachcol(lat.spacecoordinates[1:latticedim(lat),:])) if inunitrange(a)]
     lat.spacecoordinates = lat.spacecoordinates[:,indices]
     lat.extracoordinates = lat.extracoordinates[:,indices]
     lat
 end
+"""
+    crop2unitcell(positions, Λ)
+
+Return the subset of `positions` (Cartesian) that lie inside the primitive unit
+cell spanned by `Λ` (direct basis). Returns a matrix whose columns are the kept
+positions.
+"""
 crop2unitcell(positions::AbstractMatrix, Λ::AbstractMatrix) = crop2unitcell(inv(Λ)*positions)
 function crop2unitcell(coordinates::Matrix{<:AbstractFloat})
     offset = 1e-5 * (1+0.3*rand())
@@ -130,10 +174,15 @@ function crop2unitcell(coordinates::Matrix{<:AbstractFloat})
     convert(Array, VectorOfArray(collect(crop_iterator)))
 end
 
+"""
+    bistack(lat, δz; fracshift=[0.0, 0.0])
+
+Create a bilayer by duplicating `lat` and offsetting the upper copy by `δz`
+along the third (z) coordinate. Optionally shift the second layer in fractional
+in‑plane coordinates by `fracshift` before stacking. Adds a `"z"` extra
+coordinate if missing. Returns the new stacked `Lattice`.
+"""
 function bistack(lat::Lattice, δz::Float64; fracshift=[0.0; 0.0])
-    """
-    Take lattice "lat", shift the copy down by δz.
-    """
     if !hasdimension(lat, "z")
         N = countorbitals(lat)
         newdimension!(lat, "z", zeros(Float64,1,N))
@@ -148,7 +197,7 @@ function bistack(lat::Lattice, δz::Float64; fracshift=[0.0; 0.0])
     # extracoordinates1[lat.extralabels["z"],:] .+= δz/2
     extracoordinates2[lat.extralabels["z"],:] .+= δz
 
-    return Lattice(A, hcat(spacecoordinates,spacecoordinates), hcat(extracoordinates1, extracoordinates2), lat.extralabels)
+    return Lattice(A, hcat(spacecoordinates1, spacecoordinates2), hcat(extracoordinates1, extracoordinates2), lat.extralabels)
 end
 
 
@@ -167,9 +216,12 @@ inunitrange(u; offset=sqrt(eps())) = all( (u .< 1 - offset) .& (u .>= 0 - offset
 """
     supercellpoints(M::AbstractMatrix{Int}; offset::Float64=sqrt(eps()))
 
-Consider an integer lattice of dimension D=size(M,1). Matrix M describes a (non-orthogonal) superlattice
-of this integer lattice. We want to find all lattice points that lie inside a unit cell of this
-new superlattice.
+Given an integer lattice Z^D and an integer matrix `M` describing a (possibly
+non‑orthogonal) superlattice, return the integer points inside one supercell of
+the new lattice. The number of columns equals `abs(det(M))`.
+
+The small `offset` avoids boundary ambiguities for points lying exactly on cell
+faces.
 """
 function supercellpoints(M::Matrix{Int}; offset::Float64=sqrt(eps()))#, check=false) # offset is a dummy variable, should be removed
     d = size(M)[1]
@@ -198,7 +250,6 @@ function supercellpoints(M::Matrix{Int}; offset::Float64=sqrt(eps()))#, check=fa
     hcat(innerpoints...)
 end
 precompile(supercellpoints, (Matrix{Int},))
-
 
 
 

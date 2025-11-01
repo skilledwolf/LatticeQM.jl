@@ -33,7 +33,9 @@ function Meanfield.HartreeFock(h::BdGOperator{T}, v::T, μ=0.0; hartree=true, fo
 end
 
 function Meanfield.hMF(hf::HartreeFockBDG)
-    BdGOperator(hf.hMF, hf.ΔMF)
+    hBdG = BdGOperator(hf.hMF, hf.ΔMF)
+    @assert TightBinding.ishermitian(hBdG) "Mean-field Hamiltonian is not hermitian"
+    hBdG
 end
 
 function (hf::HartreeFockBDG)(ρ) # where {K,T2,T<:Hops{K,T2}} #(ρ::T) where {K,T2,T<:Hops{K,T2}}

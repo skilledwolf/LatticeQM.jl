@@ -108,6 +108,12 @@ function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, cellrange=1
 
         result = trees[R0].sparse_distance_matrix(tree, sqrt(3)+1e-3)
         filter!(x->x[2]>sqrt(3)-1e-3, result)
+
+        # If there are no next-nearest neighbor pairs for this R, skip expensive work
+        if isempty(result)
+            continue
+        end
+
         points2 = deepcopy(points)
         
         points2[1:D,:] .+= A*R

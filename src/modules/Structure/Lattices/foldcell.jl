@@ -2,15 +2,23 @@
 using LinearAlgebra: I
 
 """
-    foldcell_fromneighbors!(points::Matrix{Float64}, vectors::Matrix{Float64}, M=id)
+    foldcell_fromneighbors!(points, gvectors[, M])
 
-Fold all points into the first Wigner-Seitz cell, given discrete points `points`, lattice vectors `vectors`
-(both in fracdtional coordinates) pointing to all neighboring unit cells, and given the lattice metric M=B^T*B.
+Fold columns of `points` into the first Wigner–Seitz cell using a list of
+neighbor-cell vectors `gvectors` (both in fractional coordinates). The optional
+metric `M = B'B` can be supplied to define distances in a non-orthogonal basis,
+where `B = [G1 G2 …]` collects the reciprocal lattice vectors as columns.
 
-M = B^T B, where B=[G1 G2] contains the (reciprocal) lattice vectors as columns
-points has the lattice points as columns in units of lattice vectors.
+Arguments
+- `points::AbstractMatrix{Float64}`: columns are coordinates to be folded
+  (fractional units, i.e. in the basis of the lattice vectors).
+- `gvectors::Matrix{Float64}`: columns are the neighbor-cell shift vectors
+  that span the Wigner–Seitz region (fractional units).
+- `M::AbstractMatrix` (optional): metric used to compute distances;
+  defaults to the identity (orthonormal basis).
 
-This should be considered the low-level API for foldcell! methods, and implements a general folding algorithm.
+Returns the same `points` matrix with all columns folded in place. This is the
+low‑level implementation used by higher‑level `foldcell!` methods.
 """
 foldcell_fromneighbors!(points::AbstractMatrix{Float64}, gvectors::Matrix{Float64}) = foldcell_fromneighbors!(points, gvectors, 1.0*I)
 function foldcell_fromneighbors!(points::AbstractMatrix{Float64}, gvectors::Matrix{Float64}, M::AbstractMatrix)
@@ -45,11 +53,12 @@ precompile(foldcell_fromneighbors!, (Matrix{Float64}, Matrix{Float64}, Matrix{Fl
 
 
 """
-    foldcell!(points::Matrix{Float64}, basis::Matrix{Float64})
+    foldcell!(points::AbstractMatrix{Float64}, basis::Matrix{Float64})
 
-Same `foldcell_fromneighbors!` but constructs the nearest-neighboring cells for a given lattice basis `basis`
-using `getneighborcells`.
-
+Fold columns of `points` into the first primitive unit cell defined by the
+column vectors of `basis` (direct-lattice basis). Internally constructs
+neighbor-cell vectors via `getneighborcells` and calls
+`foldcell_fromneighbors!` with the metric `basis' * basis`.
 """
 function foldcell!(points::AbstractMatrix{Float64}, basis::Matrix{Float64})
 
@@ -64,8 +73,9 @@ precompile(foldcell!, (Matrix{Float64}, Matrix{Float64}))
 """
     foldBZ!(points, lat::Lattice; shift=0.0)
 
-Fold coordinates of k-points into the first Brillouin zone. Note that k-points are assumed to
-be in fractional coordinates.
+Fold k‑points (columns of `points`) into the first Brillouin zone of lattice
+`lat`. K‑points are assumed to be in fractional (reciprocal‑basis) coordinates.
+An optional `shift` vector can be subtracted before folding.
 """
 foldBZ!(points, lat::Lattice; shift=0.0) = (points[:,:].-=shift; foldcell!(points, getB(lat)))
 
@@ -73,14 +83,18 @@ foldBZ!(points, lat::Lattice; shift=0.0) = (points[:,:].-=shift; foldcell!(point
 """
     foldPC!(points, lat::Lattice; shift=0.0)
 
-Fold all fractional lattice coordinates `points` into the first primitive unit cell.
+Fold lattice coordinates (columns of `points`) into the first primitive unit
+cell of `lat`. Coordinates must be fractional in the direct‑lattice basis.
+An optional `shift` vector can be subtracted before folding.
 """
 foldPC!(points, lat::Lattice; shift=0.0) = (points[:,:].-=shift; foldcell!(points, getA(lat)))
 
 """
     foldPC!(lat::Lattice; shift=0.0)
 
-Fold all fractional lattice coordinates `lat.spacecoordinates` into the first primitive unit cell.
+In‑place variant that folds `lat.spacecoordinates` into the first primitive
+unit cell of `lat`. Coordinates are interpreted as fractional. Returns the
+folded coordinate submatrix view for convenience.
 """
 function foldPC!(lat::Lattice; shift=0.0)
     d = latticedim(lat)
@@ -93,4 +107,3 @@ function foldPC!(lat::Lattice; shift=0.0)
 
     points
 end
-

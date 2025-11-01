@@ -6,6 +6,17 @@ import LinearAlgebra: Diagonal
 
 import SparseArrays: sparse
 
+"""
+    setfilling!(H, filling; nk=100, kwargs...)
+
+Shift the chemical potential of Hamiltonian-like object `H` so that the
+resulting electronic filling matches `filling` (0–1 per spin). Internally uses
+`Spectrum.chemicalpotential` on a regular `nk × nk` grid and then applies
+`addchemicalpotential!(H, -μ)`.
+
+Keywords are forwarded to the underlying solver (e.g., temperature `T`,
+diagonalization format).
+"""
 function setfilling!(H, filling; nk=100, kwargs...)
     kgrid = regulargrid(nk=nk)
     setfilling!(H, kgrid, filling; kwargs...)
@@ -15,6 +26,12 @@ import LatticeQM.Spectrum
 import LatticeQM.Utils
 import LatticeQM.TightBinding
 
+"""
+    setfilling!(H, kgrid::Structure.Mesh, filling; kwargs...)
+
+Variant that accepts an explicit k-grid `kgrid` (e.g., from `regulargrid`).
+Computes μ on that grid and shifts `H` in place.
+"""
 function setfilling!(H, kgrid, filling; kwargs...)
 
     # if get(kwargs, :multimode, :serial) == :distributed

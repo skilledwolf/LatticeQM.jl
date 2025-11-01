@@ -1,76 +1,86 @@
 # Getting started
 
-## Quickstart with docker (demo)
+This page helps you install LatticeQM, pick an execution environment, and run a
+five-minute graphene example that exercises the core APIs.
 
-This option requires only [docker](https://www.docker.com). All dependencies (python, julia, jupyter) will be configured automatically inside a container with the correct versions.
+## Choose your environment
+- **Docker quickstart** (recommended for a zero-friction demo).
+- **VS Code + Remote Containers** (integrated development environment).
+- **Native Julia installation** (for long-lived local setups and HPC nodes).
 
-If you want to quickly try out the tutorial and the examples, you can start up the docker image with
-```bash
-$ docker-compose up --build
-```
+Regardless of setup, the tutorials and examples share the same project
+environment, so data written inside containers is available on the host.
 
-Note that the folders `extra/examples` and `extra/tutorial` are mounted as volumes. Hence, changes made to them in the container will apply also outside the container.
+## Option A — Docker quickstart
+1. Install [Docker](https://www.docker.com).
+2. From the repository root run:
+   ```bash
+   docker-compose up --build
+   ```
+   This spins up a container with Julia, Python, and Jupyter configured.
+3. Open the Jupyter URL printed in the terminal, navigate to `extra/tutorial`,
+   and launch the desired notebook.
 
-## Quickstart with vs-code and docker (demo and development)
+The folders `extra/examples` and `extra/tutorial` are mounted as volumes, so any
+changes you make inside the container persist on the host filesystem.
 
-Install [docker](https://www.docker.com), [vscode](https://code.visualstudio.com), as well as the plugin `Remote - container`. When you now open the git repository in vscode, it will suggest you to run the project in the container.
+## Option B — VS Code Remote Containers
+1. Install Docker, [VS Code](https://code.visualstudio.com), and the
+   *Remote - Containers* extension.
+2. Open the repository in VS Code. The editor prompts you to reopen in a
+   container; accept to reuse the same configuration as the Docker quickstart.
+3. Use the integrated terminal or notebook UI to run tutorials and examples.
 
-## Normal installation
-Make sure a recent version of `julia` is installed and execute:  
-```julia
-# with configured SSH key:
-using Pkg; Pkg.add("git@gitlab.com:skilledwolf/LatticeQM.jl.git")
-# or without SSH key:
-using Pkg; Pkg.add("https://gitlab.com/skilledwolf/LatticeQM.jl.git")
-```
+## Option C — Native Julia installation
+1. Install the latest stable Julia release (≥1.10 recommended).
+2. Add the package using either SSH or HTTPS:
+   ```julia
+   using Pkg
+   Pkg.add(url="https://gitlab.com/skilledwolf/LatticeQM.jl.git")
+   ```
+   For development work use `Pkg.develop(path="/path/to/LatticeQM")`.
+3. Instantiate dependencies in the project environment:
+   ```julia
+   julia --project=.
+   using Pkg; Pkg.instantiate()
+   ```
+4. Update periodically with `Pkg.update()`.
 
-Regularly install updates with `using Pkg; Pkg.update()`.
-
-## Example code
+## Five-minute graphene example
+Run the following snippet from a Julia REPL started with `--project=.` to verify
+that everything is wired correctly.
 
 ```@example
 using Plots
 using LatticeQM
 
-# Load a lattice geometry
 lat = Geometries.honeycomb()
-
-# Construct graphene tight-binding Hamiltonian
 hops = Operators.graphene(lat; mode=:spinhalf)
-
-# Modify graphene Hamiltonian
-#Operators.addhaldane!(hops, lat, 0.1; spinhalf=true)
 Operators.addzeeman!(hops, lat, 0.2)
 
-# Construct valley operator
 valley = Operators.valley(lat; spinhalf=true)
-
-# Get bands along (default) high-symmetry path
-# and compute the expectation value of the valley operator for each eigenstate.
 ks = kpath(lat; num_points=200)
 bands = getbands(hops, ks, valley)
 
-# Show bands
-plot(bands, ylabel="\$\\varepsilon/t\$", colorbar_title="valley", size=(330,200), colorbar=true, markercolor=:PiYG)
+plot(bands; ylabel="ε/t", colorbar_title="valley", size=(330, 200),
+     colorbar=true, markercolor=:PiYG)
 mkpath("figures") # hide
 savefig("figures/graphene_bands_zeeman.svg") # hide
 ```
 
-Which plots the electronic bands of graphene with a Zeeman splitting:  
-![](figures/graphene_bands_zeeman.svg)
+The script plots graphene bands with Zeeman splitting and stores the figure at
+`figures/graphene_bands_zeeman.svg`.
 
-## Contributing
-If you want to help develop the package, I recommend
+## Troubleshooting
+- **Package not found**: ensure you launched Julia with `--project=.` or called
+  `Pkg.activate(".")`.
+- **Plots backend errors**: install a compatible GR or Plotly backend
+  (`Pkg.add("GR")`) or run inside the Docker container where it is preinstalled.
+- **Long instantiation times**: precompile packages with
+  `julia --project=. -e 'using Pkg; Pkg.precompile()'` before running notebooks.
 
-1. Clone it onto your hard drive, i.e., navigate to `/My/Directory/` and execute `git clone URL` (replace the directory and the URL as appropriate).
-
-2. Add the package to Julia with `using Pkg; Pkg.develop("/My/Directory/LatticeQM")`.
-
-3. Make your modifications, test them, then commit and push.
-   
-4. Do not forget to regularly do `git pull` to avoid merge conflicts.
-
-## Uninstalling
-```julia
-using Pkg; Pkg.remove("LatticeQM")
-```
+## Next steps
+- Continue with [Tutorial 1](tutorials/structure.md) for a deep dive into
+  lattice construction.
+- Explore scripts under `extra/examples/` for batch-ready workflows, or
+  continue with additional tutorials.

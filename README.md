@@ -1,81 +1,19 @@
 # LatticeQM.jl
 
-**Not intended for public use yet. Much of the [documentation](https://skilledwolf.gitlab.io/LatticeQM.jl) is still missing.**
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
-This is a development repository for julia package that deals with lattice structures and tight-binding models.
-
-To get started, check out the notebooks in the folder `extra/tutorial`.  
-If you want to know more, get in touch with me.
-
-## Quickstart with docker
-
-This option requires only [docker](https://www.docker.com). All dependencies (python, julia, jupyter) will be configured automatically inside a container with the correct versions.
-
-If you want to quickly try out the tutorial and the examples, you can start up the docker image with
-```bash
-$ docker-compose up --build
-```
-
-Note that the folders `extra/examples` and `extra/tutorial` are mounted as volumes. Hence, changes made to them in the container will apply also outside the container.
-
-## Quickstart with vs-code and docker (demo and development)
-
-Install [docker](https://www.docker.com), [vscode](https://code.visualstudio.com), as well as the plugin `Remote - container`. When you now open the git repository in vscode, it will suggest you to run the project in the container.
+LatticeQM is a Julia package for lattice structures and tight-binding models: build operators, compute bands and expectation values, and study mean-field, linear response, and Floquet physics. Licensed under AGPL-3.0-only.
 
 ## Installation
 ```julia
-# with configured SSH key:
-using Pkg; Pkg.add("git@gitlab.com:skilledwolf/LatticeQM.jl.git")
-# or without SSH key:
-using Pkg; Pkg.add("https://gitlab.com/skilledwolf/LatticeQM.jl.git")
+using Pkg
+Pkg.add(url="https://gitlab.com/skilledwolf/LatticeQM.jl.git")
 ```
 
-Regularly install updates with `using Pkg; Pkg.update()`.
+## Documentation
+- See `extra/docs` for the documentation source. Build with:
+  `julia --project=extra/docs -e 'include("extra/docs/make.jl")'`, then open `extra/docs/build/index.html`.
 
-## Example code
-
-```julia
-using Plots
-using LatticeQM
-
-# Load a lattice geometry
-lat = Geometries.honeycomb()
-
-# Construct graphene tight-binding Hamiltonian
-hops = Operators.graphene(lat; mode=:spinhalf)
-
-# Modify graphene Hamiltonian
-#Operators.addhaldane!(hops, lat, 0.1; spinhalf=true)
-Operators.addzeeman!(hops, lat, 0.2)
-
-# Construct valley operator
-valley = Operators.valley(lat; spinhalf=true)
-
-# Get bands along (default) high-symmetry path
-# and compute the expectation value of the valley operator for each eigenstate.
-ks = kpath(lat; num_points=200)
-bands = getbands(hops, ks, valley)
-
-# Show bands
-# save(bands, "bands.h5")
-plot(bands, ylabel="\$\\varepsilon/t\$", colorbar_title="valley", size=(330,200), colorbar=true, markercolor=:PiYG)
-```
-
-## Contributing
-If you want to help develop the package, I recommend
-
-1. Clone it onto your hard drive, i.e., navigate to `/My/Directory/` and execute `git clone URL` (replace the directory and the URL as appropriate).
-
-2. Add the package to Julia with `using Pkg; Pkg.develop("/My/Directory/LatticeQM")`.
-
-3. Make your modifications, test them, then commit and push.
-   
-4. Do not forget to regularly do `git pull` to avoid merge conflicts.
-
-## Uninstalling
-```julia
-using Pkg; Pkg.remove("LatticeQM")
-```
-
-## Credits
-I want to thank Tobias Kästli (@vigoleis) for developing the Floquet module and for providing the corresponding Tutorial notebook.
+## Acknowledgements
+- I thank Dr. Oded Zilberberg and Dr. Gianni Blatter for their guidance and support as my thesis advisors; I developed the package in the course of my PhD research. 
+- Tobias Kästli (@vigoleis) developed the Floquet module as part of his Master's project and authored the accompanying tutorial.

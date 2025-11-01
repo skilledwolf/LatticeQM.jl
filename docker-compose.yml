@@ -12,5 +12,5 @@ services:
 #      - ./src:/LatticeQM/src # use if you want modify LatticeQM "on-the-fly"
 #      - ./Project.toml:/LatticeQM/Project.toml # use if you want modify LatticeQM "on-the-fly"
     environment:
-      julia_version: 1.6.2
+      julia_channel: release
       JUPYTER_ENABLE_LAB: "yes"

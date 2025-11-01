@@ -3,7 +3,7 @@ import LatticeQM.Spectrum
 import LatticeQM.Structure.Paths
 
 @recipe function f(data::Spectrum.BandData, n::Integer=1; sharpen=0.0, climits=nothing, csymmetric=true, cquantile=0.97)
-    if data.obs == nothing || n == 0
+    if data.obs == nothing || n == 0 || size(data.obs,3) == 0
         markercolor --> :black
     else
         mycolors = data.obs[:,:,n]

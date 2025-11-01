@@ -5,7 +5,7 @@ import LatticeQM.TightBinding
 # using ..TightBinding: zerokey
 import SparseArrays
 
-function Operators.getdensitymatrix!(ρ::BdGOperator{T}, H::BdGOperator{T}, ks::AbstractMatrix, μ::Real=0; kwargs...) where {T}
+function Operators.getdensitymatrix!(ρ::BdGOperator{T}, H::BdGOperator{T2}, ks::AbstractMatrix, μ::Real=0; kwargs...) where {T,T2}
     d = hopdim(H)
 
     Operators.addchemicalpotential!(H, -μ)
