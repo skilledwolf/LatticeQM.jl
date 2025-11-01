@@ -23,7 +23,7 @@ makedocs(
     sitename = "LatticeQM.jl",
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", nothing) == "true",
-        edit_link = "main",
+        edit_link = "master",
         inventory_version = "dev"
     ),
     modules = [LatticeQM],
@@ -61,5 +61,6 @@ makedocs(
 deploydocs(
     repo = "github.com/skilledwolf/LatticeQM.jl",
     devbranch = "master",
+    devurl = "master",
     deploy_config = Documenter.GitHubActions(),
 )
