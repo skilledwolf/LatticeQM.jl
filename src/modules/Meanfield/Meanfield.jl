@@ -15,6 +15,7 @@ module Meanfield
 
     include("fixedpoint.jl")
     include("selfconsistent.jl")
+    include("selfconsistent_purification.jl")
     # export solveselfconsistent
 
 end

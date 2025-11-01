@@ -30,7 +30,7 @@ function chemicalpotential_T(bands, kgrid, filling::T1; T::T1 = 0.01) where {T1<
     #  solve  n(μ*) = n_occ for μ*
     # μ0 = chemicalpotential_0(bands, filling) # initial guess
     # μ, res = brentq(x -> getfilling(bands, kgrid; μ = x) - filling, μ0 - 2 * T, μ0 + 10 * T; full_output = true)
-    μ = Roots.find_zero(x -> getfilling(bands, kgrid; μ = x) - filling, (minimum(bands), maximum(bands)))
+    μ = Roots.find_zero(x -> getfilling(bands, kgrid; μ = x, T=T) - filling, (minimum(bands), maximum(bands)))
 
     # if !res.converged
     #     println("WARNING: Calculation of chemical potential for finite T did not converge.")
@@ -57,9 +57,7 @@ function chemicalpotential(H, ks, fillings::AbstractVector; multimode = :distrib
     [chemicalpotential(bands, ks, filling; kwargs...) for filling in fillings]
 end
 
-
 import ..Structure: Mesh, meshweights
-
 
 ##########################################################################################
 # getfilling for non-regular grids
@@ -75,13 +73,11 @@ getfilling(bands::AbstractArray; kwargs...) = Statistics.mean(fermidirac(bands; 
 getfilling(bands::AbstractMatrix, weights::AbstractVector; kwargs...) = sum(weights' .* fermidirac(bands; kwargs...)) / size(bands, 1)
 
 
-
 ##########################################################################################
 # Interface of getfilling to Hamiltonian type
 ##########################################################################################
 
 function filling(H, ks, μ; multimode = :distributed, kwargs...)
-
     getfilling(bandmatrix(Utils.getelectronsector(H), ks; multimode = multimode)[1], ks; μ = μ, kwargs...)
 end
 
@@ -104,7 +100,6 @@ function fillings(H, μs; nk=10, kwargs...)
 
     getfillings(bandmatrix, μs, ks; kwargs...)
 end
-
 
 
 ##########################################################################################

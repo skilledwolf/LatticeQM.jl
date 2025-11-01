@@ -1,5 +1,23 @@
 
+"""
+    getoperator(lat::Lattice, name::String, args...; kwargs...)
 
+Return common projection/observable operators defined on `lat` by name.
+
+Supported names (case-insensitive where noted):
+- "sx", "sy", "sz" (or "MX/MY/MZ", "SX/SY/SZ"): Spin Pauli components.
+- "spinup", "spindown": Projectors onto ↑/↓ in the local spin basis.
+- "Sn": Spin along custom axis via `Sn(lat, n̂)` (see keyword forms).
+- "layer": Layer projector for multilayer geometries.
+- "sublattice": A/B sublattice projector; also "sublatticeA", "sublatticeB".
+- "sublatticeAspin", "sublatticeBspin": Sublattice-resolved spin projectors.
+
+For interaction kernels (e.g. "Hubbard", "CappedYukawa"), use the dedicated
+constructors in `Operators`/`Meanfield` (see `gethubbard`, `getcappedyukawa`).
+
+Returns a `Hops`-like operator suitable for `Spectrum.getbands` projectors or
+expectation-value routines.
+"""
 function getoperator(lat::Lattice, name::String, args...; kwargs...)
 
     if name == "MX" || name == "SX" || name == "sx"

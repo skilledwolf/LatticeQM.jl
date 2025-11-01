@@ -20,7 +20,7 @@ a DiscretePath object (contains discrete points and point labels).
 Can be saved conveniently with `savedlm(bands; path="data")` and plotted with `plot(bands)`.``
 
 """
-struct BandData{T} # T = DiscretePath in practice
+mutable struct BandData{T} # T = DiscretePath in practice
     bands::Matrix{Float64}
     obs::Array{Float64,3}
     path::T

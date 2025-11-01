@@ -4,8 +4,24 @@ import ..Structure.Lattices: Lattice, latticedim, countorbitals, allpositions, p
 
 import SparseArrays: spzeros
 
+"""
+    getzeeman(lat, M; kwargs...)
+
+Construct a Zeeman term as a `Hops` operator. `M` can be either a constant
+magnetic field vector `[Mx, My, Mz]` (units absorbed in gμB) or a function
+`Mv(r)` returning a 3‑vector at position `r` for spatially varying fields.
+
+Use `addzeeman!(...)` to add in place to an existing operator.
+"""
 getzeeman(args...; kwargs...) = addzeeman!(Hops(), args...; kwargs...)
 
+"""
+    addzeeman!(hops, lat, Mv::Function)
+
+Add a site‑dependent Zeeman coupling defined by the vector field `Mv(r)` to
+`hops` on lattice `lat`. The operator acts in spin‑1/2 space via `σ·M(r)` at
+each site. Modifies `hops` in place and returns it.
+"""
 function addzeeman!(hops, lat::Lattice, Mv::Function)
     zero0 = zeros(Int, latticedim(lat))
 
@@ -22,6 +38,12 @@ function addzeeman!(hops, lat::Lattice, Mv::Function)
     addhops!(hops, Hops(zero0 => mat))
 end
 
+"""
+    addzeeman!(hops, lat, M::AbstractVector; format=:dense)
+
+Add a uniform Zeeman field `M = [Mx, My, Mz]` (constant across the lattice).
+If the norm of `M` is (numerically) zero, this is a no‑op. Returns `hops`.
+"""
 function addzeeman!(hops, lat::Lattice, Mv::Vector{Float64}; format=:dense)
     # Only go through the trouble of constructing this matrix for finite Mv
     if isapprox(norm(Mv), 0; atol=sqrt(eps()))
@@ -41,4 +63,3 @@ function addzeeman!(hops, lat::Lattice, Mv::Vector{Float64}; format=:dense)
     hops
 end
 addzeeman!(hops, lat::Lattice, M0::Float64; kwargs...) = addzeeman!(hops, lat::Lattice, [0.0,0.0,M0]; kwargs...)
-

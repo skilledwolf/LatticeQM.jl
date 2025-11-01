@@ -8,9 +8,24 @@
 """
 
 import LatticeQM.TightBinding: zerokey
+import SparseArrays: SparseMatrixCSC, findnz
 
+"""
+    MeanfieldGenerator
+
+Abstract supertype for mean‑field functionals that map a density matrix `ρ` to
+an effective single‑particle Hamiltonian and scalar energy contributions. Concrete
+implementations include `HartreeFock` and `HartreeFockBDG`.
+"""
 abstract type MeanfieldGenerator{T} end
 
+"""
+    HartreeFock(h, v, μ=0.0; hartree=true, fock=true)
+
+Mean‑field functional for density (Hartree) and exchange (Fock) channels built
+from a base Hamiltonian `h` and interaction kernels `v`. Calling the struct on
+`ρ` updates the effective mean‑field operator `hMF` and scalar energy `ϵMF`.
+"""
 mutable struct HartreeFock{K, T2, T<:Hops{K,T2}} <: MeanfieldGenerator{T} 
     h::T
     v::T
@@ -35,7 +50,7 @@ end
 
 function hMF(hf::HartreeFock)
     h0 = hf.hMF
-    @assert TightBinding.ishermitian(h0)
+    @assert TightBinding.ishermitian(h0) "Mean-field Hamiltonian is not hermitian"
     h0
     # hf.hMF
 end
@@ -110,15 +125,46 @@ end
 
 function meanfieldOperator_addfock!(hf, ρ)
     for L in keys(hf.v)
-        # note Oct 19 2021: changed from conj.(..) to transpose(...)
-        hf.hMF[L] .+= -hf.v[L] .* conj.(ρ[L])#ρ[L] #conj(ρ[L]) #transpose(ρ[L]) # Fock contribution
+        vL = hf.v[L]
+        ρL = ρ[L]
+        hL = hf.hMF[L]
+
+        axes(vL) == axes(ρL) || throw(DimensionMismatch("Fock block axis mismatch for key $(L): axes(v)=$(axes(vL)) vs axes(ρ)=$(axes(ρL))"))
+        axes(vL) == axes(hL) || throw(DimensionMismatch("Fock block axis mismatch for key $(L): axes(v)=$(axes(vL)) vs axes(hMF)=$(axes(hL))"))
+
+        if vL isa SparseMatrixCSC
+            rows, cols, vals = findnz(vL)
+            @inbounds for idx in eachindex(vals)
+                i = rows[idx]
+                j = cols[idx]
+                hL[i, j] += -vals[idx] * conj(ρL[i, j])
+            end
+        else
+            hL .+= -vL .* conj.(ρL)
+        end
     end
     nothing
 end
 
 function meanfieldOperator_addfock_pairing!(hf, ρΔ)
     for L in keys(hf.v)
-        hf.ΔMF[L] .+= hf.v[L] .* conj.(ρΔ[L]) # Fock contribution
+        vL = hf.v[L]
+        ΔL = ρΔ[L]
+        ΔMF_L = hf.ΔMF[L]
+
+        axes(vL) == axes(ΔL) || throw(DimensionMismatch("Pairing Fock block axis mismatch for key $(L): axes(v)=$(axes(vL)) vs axes(Δ)=$(axes(ΔL))"))
+        axes(vL) == axes(ΔMF_L) || throw(DimensionMismatch("Pairing Fock block axis mismatch for key $(L): axes(v)=$(axes(vL)) vs axes(ΔMF)=$(axes(ΔMF_L))"))
+
+        if vL isa SparseMatrixCSC
+            rows, cols, vals = findnz(vL)
+            @inbounds for idx in eachindex(vals)
+                i = rows[idx]
+                j = cols[idx]
+                ΔMF_L[i, j] += vals[idx] * conj(ΔL[i, j])
+            end
+        else
+            ΔMF_L .+= vL .* conj.(ΔL)
+        end
     end
     nothing
 end
@@ -146,4 +192,3 @@ function meanfieldScalar_fock_pairing(hf, ρΔ)
     @assert isapprox(imag(energy), 0; atol=sqrt(eps()))
     real(energy)
 end
-

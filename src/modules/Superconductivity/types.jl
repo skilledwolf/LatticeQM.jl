@@ -2,6 +2,20 @@ import LatticeQM.TightBinding
 using LatticeQM.TightBinding: Hops, hopdim, addhops!, addhops, zerokey
 
 
+"""
+    BdGOperator(h::Hops)
+    BdGOperator(h::Hops, Δ::Hops)
+
+Bogoliubov–de Gennes operator wrapper that lifts a normal‑state hopping object
+`h` to Nambu space and optionally adds a pairing block `Δ`. The resulting
+operator behaves like a Hamiltonian `H(k)` and can be passed to spectrum and
+mean‑field routines.
+
+Related helpers:
+- `addpairing!(H::BdGOperator, Δ)` — insert/update the pairing block.
+- `addelectronsector!(H::BdGOperator, h)` — add to the electron block.
+- `getelectionview/getpairingview` — views into electron/pairing sectors.
+"""
 mutable struct BdGOperator{T}
     h::T
 end
@@ -116,6 +130,11 @@ Utils.dense(H::BdGOperator) = (h0 = Utils.dense(H.h); BdGOperator{typeof(h0)}(h0
 Utils.densecopy(H::BdGOperator) = (h0 = Utils.densecopy(H.h); BdGOperator{typeof(h0)}(h0))
 SparseArrays.sparse(H::BdGOperator) = (h0 = SparseArrays.sparse(H.h); BdGOperator{typeof(h0)}(h0))
 TightBinding.shareddense(H::BdGOperator) = (h0 = TightBinding.shareddense(H.h); BdGOperator{typeof(h0)}(h0))
+
+function TightBinding.gethopsview(H::BdGOperator)
+    h_view = TightBinding.gethopsview(H.h)
+    BdGOperator{typeof(h_view)}(h_view)
+end
 
 Base.:-(h1::BdGOperator, h2::BdGOperator) = h1.h - h2.h
 Base.:-(h1::BdGOperator, h2::Hops) = h1.h - h2

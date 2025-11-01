@@ -7,11 +7,31 @@ import LatticeQM.TightBinding
 using LatticeQM.Utils.Context
 
 # Specialized cases
+"""
+    solvehartreefock(h, v, ρ_init, filling; kwargs...)
+
+Convenience wrapper around `solveselfconsistent` that constructs a `HartreeFock`
+functional from base Hamiltonian `h` and interaction kernel `v`. Returns the
+converged mean‑field solution and metadata.
+"""
 solvehartreefock(h::T, v, ρ_init, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v), filling, args...; kwargs...)
 solvefock(h::T, v, ρ_init, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=false, fock=true), filling, args...; kwargs...)
 solvehartree(h::T, v, ρ_init, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=true, fock=false), filling, args...; kwargs...)
 
 # Interface to solveselfconsistent!(ρ0, ...)
+"""
+    solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling, ks; kwargs...)
+    solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling; klin, kwargs...)
+
+Non‑mutating convenience wrappers around [`solveselfconsistent!`] that copy the
+initial density matrix `ρ0`, iterate the mean‑field functional `mf` (e.g.,
+`HartreeFock`), and return the converged result together with energy and state.
+
+The `filling` sets the target electronic filling (0–1 per spin). Supply either
+an explicit k‑grid `ks` or a grid resolution via `klin` (uses `klin×klin`).
+
+Common keywords: `iterations`, `tol`, `T`, `β` (mixing), `multimode` (parallel).
+"""
 solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling::Number, ks; kwargs...) = solveselfconsistent!(deepcopy(ρ0), mf, filling, ks; kwargs...)
 solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling::Number; klin, kwargs...) = solveselfconsistent!(deepcopy(ρ0), mf, filling; klin=klin, kwargs...)
 
@@ -89,6 +109,7 @@ function solveselfconsistent!(::DummyContext, ρ0::T1, ρ1::T1, hartreefock::Mea
     @assert TightBinding.ishermitian(ρ0) "Initial guess for density matrix must be hermitian."
 
     function update!(ρ1, ρ0)
+        verbose ? @info("Updating mean field operators...") : nothing
         hartreefock(ρ0) # update meanfield (h is updated in-place)
         # println("sparsity: ", sum(abs.(hartreefock.hMF[[0, 0]]) .> 1e-9) / length(hartreefock.hMF[[0, 0]]))
 
@@ -97,6 +118,8 @@ function solveselfconsistent!(::DummyContext, ρ0::T1, ρ1::T1, hartreefock::Mea
 
         verbose ? @info("Updating the mean field density matrix...") : nothing
         ϵ0 = Operators.getdensitymatrix!(ρ1, hMF(hartreefock), ks, hartreefock.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
+
+        @assert TightBinding.ishermitian(ρ1) "SANITY CHECK: HERMITIAN?"
 
         callback(ρ1)
 
@@ -116,5 +139,8 @@ function solveselfconsistent!(::DummyContext, ρ0::T1, ρ1::T1, hartreefock::Mea
     end
     hartreefock(ρ1) # update meanfield (h is updated in-place)
 
-    Utils.densecopy(ρ1), ϵ_GS, hartreefock, converged, residual
+    ρout = Utils.densecopy(ρ1)
+    sanitize!(ρout)
+
+    ρout, ϵ_GS, hartreefock, converged, residual
 end 

@@ -17,10 +17,9 @@ function statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
     NY = (NY<1) ? NX : NY
     indices = collect(Iterators.product(1:NX, 1:NY))
 
-    function wavefunctionsf(k)
-        let h0 = H(k), kwargs = kwargs
-            Eigen.geteigvecs(h0; kwargs...)
-        end
+    function wavefunctionsf(k; kwargs...)
+        h0 = H(k)
+        Eigen.geteigvecs(h0; kwargs...)
     end
     
     M1 = size(wavefunctionsf(zeros(2)), 2) # dimension of Hilbert space
@@ -41,10 +40,9 @@ function statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
 end
 
 function statesgrid1D(H, NX::Int, bandindices::AbstractArray=[])
-    function wavefunctionsf(k)
-        let h0 = H(k), kwargs = kwargs
-            Eigen.geteigvecs(h0; kwargs...)
-        end
+    function wavefunctionsf(k; kwargs...)
+        h0 = H(k)
+        Eigen.geteigvecs(h0; kwargs...)
     end
 
     M1 = size(wavefunctionsf(zeros(1)), 2) # dimension of hilbert space
@@ -95,7 +93,7 @@ function berry(statesgrid::AbstractArray{<:Complex, 4})
     (n,m) = size(statesgrid)[1:2]
     F = zeros(n-1,m-1)
 
-    for i=1:n-1, j=1:n-1
+    for i=1:n-1, j=1:m-1
         S00 = statesgrid[i,  j, :, :]
         S10 = statesgrid[i+1,j, :, :]
         S01 = statesgrid[i, j+1, :, :]
@@ -127,10 +125,9 @@ It builds little plaquettes along the path between the kpoints[:,i] and kpoints[
 """
 function berryalongpath(H, kpoints)
 
-    function wavefunctionsf(k)
-        let h0 = H(k), kwargs = kwargs
-            Eigen.geteigvecs(h0; kwargs...)
-        end
+    function wavefunctionsf(k; kwargs...)
+        h0 = H(k)
+        Eigen.geteigvecs(h0; kwargs...)
     end
 
     N = size(kpoints,2) # number of k points

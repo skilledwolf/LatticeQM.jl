@@ -2,6 +2,18 @@ using SparseArrays
 
 import ..TightBinding: Hops
 
+"""
+    graphene(lat::Lattice; vectorized=true, mode=:nospin, format=:auto, cellrange=2, kwargs...)
+
+Construct a graphene tight‑binding Hamiltonian on lattice `lat`.
+
+- `mode`: `:nospin` for spinless, `:spinhalf` to attach a spin‑1/2 degree of freedom.
+- `format`: storage for the resulting hopping object (`:auto`, `:dense`, or `:sparse`).
+- `cellrange`: neighbour shell used when populating hoppings.
+
+Returns a `Hops` object that can be passed to spectrum routines.
+"""
+
 function graphene(lat::Lattice; vectorized=true, mode=:nospin, format=:auto, cellrange=2, kwargs...)
 
     t(args...) = t_graphene(args...; kwargs...)
@@ -51,6 +63,14 @@ end
 
 import ..Structure.Lattices
 
+"""
+    addsublatticeimbalance!(hops, lat, Δ; kwargs...)
+
+Add a sublattice‑staggered chemical potential (imbalance) of magnitude `Δ` to
+`hops` on lattice `lat`. Positive values raise A and lower B (by convention).
+
+No‑op for `Δ≈0`.
+"""
 function addsublatticeimbalance!(hops, lat::Lattice, Δ::Real; kwargs...)
 
     # Only go through the trouble of constructing this matrix for finite Δ
@@ -64,6 +84,12 @@ function addsublatticeimbalance!(hops, lat::Lattice, Δ::Real; kwargs...)
     nothing
 end
 
+"""
+    valley(lat; spinhalf=false, kwargs...)
+
+Construct a valley operator on `lat`. If `spinhalf=true`, attach spin structure
+to match spinful Hamiltonians.
+"""
 function valley(lat, args...; spinhalf=false, kwargs...) 
     h=Hops()
     addvalley!(h, lat, args...; kwargs...)
@@ -75,6 +101,11 @@ function valley(lat, args...; spinhalf=false, kwargs...)
     autoconversion(h, Lattices.countorbitals(lat))
 end
 
+"""
+    addvalley!(hops, lat, fz=x->sign(x[3]+1e-3); kwargs...)
+
+Add a valley mass term to `hops` on `lat`. Customise the layer sign via `fz`.
+"""
 function addvalley!(hops, lat::Lattice, fz::Function=x->sign(x[3]+1e-3); kwargs...)
     @assert Lattices.countorbitals(lat) > 1 #latticedim(lat) == 2
 

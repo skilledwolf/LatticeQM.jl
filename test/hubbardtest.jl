@@ -4,7 +4,6 @@ using LatticeQM
 using LinearAlgebra: dot, norm
 include("analyticbands.jl")
 using .analyticbands: grapheneconductionband
-using Plots
 
 function get_graphene_HMF(U=4.0; filling=0.5, init=:antiferro, T=0.01, β=0.20)
     lat = Geometries.honeycomb()

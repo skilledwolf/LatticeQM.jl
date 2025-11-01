@@ -43,6 +43,7 @@ end
 
 
 import ..Structure.Paths
+import ..Spectrum: dim
 
 """
     keepfirstFBZ!(data::Spectrum.BandData, H::FloquetOperator)
@@ -54,6 +55,12 @@ function keepfirstFBZ!(data::Spectrum.BandData, H::FloquetOperator)
     data.bands = bands
     data
 end
+
+# Allow passing FloquetOperator directly to Spectrum.getbands by defining
+# the appropriate dim methods here (no need for a wrapper function).
+dim(HF::FloquetOperator, x::Number) = size(HF(x), 1)
+dim(HF::FloquetOperator, x::AbstractVector) = size(HF(first(x)), 1)
+dim(HF::FloquetOperator, x::AbstractMatrix) = size(HF(first(eachcol(x))), 1)
 
 
 # """
