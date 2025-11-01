@@ -17,7 +17,7 @@ makedocs(
     modules = [LatticeQM],
     checkdocs = :exports,
     warnonly = [:missing_docs],
-    repo = Remotes.GitLab("skilledwolf", "LatticeQM.jl"),
+    repo = Remotes.GitHub("skilledwolf", "LatticeQM.jl"),
     pages = Any[
         "Home" => "index.md",
         "Getting Started" => "getting_started.md",
@@ -44,4 +44,9 @@ makedocs(
         "API Reference" => "api.md",
         "Publications" => "publications.md"
     ]
+)
+
+deploydocs(
+    repo = Remotes.GitHub("skilledwolf", "LatticeQM.jl"),
+    devbranch = "master",
 )
