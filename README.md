@@ -1,6 +1,6 @@
 # LatticeQM.jl
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17500140.svg)](https://doi.org/10.5281/zenodo.17500140)
 
 LatticeQM is a Julia package for lattice structures and tight-binding models: build operators, compute bands and expectation values, and study mean-field, linear response, and Floquet physics. Licensed under AGPL-3.0-only.
 
