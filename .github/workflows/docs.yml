@@ -13,20 +13,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
-          version: '1.10'
+          version: '1.12'
       - name: Develop package into docs env
         run: |
           julia --project=extra/docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.resolve()'
       - name: Instantiate docs env
         run: |
           julia --project=extra/docs -e 'using Pkg; Pkg.instantiate()'
-      - name: Ensure PyCall installed and built (system Python)
+      - name: Configure PyCall to use Conda and preinstall scipy
         run: |
           julia --project=extra/docs -e '
             using Pkg;
-            try Pkg.add("PyCall") catch e; @warn("PyCall add", e) end;
-            ENV["PYTHON"] = "python3";
-            try Pkg.build("PyCall") catch e; @warn("PyCall build", e) end;
+            Pkg.add(["PyCall","Conda"]);
+            ENV["PYTHON"] = ""; # use Conda-managed Python
+            Pkg.build("PyCall");
+            using Conda;
+            Conda.add("scipy");
           '
       - name: Build docs
         env:
