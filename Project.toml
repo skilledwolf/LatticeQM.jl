@@ -2,7 +2,7 @@ name = "LatticeQM"
 uuid = "606d2a7e-9b17-11e9-1c5c-455b84f60309"
 license = "AGPL-3.0-only"
 version = "0.7.1"
-authors = ["Tobias Wolf <>"]
+authors = ["Tobias Wolf"]
 
 [deps]
 AngleBetweenVectors = "ec570357-d46e-52ed-9726-18773498274d"

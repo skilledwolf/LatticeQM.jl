@@ -1,0 +1,24 @@
+name: Docs
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.10'
+      - name: Instantiate docs env
+        run: |
+          julia --project=extra/docs -e 'using Pkg; Pkg.instantiate()'
+      - name: Build docs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          julia --project=extra/docs --color=yes extra/docs/make.jl
