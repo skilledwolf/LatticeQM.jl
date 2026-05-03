@@ -21,4 +21,5 @@ using Test
     @testset "TBG"                 include("test_tbg.jl")
     @testset "Meanfield"           include("test_meanfield.jl")
     @testset "Parallelism"         include("test_parallelism.jl")
+    @testset "Examples (smoke)"    include("test_examples_smoke.jl")
 end

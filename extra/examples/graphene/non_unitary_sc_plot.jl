@@ -15,11 +15,9 @@ filling = 0.48
 klin = 50
 
 ######################################################################
-# Run distributed calculation
+# Load data and plot
 ######################################################################
-using ProgressBars
 println(":: Load data...")
-
 
 using DelimitedFiles
 BANDGAP = readdlm("output/non_unitary_sc/bandgap.out")

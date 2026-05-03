@@ -70,6 +70,7 @@ function fixedpoint!(f!, x1, x0;
     tol=1e-7, β=1.0,
     p_norm=2,#Inf,
     show_trace=false,
+    clear_trace=false,  # accepted for backward compat; calls ProgressMeter.finish! at the end
     verbose=true
     )
 
@@ -117,6 +118,10 @@ function fixedpoint!(f!, x1, x0;
         if iter == iterations
             break
         end
+    end
+
+    if show_trace && clear_trace
+        ProgressMeter.finish!(prog)
     end
 
     if verbose

@@ -8,7 +8,7 @@ kgrid = Structure.regulargrid(; nk=300^2)
 kpoints = Lattices.getB(lat) * kgrid
 
 # Get band data
-bands, obs = Spectrum.bandmatrix(H, kgrid, ops; multimode=:distributed2)
+bands, obs = Spectrum.bandmatrix(H, kgrid, ops; multimode=:distributed)
 
 
 using DelimitedFiles

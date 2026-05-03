@@ -1,84 +1,63 @@
-
-# using AppleAccelerate
 using Distributed
-
-# using LoopVectorization
 using LinearAlgebra
-LinearAlgebra.BLAS.set_num_threads(1) # set number of threads for BLAS
+LinearAlgebra.BLAS.set_num_threads(1)
 
 using Plots
 @everywhere using LatticeQM
 import LatticeQM.Structure.Lattices
 
-# @info "Number of workers: $(nworkers())"
-# @info "Number of threads: $(Threads.nthreads())"
+# Parameter sets: pick one via `julia main.jl <name>` or `LATTICEQM_PARAMS=<name>`.
+# Default if no argument is `:testing`.
+const PARAMS = Dict(
+    :testing         => (n_angle=6,  tz=0.52, U=2.8, guess=:random, outname="output_testing"),
+    :testing_purif   => (n_angle=6,  tz=0.52, U=2.8, guess=:ferro,  outname="output_testing_purif"),
+    :n10_fm3         => (n_angle=10, tz=0.52, U=2.2, guess=:ferro,  outname="output_n10_fm3"),
+    :n10_fm4         => (n_angle=10, tz=0.52, U=2.7, guess=:ferro,  outname="output_n10_fm4"),
+    :n11_fm          => (n_angle=11, tz=0.46, U=2.5, guess=:ferro,  outname="output_n11_fm"),
+)
 
-# n_angle, tz, outname, U_hubbard, guess = 11, 0.46, "output_n11_fm", 2.5, :ferro
-# n_angle, tz, outname, U_hubbard, guess = 6, 0.52, "output_testing_purif", 2.8, :ferro
-n_angle, tz, outname, U_hubbard, guess = 6, 0.52, "output_testing", 2.8, :random
-# n_angle, tz, outname, U_hubbard, guess = 10, 0.52, "output_n10_fm3", 2.2, :ferro
-# n_angle, tz, outname, U_hubbard, guess = 10, 0.52, "output_n10_fm4", 2.7, :ferro
-
+const params_name = Symbol(get(ENV, "LATTICEQM_PARAMS",
+                                isempty(ARGS) ? "testing" : ARGS[1]))
+haskey(PARAMS, params_name) ||
+    error("Unknown param set: $params_name. Available: $(collect(keys(PARAMS)))")
+const p = PARAMS[params_name]
+@info "Running param set" params_name p
 
 multimode = (nworkers() > 1) ? :distributed : :multithreaded
-# multimode=:multithreaded 
-# multimode = :distributed 
 
 @info "Generate lattice..."
-lat = Geometries.honeycomb_twisted(n_angle)
+lat = Geometries.honeycomb_twisted(p.n_angle)
 println("Number of sites: ", Lattices.countorbitals(lat))
 sx, sy, sz, sublA, sublB = Operators.getoperator(lat, ["sx", "sy", "sz", "sublatticeAspin", "sublatticeBspin"])
 
 @info "Generate Hamiltonian..."
-hops = Operators.graphene(lat; format=:sparse, mode=:spinhalf, tz=tz)
+hops = Operators.graphene(lat; format=:sparse, mode=:spinhalf, tz=p.tz)
 Operators.addzeeman!(hops, lat, 1e-9)
-# Operators.addzeeman!(hops, lat, r->sign(r[4]-0.5).*1.5.*[sin(0.0π),0,cos(0.0π)] )
 
 filling = 0.5 + 6.0 / hopdim(hops)
 println("Target filling: ", filling)
 
-# Set up interaction
 @info "Set up mean-field interaction..."
-v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=U_hubbard) # interaction potential
-
-# ρ_init = Meanfield.initialguess(v, :random, :Z; lat=lat) # initial guess
-ρ_init = Meanfield.initialguess(v, guess; lat=lat) # initial guess
-
-# println("Size of hamiltonian object (mb): ", sizeof(hops.data)/1e6)
-# println("Size of hamiltonian object (mb): ", sum(sizeof(Matrix(M)) for (key, M) in hops.data) / 1e6)
+v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=p.U)
+ρ_init = Meanfield.initialguess(v, p.guess; lat=lat)
 
 @info "Band plot..."
-# Get the bands without mean-field terms
 ks_plot = kpath(lat; num_points=100)
 
-# @info "... setting filling"
 @everywhere (hops = $hops, ks_plot = $ks_plot, sz = $sz)
 Operators.setfilling!(hops, filling; nk=9^2, multimode=multimode)
-
-# @info "... getting bands (sparse)"
 bands_plot = getbands(hops, ks_plot, sz; format=:sparse, num_bands=36, multimode=multimode)
 
-mkpath("$outname")
+mkpath(p.outname)
 plot(bands_plot; colorbar=true)
-savefig("$outname/hubbardmeanfield_example1_noninteracting.pdf")
-# exit()
-
+savefig("$(p.outname)/bands_noninteracting.pdf")
 
 @info "Run mean field..."
-@everywhere using LatticeQM
 @everywhere (hops = $hops, v = $v)
-# hops = TightBinding.shareddense(hops)
-# ρ_init = TightBinding.shareddense(ρ_init)
-
-# ρ_sol, ϵ_GS, HMF, converged, residue = Meanfield.solvehartreefock_purification( # run the calculation
-#     hops, v, ρ_init, filling; klin=6, iterations=6, tol=5e-3,# p_norm=Inf,
-#     T=0.002, β=0.93, show_trace=true, verbose=false, multimode=multimode
-# )
-ρ_sol, ϵ_GS, HMF, converged, residue = Meanfield.solvehartreefock( # run the calculation
-    hops, v, ρ_init, filling; klin=6, iterations=30, tol=5e-3,# p_norm=Inf,
+ρ_sol, ϵ_GS, HMF, converged, residue = Meanfield.solvehartreefock(
+    hops, v, ρ_init, filling; klin=6, iterations=30, tol=5e-3,
     T=0.002, β=0.93, show_trace=true, verbose=false, multimode=multimode
 )
-# exit()
 
 @info "Magnetization..."
 mA, mB = real.(Operators.magnetization(ρ_sol, [sublA,sublB], lat))
@@ -90,7 +69,6 @@ dens = Operators.density(ρ_sol)
 @info("Density", dens)
 
 println("Create band plot...")
-# Get the bands without mean-field terms
 ks = kpath(lat; num_points=170)
 
 Operators.setfilling!(hops, filling; nk=9, multimode=multimode)
@@ -105,13 +83,10 @@ Operators.addchemicalpotential!(hmf, -HMF.μ)
 bands_mf = getbands(hmf, ks, sz; format=:sparse, num_bands=36, multimode=multimode)
 p2 = plot(bands_mf; markersize=1, size=(600,200), colorbar=true)
 
-# Show the band structure side-by-side
 plot!(p1, title="noninteracting")
 plot!(p2, title="Hubbard meanfield")
 plot(p1,p2, titlefont=font(8))
 
-mkpath("$outname");
-savefig("$outname/hubbardmeanfield_example1_distributed.pdf");
+savefig("$(p.outname)/bands_meanfield.pdf");
 
 println("Exiting...")
-# sleep(5)

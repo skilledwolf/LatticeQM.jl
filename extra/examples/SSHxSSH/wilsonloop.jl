@@ -1,7 +1,7 @@
 using Plots
 using LatticeQM
 
-using LatticeQM.Algebra: σ0, σ1, σ2, σ3
+using LatticeQM.Utils: σ0, σ1, σ2, σ3
 using LatticeQM.Structure.Lattices: Lattice, addbasis!, addorbital!, addorbitals!, addextra!
 
 # Benalcazar, Bernevig, Hughes, Science 357, 61–66 (2017)
@@ -43,7 +43,7 @@ end
 
 lat, h = getSSH2D(0.5,1.0,0.5,1.0)
 
-pol1, U1, pol2, U2 = Spectrum.NestedWilson2D(h, 100, 100,1:2)
+pol1, U1, pol2, U2 = Spectrum.Wilson2D(h, 100, 100, 1:2)
 
 # en1 = mod.(en1, 1.0)
 p = scatter(pol1[:,1])

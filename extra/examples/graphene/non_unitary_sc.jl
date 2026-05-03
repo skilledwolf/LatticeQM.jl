@@ -34,13 +34,14 @@ DENSITYdiff = zeros(length(Us),length(Vs))
 ######################################################################
 # Run distributed calculation
 ######################################################################
-using ProgressBars
+using ProgressMeter
 println(":: Entering sweep...")
 
 IJ = [(i_,j_) for i_=1:length(Us) for j_=1:length(Vs)]
+progress = Progress(length(IJ); desc="(U,V) sweep")
 
 lk = Threads.ReentrantLock()
-Threads.@threads for (i_,j_)=ProgressBar(IJ)
+Threads.@threads for (i_,j_) in IJ
     
     U = Us[i_]; V = Vs[j_]
 
@@ -74,6 +75,7 @@ Threads.@threads for (i_,j_)=ProgressBar(IJ)
         DENSITY0[i_,j_] = (M[1,1]+M[1,2])/2
         DENSITYdiff[i_,j_] = (M[1,1]-M[1,2])/2
     end
+    next!(progress)
 
 end
 

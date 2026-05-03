@@ -16,10 +16,10 @@ function get_gap_at_U(U=4.0; filling=0.5, init=:antiferro, T=0.01, β=0.20, show
     v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=U) # interaction potential
     ρ_init = Meanfield.initialguess(v, init; lat=lat) # initial guess
 
-    hf = Meanfield.hartreefock(hops, v)
+    hf = Meanfield.HartreeFock(hops, v)
 
     ρ_sol, ϵ_GS, HMF, converged, error = Meanfield.solveselfconsistent(
-        hf, ρ_init, filling; klin=30, iterations=500, tol=1e-8,# p_norm=Inf,
+        ρ_init, hf, filling; klin=30, iterations=500, tol=1e-8,
         T=T, β=β,  show_trace=show_trace, clear_trace=clear_trace
     )
 

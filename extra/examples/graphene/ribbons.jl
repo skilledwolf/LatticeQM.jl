@@ -15,7 +15,7 @@ lat_zigzag   = Lattices.reduceto1D(Geometries.honeycomb(), [[1, 0] [0, N]])
 p1 = plot(lat_armchair; supercell=[0:20])
 p2 = plot(lat_zigzag; supercell=[0:15])
 p = plot(p1,p2, layout=(2,1))
-savefig(p, "output/ribbons_geometry.pdf")
+mkpath("output"); savefig(p, "output/ribbons_geometry.pdf")
 
 ############################################################
 # Bands (armchair)

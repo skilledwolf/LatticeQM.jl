@@ -128,7 +128,12 @@ function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, cellrange=1
 
             x = r1 .- r0
             y = r2 .- r0
-            val = t2((r1 .+ r2) / 2) * exp(1.0im * ϕ * sign(cross2D(-y, x)))
+            # `t2` may read extras (e.g. `addvalley!`'s closure inspects the
+            # sublattice index at R[4]). Pass the full atom position
+            # including extras, matching `addhaldane_naive!`.
+            mid_full = (points[:, i] .+ points[:, j]) / 2
+            mid_full[1:D] .= mid
+            val = t2(mid_full) * exp(1.0im * ϕ * sign(cross2D(-y, x)))
             hops[δR][i, j] += val
         end
     end

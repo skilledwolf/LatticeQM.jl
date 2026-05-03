@@ -18,5 +18,6 @@ v = Operators.getcappedyukawa(lat; format=:dense, cellrange=3, spin=true, a=4.0,
 
 
 using FileIO
-mkpath("ouput_mf")
-save("meanfield1.jld2", "ρ_sol", ρ_sol, "ϵ_GS", ϵ_GS, "HMF", "converged", converged, "error", error)
+mkpath("output_mf")
+save("output_mf/meanfield1.jld2",
+     "ρ_sol", ρ_sol, "ϵ_GS", ϵ_GS, "HMF", HMF, "converged", converged, "error", error)

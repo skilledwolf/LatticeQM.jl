@@ -43,5 +43,9 @@ export JULIA_DEPOT_PATH=$WORK/.julia
 export GKSwstype='nul'
 export OMP_NUM_THREADS=1
 
-# Launch serial code...
-julia -p 96 -t 1 -O 3 --gcthreads 1 main.jl         # Do not use ibrun or any other MPI launcher
+# Pick a parameter set defined in main.jl (testing, n10_fm3, n10_fm4, n11_fm,
+# n13_fm5, n13_random). Change this for production runs.
+export LATTICEQM_PARAMS=n13_random
+
+# Launch the calculation. Do not use ibrun or any other MPI launcher.
+julia -p 96 -t 1 -O 3 --gcthreads 1 main.jl

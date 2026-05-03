@@ -23,4 +23,4 @@ Operators.addhaldane!(hops1, lat1, 0.3)
 
 bands1 = getbands(hops1, ks, pos)
 p = plot(bands1, 1; ylabel="\$\\varepsilon/t\$", colorbar_title="transverse position", markersize=1.25, size=(500,300), cquantile=1.0, colorbar=true, csymmetric=true)
-savefig(p, "output/ribbon_haldane_bands.pdf")
+mkpath("output"); savefig(p, "output/ribbon_haldane_bands.pdf")
