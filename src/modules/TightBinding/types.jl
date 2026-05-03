@@ -118,6 +118,7 @@ Spectrum.sanatize_distributed_hamiltonian(H::DenseHops) = shareddense(H)
 # only used for caller-supplied operator types that aren't AbstractHops.
 Spectrum._build_H!(out::AbstractMatrix, H::AbstractHops, k) = fouriersum!(out, H, k)
 
+
 # Size
 Base.size(H::Hops, args...) = Base.size(first(values(H.data)), args...)
 Base.broadcastable(H::Hops) = Ref(H)

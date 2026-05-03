@@ -76,18 +76,23 @@ function _densitymatrix_local(ρs::AbstractHops)
     TightBinding.Hops(data)
 end
 
-# kspace_reduce! requires `output` to support `zero(output)` and `.+=` —
-# overload both for Hops so the primitive composes cleanly.
+# kspace_reduce! requires `output` to support `zero(output)` and accumulation.
+# `Base.zero` for Hops produces a same-shape Hops with fresh zero matrices.
+# The `_accumulate!` extension teaches `Parallel.kspace_reduce!` how to fold
+# per-task partials back into the master output (Hops opts out of
+# broadcasting via `Base.broadcastable(H::Hops) = Ref(H)`, so the default
+# `output .+= partial` won't work for Hops).
 Base.zero(h::Hops) = _densitymatrix_local(h)
-function _add_hops!(dst::Hops, src::Hops)
-    for δL in keys(dst)
-        dst[δL] .+= src[δL]
+function Parallel._accumulate!(out::AbstractHops, partial::AbstractHops)
+    for δL in keys(out)
+        out[δL] .+= partial[δL]
     end
-    dst
+    out
 end
 
 function densitymatrix_compute_add!(ρs::Hops, H, ks::AbstractMatrix{Float64}, kweights::AbstractVector{Float64},
-                                     μ::Float64, T::Real, exec::Parallel.Executor, progressbar=nothing; kwargs...)
+                                     μ::Float64, T::Real, exec::Parallel.Executor, progressbar=nothing;
+                                     format=:dense, kwargs...)
     Parallel.configure_blas!(exec; verbose=false)
 
     # Lock-protected scalar accumulator for the kinetic energy. Lock contention
@@ -96,29 +101,23 @@ function densitymatrix_compute_add!(ρs::Hops, H, ks::AbstractMatrix{Float64}, k
     energy_lock = Threads.SpinLock()
     total_energy = Ref(0.0)
 
-    # Same pattern for the progress bar: a SpinLock around `next!` is fine
-    # because the bar update is microseconds vs millisecond+ per-k cost.
-    progress_lock = Threads.SpinLock()
-
-    Parallel.kspace_reduce!(ρs, ks, exec) do local_ρ, _scratch, j, k
-        e = densitymatrix_serial_add_kpoint!(local_ρ, H, k, kweights[j]; μ=μ, T=T, kwargs...)
+    Parallel.kspace_reduce!(ρs, ks, exec;
+        scratch_factory = () -> (Hcache=Spectrum.bloch_buffer(H, ks; format=format),),
+        progress = progressbar) do local_ρ, scratch, j, k
+        e = densitymatrix_kpoint!(local_ρ, scratch, H, k, kweights[j]; μ=μ, T=T, format=format, kwargs...)
         Base.@lock energy_lock total_energy[] += e
-        if progressbar !== nothing
-            Base.@lock progress_lock ProgressMeter.next!(progressbar)
-        end
     end
     total_energy[]
 end
 
-# Single-k kernel: factored out so both the kspace_reduce! body and the
-# legacy serial path can share it.
-function densitymatrix_serial_add_kpoint!(ρs::AbstractHops, H, k, w::Float64;
-                                           μ::Float64=0.0, T::Real=0.01, kwargs...)
-    Hk = H(k)
-    ϵs, U = Eigen.geteigen(Hk; kwargs...)
+# Single-k kernel: builds H(k) into the scratch buffer (zero-alloc for dense
+# AbstractHops) and adds the contribution to the per-task accumulator.
+function densitymatrix_kpoint!(ρs::AbstractHops, scratch, H, k, w::Float64;
+                                μ::Float64=0.0, T::Real=0.01, format=:dense, kwargs...)
+    Hk = Spectrum.bloch!(scratch.Hcache, H, k)
+    ϵs, U = Eigen.geteigen!(Hk; format=format, kwargs...)
     band = real.(ϵs)
     fd = fermidirac.(band .- μ; T=T)
-    # ρ_k = U * Diagonal(fd) * U'  →  add  w * fourierphase(-k, δL) * ρ_k
     ρ_k = U * Diagonal(fd) * U'
     for δL in keys(ρs)
         ρs[δL] .+= w * fourierphase(-k, δL) .* ρ_k

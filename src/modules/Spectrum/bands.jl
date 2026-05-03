@@ -12,6 +12,24 @@ import LatticeQM.Parallel
 # churn / ~30% GC overhead on a TBG-N=5 bandmatrix call.
 @inline _build_H!(out::AbstractMatrix, H, k) = (out .= H(k); out)
 
+# Bloch-matrix scratch utilities, used by every k-loop (bandmatrix, dos,
+# density, density-matrix, Green, optical conductivity).
+#
+# `bloch_buffer(H, ks; format)` returns a buffer for in-place Hk construction:
+#   - `format=:dense`  → preallocated dense Matrix{ComplexF64}, reused per k
+#   - `format=:sparse` → `nothing` (sparse H(k) is built fresh per k; the
+#     per-k alloc is O(nnz), much smaller than O(N²), and crucially keeps
+#     the matrix sparse so the eigensolver does sparse LU during shift-invert)
+#
+# `bloch!(buf, H, k)` returns the Bloch matrix at k. For a dense buffer this
+# is zero-allocation when H is an `AbstractHops` (uses `fouriersum!`). For
+# `nothing` it just calls `H(k)`.
+bloch_buffer(H, ks; format=:dense, kwargs...) =
+    format === :sparse ? nothing : bandmatrix_Hcache(H, ks)
+
+@inline bloch!(buf::Nothing, H, k) = H(k)
+@inline bloch!(buf::AbstractMatrix, H, k) = (_build_H!(buf, H, k); buf)
+
 const IMAG_THRESHOLD = 1e-9::Float64
 const PROGRESSBAR_MINTIME = 1::Int
 const PROGRESSBAR_DIAG_DEFAULTLABEL = "Diagonalization"::String
@@ -186,28 +204,13 @@ function bandmatrix(H, ks, projectors...;
 end
 
 # Per-task scratch: H buffer reused across every k handled by the same task.
-#
-# Dense path (default): preallocate a dense Hcache, fouriersum! the Bloch sum
-# into it each k. Zero allocation per k for AbstractHops.
-#
-# Sparse path (format=:sparse): no preallocated buffer. We build H(k) fresh
-# as a sparse matrix per k. The per-k allocation is O(nnz), small compared to
-# O(N²) for dense, and crucially the sparse eigensolver can then do sparse
-# shift-invert LU instead of dense LU — a dramatic speedup on moiré.
-function bandmatrix_scratch(H, ks; format=:dense, kwargs...)
-    if format === :sparse
-        return (Hcache = nothing,)
-    end
-    return (Hcache = bandmatrix_Hcache(H, ks),)
-end
+# Delegates to `bloch_buffer` / `bloch!` so dos / density / green / etc. can
+# all use the same per-task pattern.
+bandmatrix_scratch(H, ks; format=:dense, kwargs...) =
+    (Hcache = bloch_buffer(H, ks; format=format),)
 
 function _band_kpoint!(scratch, j, k, bands, obs, H, projectors; kwargs...)
-    Hk = if scratch.Hcache === nothing
-        H(k)  # sparse path: keep H sparse, hand the sparse matrix to the eigensolver
-    else
-        _build_H!(scratch.Hcache, H, k)
-        scratch.Hcache
-    end
+    Hk = bloch!(scratch.Hcache, H, k)
     energies_k, U = Eigen.geteigen!(Hk; kwargs...)
     @views insertbands_bandexpvals_k!(bands[:, j], obs[:, j, :], energies_k, U, k, projectors)
     return nothing

@@ -4,7 +4,7 @@ import LatticeQM.Structure
 import LatticeQM.Operators
 import LatticeQM.Spectrum
 import LatticeQM.TightBinding
-using LatticeQM.Utils.Context
+import LatticeQM.Parallel
 
 # Specialized cases
 """
@@ -44,30 +44,35 @@ end
 # Interface to translate klin to solveselfconsistent!(ρ0, ρ1, ..., ks, ...)
 solveselfconsistent!(ρ0, ρ1, mf::MeanfieldGenerator, filling::Float64; klin::Int, kwargs...) = solveselfconsistent!(ρ0, ρ1, mf, filling, Structure.regulargrid(nk=klin^2); kwargs...)
 
-function solveselfconsistent!(ρ0::T, ρ1::T, mf::MeanfieldGenerator, filling::Float64, ks; multimode=:global, kwargs...) where {T}
-    c = trycontext(ensurecontext(multimode), SerialContext())
-    solveselfconsistent!(c, ρ0, ρ1, mf::MeanfieldGenerator, filling::Float64, ks; kwargs...)
+# `multimode=:global` is preserved for backwards compatibility but now maps
+# to `:auto` (the old `:global` resolved to `getautocontext()` *at module-load
+# time*, which froze to whatever Julia was started with — a footgun if
+# `addprocs` happened later). `:auto` re-evaluates each call.
+function solveselfconsistent!(ρ0::T, ρ1::T, mf::MeanfieldGenerator, filling::Float64, ks; multimode=:auto, kwargs...) where {T}
+    mm = (multimode === :global) ? :auto : multimode
+    exec = Parallel.to_executor(mm)
+
+    if exec isa Parallel.DistributedExec
+        # Reduce per-iteration shared-array allocation pressure by converting
+        # to SharedDenseHops once up front and passing views down. Originally
+        # a workaround for a julia 1.5–1.10 GC bug; still beneficial.
+        ρ0_shared = TightBinding.shareddense(ρ0)
+        ρ1_shared = TightBinding.shareddense(ρ1)
+        ρ0_views = TightBinding.gethopsview(ρ0_shared)
+        ρ1_views = TightBinding.gethopsview(ρ1_shared)
+        return _solveselfconsistent_impl!(ρ0_views, ρ1_views, mf, filling, ks; multimode=:distributed, kwargs...)
+    elseif exec isa Parallel.ThreadedExec
+        # Threading shares memory by reference; a plain dense copy is fine.
+        # (Previously this path errored — the legacy Context dispatch had no
+        # MultiThreadedContext implementation. With Parallel.kspace_* under
+        # the hood, threading just works.)
+        return _solveselfconsistent_impl!(Utils.dense(ρ0), Utils.dense(ρ1), mf, filling, ks; multimode=:multithreaded, kwargs...)
+    else  # SerialExec
+        return _solveselfconsistent_impl!(Utils.dense(ρ0), Utils.dense(ρ1), mf, filling, ks; multimode=:serial, kwargs...)
+    end
 end
 
 using SharedArrays
-import LatticeQM.Utils
-
-solveselfconsistent!(::SerialContext, ρ0::T, ρ1::T, args...; kwargs...) where {T} = solveselfconsistent!(DummyContext(), Utils.dense(ρ0), Utils.dense(ρ1), args...; multimode=:serial, kwargs...)
-function solveselfconsistent!(::DistributedContext, ρ0::T, ρ1::T, args...; kwargs...) where {T} 
-    # workaround to fix memory allocation bug in julia 1.5 to 1.10
-    # It is a somewhat hacky solution for now, but it reduces the memory allocation dramatically.
-    # Before, every call to getdensitymatrix! would allocate a new shared array on disk for the density matrix,
-    # bombarding both the file system and RAM and elluding the garbage collector.
-    ρ0 = TightBinding.shareddense(ρ0)
-    ρ1 = TightBinding.shareddense(ρ1)
-    ρ0_views = TightBinding.gethopsview(ρ0)
-    ρ1_views = TightBinding.gethopsview(ρ1)
-    solveselfconsistent!(DummyContext(), ρ0_views, ρ1_views, args...; multimode=:distributed, kwargs...)
-end
-
-function solveselfconsistent!(::MultiThreadedContext, args...; kwargs...)
-    error("Multithreaded context not implemented yet.")
-end
 
 sanitize!(X) = X # dummy function, supply dispatch for your type
 function sanitize!(ρ::TightBinding.Hops)
@@ -96,7 +101,7 @@ parallel=true might help if diagonalization per k point is very time consuming
 (e.g. for twisted bilayer graphene)
 note that for small problems `parallel=true` may decrease performance (communication overhead)
 """
-function solveselfconsistent!(::DummyContext, ρ0::T1, ρ1::T1, hartreefock::MeanfieldGenerator, filling::Float64, ks;
+function _solveselfconsistent_impl!(ρ0::T1, ρ1::T1, hartreefock::MeanfieldGenerator, filling::Float64, ks;
     convergenceerror=false, multimode=:serial, checkpoint::String="", callback=(x -> nothing), hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...) where {T1}
 
     # if checkpoint != "" && isfile(checkpoint) && hotstart

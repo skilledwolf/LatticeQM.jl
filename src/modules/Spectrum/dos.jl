@@ -6,6 +6,12 @@ import LatticeQM.Spectrum
 import LatticeQM.Parallel
 
 const PROGRESSBAR_LDOS_DEFAULTLABEL = "LDOS"::String
+const PROGRESSBAR_DENSITY_DEFAULTLABEL = "Density"::String
+const PROGRESSBAR_DOS_DEFAULTLABEL = "DOS"::String
+
+# Helper: build a Progress bar honoring the package-wide defaults.
+_make_dos_progress(nks, label, hidebar) =
+    Progress(nks; dt=Spectrum.PROGRESSBAR_MINTIME, desc=label, enabled=!hidebar)
 
 ##########################################################################################
 # Density
@@ -28,15 +34,19 @@ function density(H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; format=:dense,
 end
 
 function density!(n::AbstractVector{Float64}, spectrum::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0;
-                   multimode::Symbol=:auto, executor::Union{Nothing,Parallel.Executor}=nothing)
+                   multimode::Symbol=:auto, executor::Union{Nothing,Parallel.Executor}=nothing,
+                   progress_label=PROGRESSBAR_DENSITY_DEFAULTLABEL,
+                   hidebar=!Spectrum.PROGRESSBAR_SHOWDEFAULT)
     n .= 0
     L = size(ks, 2)
     exec = executor === nothing ? Parallel.to_executor(multimode) : executor
     Parallel.configure_blas!(exec; verbose=false)
+    progressbar = _make_dos_progress(L, progress_label, hidebar)
 
-    Parallel.kspace_reduce!(n, ks, exec) do local_n, _scratch, _j, k
+    Parallel.kspace_reduce!(n, ks, exec; progress=progressbar) do local_n, _scratch, _j, k
         density_at_k!(local_n, spectrum(k), μ)
     end
+    finish!(progressbar)
     n ./= L
 end
 
@@ -57,16 +67,24 @@ function ldos!(n::AbstractVector, H, ks::AbstractMatrix, ωs::AbstractVector;
                 Γ::Real=0.1,
                 multimode::Symbol=:auto,
                 executor::Union{Nothing,Parallel.Executor}=nothing,
+                progress_label=PROGRESSBAR_LDOS_DEFAULTLABEL,
+                hidebar=!Spectrum.PROGRESSBAR_SHOWDEFAULT,
+                format=:dense,
                 kwargs...)
     L = size(ks, 2)
     n .= 0
     exec = executor === nothing ? Parallel.to_executor(multimode) : executor
     Parallel.configure_blas!(exec; verbose=false)
+    progressbar = _make_dos_progress(L, progress_label, hidebar)
 
-    Parallel.kspace_reduce!(n, ks, exec) do local_n, _scratch, _j, k
-        ϵs, U = Eigen.geteigen(H(k); kwargs...)
+    Parallel.kspace_reduce!(n, ks, exec;
+        scratch_factory = () -> (Hcache=Spectrum.bloch_buffer(H, ks; format=format),),
+        progress = progressbar) do local_n, scratch, _j, k
+        Hk = Spectrum.bloch!(scratch.Hcache, H, k)
+        ϵs, U = Eigen.geteigen!(Hk; format=format, kwargs...)
         ldos!(local_n, ϵs, U, ωs; Γ=Γ)
     end
+    finish!(progressbar)
     n .*= -1 / (L * π)
     n
 end
@@ -134,9 +152,12 @@ getdos(h, ωs::AbstractVector, ks, args...; kwargs...) = (DOS=zero(ωs); getdos!
 function getdos!(DOS, h, frequencies::AbstractVector, ks, args...;
                   multimode::Symbol=:auto,
                   executor::Union{Nothing,Parallel.Executor}=nothing,
+                  progress_label=PROGRESSBAR_DOS_DEFAULTLABEL,
+                  hidebar=!Spectrum.PROGRESSBAR_SHOWDEFAULT,
                   kwargs...)
     exec = executor === nothing ? Parallel.to_executor(multimode) : executor
-    dos_compute!(DOS, h, frequencies, ks, args..., exec; kwargs...)
+    dos_compute!(DOS, h, frequencies, ks, args..., exec;
+                 progress_label=progress_label, hidebar=hidebar, kwargs...)
     DOS
 end
 
@@ -155,12 +176,20 @@ import LatticeQM.Structure: Mesh, meshweights
 # Per-task accumulators are merged at the end by Parallel.kspace_reduce!.
 function dos_compute!(DOS, h, frequencies::AbstractVector,
                       ks::AbstractMatrix{<:Real}, exec::Parallel.Executor;
-                      Γ::Number, kwargs...)
+                      Γ::Number, progress_label=PROGRESSBAR_DOS_DEFAULTLABEL,
+                      hidebar=!Spectrum.PROGRESSBAR_SHOWDEFAULT,
+                      format=:dense, kwargs...)
     L = size(ks, 2)
     Parallel.configure_blas!(exec; verbose=false)
-    Parallel.kspace_reduce!(DOS, ks, exec) do local_dos, _scratch, _j, k
-        dos!(local_dos, Eigen.geteigvals(h(k); kwargs...), frequencies; broadening=Γ)
+    progressbar = _make_dos_progress(L, progress_label, hidebar)
+    Parallel.kspace_reduce!(DOS, ks, exec;
+        scratch_factory = () -> (Hcache=Spectrum.bloch_buffer(h, ks; format=format),),
+        progress = progressbar) do local_dos, scratch, _j, k
+        Hk = Spectrum.bloch!(scratch.Hcache, h, k)
+        ϵs = Eigen.geteigvals!(Hk; format=format, kwargs...)
+        dos!(local_dos, ϵs, frequencies; broadening=Γ)
     end
+    finish!(progressbar)
     DOS ./= L
     DOS
 end
@@ -168,12 +197,20 @@ end
 function dos_compute!(DOS, h, frequencies::AbstractVector,
                       ks::AbstractMatrix, kweights::AbstractVector,
                       exec::Parallel.Executor;
-                      Γ::Number, kwargs...)
+                      Γ::Number, progress_label=PROGRESSBAR_DOS_DEFAULTLABEL,
+                      hidebar=!Spectrum.PROGRESSBAR_SHOWDEFAULT,
+                      format=:dense, kwargs...)
+    L = size(ks, 2)
     Parallel.configure_blas!(exec; verbose=false)
-    Parallel.kspace_reduce!(DOS, ks, exec) do local_dos, _scratch, j, k
-        dos!(local_dos, Eigen.geteigvals(h(k); kwargs...), frequencies;
-             broadening=Γ, weight=kweights[j])
+    progressbar = _make_dos_progress(L, progress_label, hidebar)
+    Parallel.kspace_reduce!(DOS, ks, exec;
+        scratch_factory = () -> (Hcache=Spectrum.bloch_buffer(h, ks; format=format),),
+        progress = progressbar) do local_dos, scratch, j, k
+        Hk = Spectrum.bloch!(scratch.Hcache, h, k)
+        ϵs = Eigen.geteigvals!(Hk; format=format, kwargs...)
+        dos!(local_dos, ϵs, frequencies; broadening=Γ, weight=kweights[j])
     end
+    finish!(progressbar)
     DOS
 end
 

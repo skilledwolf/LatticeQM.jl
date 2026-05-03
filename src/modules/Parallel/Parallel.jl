@@ -165,36 +165,33 @@ function kspace_foreach!(body!, ks::AbstractMatrix, exec::Executor;
                           scratch_factory = () -> nothing,
                           progress::Union{Nothing,ProgressMeter.AbstractProgress}=nothing)
     nks = size(ks, 2)
-    if exec isa SerialExec
-        _kspace_serial!(body!, ks, nks, scratch_factory, progress)
-    elseif exec isa ThreadedExec
-        _kspace_threaded!(body!, ks, nks, scratch_factory, progress, exec)
-    elseif exec isa DistributedExec
-        _kspace_distributed!(body!, ks, nks, scratch_factory, progress, exec)
-    else
-        error("Unsupported executor $(typeof(exec))")
+    publish, finish = _progress_pump(progress, exec)
+    try
+        if exec isa SerialExec
+            _kspace_serial!(body!, ks, nks, scratch_factory, publish)
+        elseif exec isa ThreadedExec
+            _kspace_threaded!(body!, ks, nks, scratch_factory, publish, exec)
+        elseif exec isa DistributedExec
+            _kspace_distributed!(body!, ks, nks, scratch_factory, publish, exec)
+        else
+            error("Unsupported executor $(typeof(exec))")
+        end
+    finally
+        finish()
     end
     return nothing
 end
 
-function _kspace_serial!(body!, ks, nks, scratch_factory, progress)
+function _kspace_serial!(body!, ks, nks, scratch_factory, publish)
     scratch = scratch_factory()
     @inbounds for j in 1:nks
         body!(scratch, j, view(ks, :, j))
-        progress !== nothing && ProgressMeter.next!(progress)
+        publish()
     end
 end
 
-function _kspace_threaded!(body!, ks, nks, scratch_factory, progress, exec::ThreadedExec)
+function _kspace_threaded!(body!, ks, nks, scratch_factory, publish, exec::ThreadedExec)
     nt = max(1, exec.nthreads)
-    prog_ch = progress === nothing ? nothing : Channel{Bool}(nks + 1)
-    prog_task = if prog_ch !== nothing
-        @async while take!(prog_ch)
-            ProgressMeter.next!(progress)
-        end
-    else
-        nothing
-    end
 
     if exec.schedule === :dynamic
         # Producer-consumer: a single shared work channel, each task pulls
@@ -203,73 +200,41 @@ function _kspace_threaded!(body!, ks, nks, scratch_factory, progress, exec::Thre
         work_ch = Channel{Int}(nks)
         for j in 1:nks; put!(work_ch, j); end
         close(work_ch)
-        try
-            @sync for _ in 1:nt
-                Threads.@spawn begin
-                    scratch = scratch_factory()
-                    for j in work_ch
-                        body!(scratch, j, view(ks, :, j))
-                        prog_ch !== nothing && put!(prog_ch, true)
-                    end
+        @sync for _ in 1:nt
+            Threads.@spawn begin
+                scratch = scratch_factory()
+                for j in work_ch
+                    body!(scratch, j, view(ks, :, j))
+                    publish()
                 end
             end
-        finally
-            prog_ch !== nothing && put!(prog_ch, false)
         end
     else
         # Static: equal chunks, one scratch per task.
         chunks = _chunked_ranges(nks, nt)
-        try
-            @sync for chunk in chunks
-                Threads.@spawn begin
-                    scratch = scratch_factory()
-                    for j in chunk
-                        body!(scratch, j, view(ks, :, j))
-                        prog_ch !== nothing && put!(prog_ch, true)
-                    end
+        @sync for chunk in chunks
+            Threads.@spawn begin
+                scratch = scratch_factory()
+                for j in chunk
+                    body!(scratch, j, view(ks, :, j))
+                    publish()
                 end
             end
-        finally
-            prog_ch !== nothing && put!(prog_ch, false)
         end
     end
-    prog_task !== nothing && wait(prog_task)
     return nothing
 end
 
-function _kspace_distributed!(body!, ks, nks, scratch_factory, progress, exec::DistributedExec)
+function _kspace_distributed!(body!, ks, nks, scratch_factory, publish, exec::DistributedExec)
     nw = max(1, exec.nworkers)
     chunks = _chunked_ranges(nks, nw)
-
-    if progress === nothing
-        pmap(chunks) do chunk
-            scratch = scratch_factory()
-            for j in chunk
-                body!(scratch, j, view(ks, :, j))
-            end
-            return length(chunk)
+    pmap(chunks) do chunk
+        scratch = scratch_factory()
+        for j in chunk
+            body!(scratch, j, view(ks, :, j))
+            publish()
         end
-    else
-        # Funnel progress over a RemoteChannel pump so updates from workers
-        # don't race on the master's ProgressMeter.
-        prog_ch = RemoteChannel(() -> Channel{Bool}(nks + 1), 1)
-        @sync begin
-            @async while take!(prog_ch)
-                ProgressMeter.next!(progress)
-            end
-
-            @async try
-                pmap(chunks) do chunk
-                    scratch = scratch_factory()
-                    for j in chunk
-                        body!(scratch, j, view(ks, :, j))
-                        put!(prog_ch, true)
-                    end
-                end
-            finally
-                put!(prog_ch, false)
-            end
-        end
+        return length(chunk)
     end
     return nothing
 end
@@ -279,12 +244,42 @@ function _chunked_ranges(total::Int, nchunks::Int)
     [(1 + (i-1)*sz):min(i*sz, total) for i in 1:nchunks if (i-1)*sz < total]
 end
 
+# How `kspace_reduce!` folds per-task accumulators into the master output.
+# Default uses broadcasted `.+=` (works for arrays, complex vectors, etc).
+# Modules can extend this for non-broadcastable types — TightBinding extends
+# it for `AbstractHops` (which deliberately opts out of broadcasting via
+# `Base.broadcastable(H::Hops) = Ref(H)`, so `.+=` would fail).
+@inline _accumulate!(out, partial) = (out .+= partial; out)
+
+# Progress pump abstraction used by both kspace_foreach! and kspace_reduce!
+# under threaded / distributed executors. Returns `(publish, finish)`:
+#   - `publish()` is called by every per-k body iteration; thread-safe
+#   - `finish()` is called once after all bodies complete; drains the pump
+# For `progress === nothing` both are no-ops. For SerialExec, `publish` calls
+# `next!` directly (no Channel overhead) since there's no race.
+function _progress_pump(progress, exec::Executor)
+    if progress === nothing
+        return (() -> nothing), (() -> nothing)
+    end
+    if exec isa SerialExec
+        return (() -> ProgressMeter.next!(progress)), (() -> nothing)
+    end
+    ch = exec isa DistributedExec ? RemoteChannel(() -> Channel{Bool}(Inf), 1) :
+                                    Channel{Bool}(Inf)
+    pump = @async while take!(ch)
+        ProgressMeter.next!(progress)
+    end
+    publish = () -> put!(ch, true)
+    finish = () -> (put!(ch, false); wait(pump))
+    return publish, finish
+end
+
 # ---------------------------------------------------------------------------
 # kspace_reduce! - additive reduction over k-points
 # ---------------------------------------------------------------------------
 
 """
-    kspace_reduce!(body!, output, ks, exec; scratch_factory)
+    kspace_reduce!(body!, output, ks, exec; scratch_factory, progress=nothing)
 
 Run `body!(local_out, scratch, j, k)` once per k-index. `local_out` is a
 per-task accumulator (one per chunk on threaded/distributed; just `output`
@@ -296,47 +291,60 @@ conductivity — anywhere each k contributes additively to a global
 accumulator. It is lock-free in the hot loop: each task writes only to its
 own `local_out`, and the master merges them once at the end.
 
+`progress`, if given, is a `ProgressMeter.Progress` — updates are funneled
+through a `Channel` so only one task touches the bar.
+
 `output` must support `zero(output)` and broadcasted `.+=`.
 
 Returns `output`.
 """
 function kspace_reduce!(body!, output, ks::AbstractMatrix, exec::Executor;
-                         scratch_factory = () -> nothing)
+                         scratch_factory = () -> nothing,
+                         progress::Union{Nothing,ProgressMeter.AbstractProgress}=nothing)
     nks = size(ks, 2)
-    if exec isa SerialExec
-        scratch = scratch_factory()
-        for j in 1:nks
-            body!(output, scratch, j, view(ks, :, j))
-        end
-    elseif exec isa ThreadedExec
-        chunks = _chunked_ranges(nks, exec.nthreads)
-        partials = [zero(output) for _ in 1:length(chunks)]
-        @sync for (ic, chunk) in enumerate(chunks)
-            Threads.@spawn begin
-                scratch = scratch_factory()
-                for j in chunk
-                    body!(partials[ic], scratch, j, view(ks, :, j))
+    publish, finish = _progress_pump(progress, exec)
+
+    try
+        if exec isa SerialExec
+            scratch = scratch_factory()
+            for j in 1:nks
+                body!(output, scratch, j, view(ks, :, j))
+                publish()
+            end
+        elseif exec isa ThreadedExec
+            chunks = _chunked_ranges(nks, exec.nthreads)
+            partials = [zero(output) for _ in 1:length(chunks)]
+            @sync for (ic, chunk) in enumerate(chunks)
+                Threads.@spawn begin
+                    scratch = scratch_factory()
+                    for j in chunk
+                        body!(partials[ic], scratch, j, view(ks, :, j))
+                        publish()
+                    end
                 end
             end
-        end
-        for p in partials
-            output .+= p
-        end
-    elseif exec isa DistributedExec
-        chunks = _chunked_ranges(nks, exec.nworkers)
-        partials = pmap(chunks) do chunk
-            local_out = zero(output)
-            scratch = scratch_factory()
-            for j in chunk
-                body!(local_out, scratch, j, view(ks, :, j))
+            for p in partials
+                _accumulate!(output, p)
             end
-            return local_out
+        elseif exec isa DistributedExec
+            chunks = _chunked_ranges(nks, exec.nworkers)
+            partials = pmap(chunks) do chunk
+                local_out = zero(output)
+                scratch = scratch_factory()
+                for j in chunk
+                    body!(local_out, scratch, j, view(ks, :, j))
+                    publish()
+                end
+                return local_out
+            end
+            for p in partials
+                _accumulate!(output, p)
+            end
+        else
+            error("Unsupported executor $(typeof(exec))")
         end
-        for p in partials
-            output .+= p
-        end
-    else
-        error("Unsupported executor $(typeof(exec))")
+    finally
+        finish()
     end
     return output
 end

@@ -4,7 +4,7 @@ import LatticeQM.Structure
 import LatticeQM.Operators
 import LatticeQM.Spectrum
 import LatticeQM.TightBinding
-using LatticeQM.Utils.Context
+import LatticeQM.Parallel
 
 ##############################################################################################################
 ##############################################################################################################
@@ -179,22 +179,23 @@ end
 # Interface to translate klin to solveselfconsistent!(ρ0, ρ1, ..., ks, ...)
 solveselfconsistent_purification!(ρ0, ρ1, mf::MeanfieldGenerator, filling::Float64; klin::Int, kwargs...) = solveselfconsistent_purification!(ρ0, ρ1, mf, filling, Structure.regulargrid(nk=klin^2); kwargs...)
 
-function solveselfconsistent_purification!(ρ0::T, ρ1::T, mf::MeanfieldGenerator, filling::Float64, ks; multimode=:global, kwargs...) where {T}
-    c = trycontext(ensurecontext(multimode), SerialContext())
-    solveselfconsistent_purification!(c, ρ0, ρ1, mf::MeanfieldGenerator, filling::Float64, ks; kwargs...)
+function solveselfconsistent_purification!(ρ0::T, ρ1::T, mf::MeanfieldGenerator, filling::Float64, ks; multimode=:auto, kwargs...) where {T}
+    mm = (multimode === :global) ? :auto : multimode
+    exec = Parallel.to_executor(mm)
+
+    if exec isa Parallel.DistributedExec
+        return _solveselfconsistent_purification_impl!(ρ0, ρ1, mf, filling, ks; multimode=:distributed, kwargs...)
+    elseif exec isa Parallel.ThreadedExec
+        # Same story as solveselfconsistent!: threading was a stub before
+        # Parallel; now the downstream `Parallel.kspace_*` accumulators handle
+        # it correctly.
+        return _solveselfconsistent_purification_impl!(ρ0, ρ1, mf, filling, ks; multimode=:multithreaded, kwargs...)
+    else
+        return _solveselfconsistent_purification_impl!(ρ0, ρ1, mf, filling, ks; multimode=:serial, kwargs...)
+    end
 end
 
 using SharedArrays
-import LatticeQM.Utils
-
-solveselfconsistent_purification!(::SerialContext, ρ0::T, ρ1::T, args...; kwargs...) where {T} = solveselfconsistent_purification!(DummyContext(), ρ0, ρ1, args...; multimode=:serial, kwargs...)
-function solveselfconsistent_purification!(::DistributedContext, ρ0::T, ρ1::T, args...; kwargs...) where {T}
-    solveselfconsistent_purification!(DummyContext(), ρ0, ρ1, args...; multimode=:distributed, kwargs...)
-end
-
-function solveselfconsistent_purification!(::MultiThreadedContext, args...; kwargs...)
-    error("Multithreaded context not implemented yet.")
-end
 
 """
     solveselfconsistent!(ρ0, ρ1, ℋ_op, ℋ_scalar, filling, ks; convergenceerror=false, multimode=:serial, checkpoint::String="", hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
@@ -214,7 +215,7 @@ parallel=true might help if diagonalization per k point is very time consuming
 (e.g. for twisted bilayer graphene)
 note that for small problems `parallel=true` may decrease performance (communication overhead)
 """
-function solveselfconsistent_purification!(::DummyContext, ρ0::T1, ρ1::T1, hartreefock::MeanfieldGenerator, filling::Float64, ks;
+function _solveselfconsistent_purification_impl!(ρ0::T1, ρ1::T1, hartreefock::MeanfieldGenerator, filling::Float64, ks;
     convergenceerror=false, multimode=:serial, checkpoint::String="", callback=(x -> nothing), hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...) where {T1}
 
     # if checkpoint != "" && isfile(checkpoint) && hotstart

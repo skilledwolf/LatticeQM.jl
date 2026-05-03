@@ -57,6 +57,7 @@ end
 
 import LatticeQM.Eigen
 import LatticeQM.Parallel
+import LatticeQM.Spectrum
 using ProgressMeter
 
 import LinearAlgebra
@@ -77,6 +78,9 @@ function opticalconductivity(frequencies::AbstractVector, H, J1, J2, ks::Abstrac
                               μ::Float64=0.0, Γ::Float64=0.025, T::Float64=0.1,
                               multimode::Symbol=:auto,
                               executor::Union{Nothing,Parallel.Executor}=nothing,
+                              progress_label="Optical conductivity",
+                              hidebar=false,
+                              format=:dense,
                               kwargs...)
     N = size(ks, 2)
     OC = complex(zero(frequencies))
@@ -84,10 +88,16 @@ function opticalconductivity(frequencies::AbstractVector, H, J1, J2, ks::Abstrac
     exec = executor === nothing ? Parallel.to_executor(multimode) : executor
     Parallel.configure_blas!(exec; verbose=false)
 
-    Parallel.kspace_reduce!(OC, ks, exec) do local_OC, _scratch, _j, k
-        ϵs, U = Eigen.geteigen(H(k); kwargs...)
+    progressbar = ProgressMeter.Progress(N; dt=1, desc=progress_label, enabled=!hidebar)
+
+    Parallel.kspace_reduce!(OC, ks, exec;
+        scratch_factory = () -> (Hcache=Spectrum.bloch_buffer(H, ks; format=format),),
+        progress = progressbar) do local_OC, scratch, _j, k
+        Hk = Spectrum.bloch!(scratch.Hcache, H, k)
+        ϵs, U = Eigen.geteigen!(Hk; format=format, kwargs...)
         kubo!(local_OC, frequencies, real(ϵs), U, J1(k), J2(k)'; μ=μ, Γ=Γ, T=T)
     end
+    ProgressMeter.finish!(progressbar)
     OC .*= -1im / N
     OC
 end

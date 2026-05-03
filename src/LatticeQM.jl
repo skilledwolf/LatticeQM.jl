@@ -94,7 +94,12 @@ let
     lat = Structure.Geometries.honeycomb()
     H   = TightBinding.Hops()
     Operators.nearestneighbor!(H, lat, -1.0)
-    Spectrum.getbands(H, Structure.kpath(lat; num_points=4))
+    # Force `multimode=:serial` so the precompile hint never picks
+    # DistributedExec — `Parallel.configure_blas!` does a `remotecall_wait` on
+    # workers when distributed, which under `--procs=N` precompile sets a
+    # global in `Main` (the worker is in a precompile-closed context) and
+    # errors. The :serial path is the right one for a precompile hint anyway.
+    Spectrum.getbands(H, Structure.kpath(lat; num_points=4); multimode=:serial)
 end
 
 end # module LatticeQM

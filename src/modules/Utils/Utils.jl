@@ -12,9 +12,6 @@ module Utils
     # include("legacymacros.jl")
     # export @legacyalias, @legacymoved, @legacyremoved
 
-    include("Context.jl")
-    import .Context
-
     include("scalar2vector.jl")
 
     include("fermidirac.jl")
