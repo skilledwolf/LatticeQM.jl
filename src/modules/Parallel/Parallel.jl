@@ -129,12 +129,14 @@ function configure_blas!(exec::Executor; verbose::Bool=true)
     BLAS.set_num_threads(target)
     if exec isa DistributedExec && nworkers() > 1
         # Push BLAS=1 to every worker. `LinearAlgebra` may not be in `Main`
-        # on the worker process, so import there first via remotecall (the
-        # `@everywhere import …` macro form only parses at top level).
+        # on the worker process, so import there first. Julia 1.12 world-age
+        # semantics require `invokelatest` to use the freshly-imported binding
+        # in the same expression — without it we get a noisy warning per
+        # worker on every BLAS pinning.
         for w in workers()
             remotecall_wait(w) do
                 Core.eval(Main, :(import LinearAlgebra))
-                Main.LinearAlgebra.BLAS.set_num_threads(1)
+                Base.invokelatest(() -> Main.LinearAlgebra.BLAS.set_num_threads(1))
             end
         end
     end

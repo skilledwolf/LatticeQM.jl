@@ -51,7 +51,10 @@ makedocs(
             "Mean-field & Superconductivity" => "guides/meanfield.md",
             "Floquet Workflows" => "guides/floquet.md"
         ],
-        "Advanced Workflows" => "advanced/index.md",
+        "Advanced Workflows" => Any[
+            "Overview" => "advanced/index.md",
+            "Parallelism" => "advanced/parallelism.md"
+        ],
         "Contributor Guide" => "contributing.md",
         "API Reference" => "api.md",
         "Publications" => "publications.md"

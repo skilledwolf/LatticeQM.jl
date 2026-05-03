@@ -27,10 +27,17 @@ jobs:
             ${{ runner.os }}-julia-${{ matrix.julia-version }}-
       - name: Instantiate
         run: julia --project=. --color=yes -e 'using Pkg; Pkg.instantiate()'
-      - name: Run tests (threads=2, procs=2)
-        # Both JULIA_NUM_THREADS and --procs are required to exercise
-        # multimode=:multithreaded and multimode=:distributed paths
-        # in the parallelism test set.
+      - name: Instantiate test environment
+        run: julia --project=test --color=yes -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
+      - name: Run tests (threads=2)
         env:
           JULIA_NUM_THREADS: 2
-        run: julia --project=. --check-bounds=yes --color=yes -e 'using Pkg; Pkg.test(coverage=true, julia_args=`--procs=2`)'
+        run: julia --project=test --check-bounds=yes --color=yes test/runtests.jl
+      - name: Run tests (threads=2, procs=2)
+        # Pkg.test(julia_args=`--procs=N`) hits a Julia 1.12 precompile bug
+        # ("Creating a new global in closed module Main (procs)"), so we
+        # invoke runtests.jl directly under --procs to exercise the
+        # distributed paths in test_parallelism.jl + the meanfield SCF.
+        env:
+          JULIA_NUM_THREADS: 2
+        run: julia --project=test --procs=2 --check-bounds=yes --color=yes test/runtests.jl
