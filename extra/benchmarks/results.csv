@@ -1,0 +1,16 @@
+case,mode,nthreads,nworkers,blas,nks,N,time_s,rss_mb,allocs_mb
+dense_small,serial,1,1,1,128,2,0.007,414.8,0.5
+dense_small,threaded,8,1,1,128,2,0.006,424.7,0.5
+dense_small,distributed,1,4,1,128,2,0.018,2260.0,0.6
+tbg_n3,serial,1,1,1,32,148,0.122,429.8,15.3
+tbg_n3,threaded,8,1,1,32,148,0.026,437.0,17.7
+tbg_n3,distributed,1,4,1,32,148,0.047,2297.8,2.8
+tbg_n5,serial,1,1,1,32,364,1.05,460.0,76.9
+tbg_n5,threaded,8,1,1,32,364,0.193,496.2,91.2
+tbg_n5,distributed,1,4,1,32,364,0.369,2481.3,14.7
+tbg_n7,serial,1,1,1,32,676,0.817,936.1,796.9
+tbg_n7,threaded,8,1,1,32,676,0.224,1065.0,796.4
+tbg_n7,distributed,1,4,1,32,676,0.219,3123.6,0.9
+tbg_n11,serial,1,1,1,16,1588,1.859,990.9,1049.6
+tbg_n11,threaded,8,1,1,16,1588,0.714,1720.9,1020.8
+tbg_n11,distributed,1,4,1,16,1588,0.629,3504.2,1.6

@@ -34,6 +34,10 @@ import .Utils: dense
 include("modules/Eigen/Eigen.jl")
 import .Eigen
 
+include("modules/Parallel/Parallel.jl")
+import .Parallel
+export Parallel
+
 ### Base modules
 include("modules/Structure/Structure.jl")
 import .Structure
@@ -79,5 +83,18 @@ export BdGOperator
 
 include("modules/Plotting/Plotting.jl")
 using .Plotting
+
+# Precompile the canonical hot path (build a 2D lattice → nearest-neighbour
+# hopping → kpath → bands). Cuts ~3-4 s of TTFX off the first user call.
+# Targets the most common entry points; the struct-typed hopping rule
+# `Operators.DistanceWindowHopping{Float64}` is the one users hit by default
+# via `nearestneighbor!`, so its specialisations of gethops → hops! →
+# hoppingmatrix! are baked into the precompile cache.
+let
+    lat = Structure.Geometries.honeycomb()
+    H   = TightBinding.Hops()
+    Operators.nearestneighbor!(H, lat, -1.0)
+    Spectrum.getbands(H, Structure.kpath(lat; num_points=4))
+end
 
 end # module LatticeQM

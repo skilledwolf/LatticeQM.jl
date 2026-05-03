@@ -64,8 +64,10 @@ gethopsview(h::Hops) = Hops(Dict(L => view(M, :, :) for (L, M) in h))
 gethopsview(h::SubarrayHops) = h
 
 import SparseArrays
-SparseArrays.issparse(hops::Hops) = false
-SparseArrays.issparse(hops::SparseHops) = true 
+# Constrain the K type parameter explicitly so the SparseHops method is
+# unambiguously more specific than the generic Hops method on Julia ≥ 1.12.
+SparseArrays.issparse(hops::Hops{K,T}) where {K,T} = false
+SparseArrays.issparse(hops::SparseHops{K}) where {K<:AbstractVector{<:Int}} = true
 
 # (H::Hops{K,T})(k) where {K,T} = (h0::T = fouriersum(H, k); h0) #Hermitian(fouriersum(H, k))
 (H::Hops{K,T})(k) where {K,T} = fouriersum(H.data, k)
@@ -107,8 +109,14 @@ autoconversion(hops::Hops, N::Int, type::Symbol) = (type == :auto) ? autoconvers
 Utils.getelectronsector(H::Hops) = H
 Utils.copyelectronsector(H::Hops) = deepcopy(H)
 
-import LatticeQM.Spectrum 
+import LatticeQM.Spectrum
 Spectrum.sanatize_distributed_hamiltonian(H::DenseHops) = shareddense(H)
+
+# Zero-allocation Bloch matrix construction for any AbstractHops. This is the
+# fast path that bandmatrix and downstream k-loops dispatch into; the generic
+# Spectrum._build_H! fallback (which copies from a freshly-allocated H(k)) is
+# only used for caller-supplied operator types that aren't AbstractHops.
+Spectrum._build_H!(out::AbstractMatrix, H::AbstractHops, k) = fouriersum!(out, H, k)
 
 # Size
 Base.size(H::Hops, args...) = Base.size(first(values(H.data)), args...)

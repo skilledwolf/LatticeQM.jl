@@ -20,16 +20,6 @@ jobs:
       - name: Instantiate docs env
         run: |
           julia --project=extra/docs -e 'using Pkg; Pkg.instantiate()'
-      - name: Configure PyCall to use Conda and preinstall scipy
-        run: |
-          julia --project=extra/docs -e '
-            using Pkg;
-            Pkg.add(["PyCall","Conda"]);
-            ENV["PYTHON"] = ""; # use Conda-managed Python
-            Pkg.build("PyCall");
-            using Conda;
-            Conda.add("scipy");
-          '
       - name: Build docs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

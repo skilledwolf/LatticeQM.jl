@@ -18,15 +18,6 @@ jobs:
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.julia-version }}
-      - name: Configure PyCall to use Conda and install scipy
-        run: |
-          julia --project=. -e '
-            using Pkg;
-            Pkg.add(["PyCall","Conda"]);
-            ENV["PYTHON"] = ""; # use Conda-managed Python for PyCall
-            Pkg.build("PyCall");
-            using Conda; Conda.add("scipy");
-          '
       - name: Cache artifacts
         uses: actions/cache@v4
         with:
@@ -34,9 +25,12 @@ jobs:
           key: ${{ runner.os }}-julia-${{ matrix.julia-version }}-${{ hashFiles('**/Project.toml', '**/Manifest.toml') }}
           restore-keys: |
             ${{ runner.os }}-julia-${{ matrix.julia-version }}-
-      - name: Instantiate (activate package)
+      - name: Instantiate
         run: julia --project=. --color=yes -e 'using Pkg; Pkg.instantiate()'
-      - name: Run tests (package project)
+      - name: Run tests (threads=2, procs=2)
+        # Both JULIA_NUM_THREADS and --procs are required to exercise
+        # multimode=:multithreaded and multimode=:distributed paths
+        # in the parallelism test set.
         env:
           JULIA_NUM_THREADS: 2
-        run: julia --project=. --check-bounds=yes --color=yes -e 'using Pkg; Pkg.activate("."); Pkg.build(); Pkg.test(coverage=true)'
+        run: julia --project=. --check-bounds=yes --color=yes -e 'using Pkg; Pkg.test(coverage=true, julia_args=`--procs=2`)'

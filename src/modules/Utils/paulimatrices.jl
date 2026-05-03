@@ -36,12 +36,7 @@ Note: This routine will always normalize n.
 """
 function spinorrotation(θ, n::Vector=[0,0,1])
       @assert length(n) == 3 "Normal vector n for rotation must have 3 components."
-      u1, u2, u3 = n / norm(n)
-
-      M = zero(σ2)
-      for (u,σ) in zip(n,σs)
-            M += (u * σ)
-      end
-
+      n̂ = n / norm(n)
+      M = n̂[1]*σ1 + n̂[2]*σ2 + n̂[3]*σ3
       σ0 * cos(θ/2) - 1im * M * sin(θ/2)
 end

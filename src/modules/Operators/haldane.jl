@@ -73,69 +73,64 @@ end
 import SparseArrays: spzeros
 import ..TightBinding
 import ..Structure
-import ..Utils: cKDTree
+import NearestNeighbors: KDTree, inrange
 
-function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, cellrange=1, mode=:none, zmode=:none)
-
-    cross2D(x, y) = x[1] * y[2] - x[2] * y[1] # needed later on in this scope
-
-    # Lattice references 
-    neighbors = Lattices.getneighborcells(lat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)
-    D=Lattices.spacedim(lat)
-    N = Lattices.countorbitals(lat)
-    A = Lattices.basis(lat,:, 1:Lattices.latticedim(lat))
-    R0 = zero(first(neighbors))
-    points = Lattices.allpositions(lat)
-    poinst2 = deepcopy(points)
-
-    # Build lookup
-    trees = Dict(R => cKDTree(transpose(points[1:D,:].+A*R)) for R=neighbors)
-    allpoints = hcat((points[1:D,:].+A*R for R in neighbors)...)
-    largetree = cKDTree(transpose(allpoints[1:D,:]))
-
-    # Construction
-    # hops = Hops()
-    for δR = neighbors
-        if !haskey(hops, δR)
-            hops[δR] = spzeros(ComplexF64, N, N)
-        end
-        if !haskey(hops, -δR)
-            hops[-δR] = spzeros(ComplexF64, N, N)
+# Find all pairs (i, j) such that ‖ptsA[:, i] − ptsB[:, j]‖ ≤ radius. Returns
+# Dict mapping (i, j) → distance. Replaces scipy.spatial.cKDTree's
+# sparse_distance_matrix without the PyCall dependency.
+function pairs_within_radius(treeA::KDTree, ptsA::AbstractMatrix,
+                             ptsB::AbstractMatrix, radius::Real)
+    result = Dict{Tuple{Int,Int},Float64}()
+    @views for j in axes(ptsB, 2)
+        idxs = inrange(treeA, ptsB[:, j], radius)
+        for i in idxs
+            result[(i, j)] = norm(ptsA[:, i] .- ptsB[:, j])
         end
     end
+    result
+end
 
-    for (R,tree) in trees
+function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, cellrange=1, mode=:none, zmode=:none)
+    cross2D(x, y) = x[1] * y[2] - x[2] * y[1]
 
-        result = trees[R0].sparse_distance_matrix(tree, sqrt(3)+1e-3)
-        filter!(x->x[2]>sqrt(3)-1e-3, result)
+    NNN          = Lattices.getneighbors(lat, sqrt(3); cellrange=cellrange)
+    cellneighbors = Lattices.getneighborcells(lat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)
+    D            = Lattices.spacedim(lat)
+    N            = Lattices.countorbitals(lat)
+    A            = Lattices.basis(lat, :, 1:Lattices.latticedim(lat))
+    points       = Lattices.allpositions(lat)
 
-        # If there are no next-nearest neighbor pairs for this R, skip expensive work
-        if isempty(result)
-            continue
+    # Stack atom positions across all cellrange-shifted cells; one KDTree query
+    # finds the common nearest neighbour of any NNN pair in O(log Ncells·N).
+    # This is the only place a spatial index is asymptotically helpful — pair
+    # discovery already uses Lattices.getneighbors which is itself O(N·logN).
+    allpoints = hcat((points[1:D, :] .+ A * R for R in cellneighbors)...)
+    largetree = KDTree(allpoints)
+
+    for δR in keys(NNN)
+        haskey(hops, δR) || (hops[δR] = spzeros(ComplexF64, N, N))
+    end
+
+    for (δR, pairs) in NNN
+        AδR = A * δR
+        for (i, j) in pairs
+            r1 = points[1:D, i] .+ AδR
+            r2 = points[1:D, j]
+            mid = (r1 .+ r2) / 2
+
+            # On a hexagonal lattice the midpoint of any NNN pair coincides
+            # with their common nearest-neighbour atom. 0.53 > 0.5 to absorb
+            # numerical jitter; for non-hexagonal geometries the caller
+            # should fall back to addhaldane_naive!.
+            cands = inrange(largetree, mid, 0.53)
+            isempty(cands) && continue
+            r0 = allpoints[:, first(cands)]
+
+            x = r1 .- r0
+            y = r2 .- r0
+            val = t2((r1 .+ r2) / 2) * exp(1.0im * ϕ * sign(cross2D(-y, x)))
+            hops[δR][i, j] += val
         end
-
-        points2 = deepcopy(points)
-        
-        points2[1:D,:] .+= A*R
-        midpoints = hcat(((points[1:D,j+1]+points2[1:D,i+1])/2 for (i,j)=keys(result))...)
-
-        # println(R, count(map(x->length(x)==0, midids)))
-        ids = map(first, largetree.query_ball_point(transpose(midpoints), 0.53))
-
-        # hops[R] = spzeros(ComplexF64, N,N)
-        for (i,(k,v)) in enumerate(result)
-            r0 = allpoints[:,ids[i]+1]
-            r1 = points[:,k[1]+1]
-            r2 = points2[:,k[2]+1]
-
-            x = r1[1:D]-r0[1:D]; y=r2[1:D]-r0[1:D]
-            v = t2((r1+r2)/2) * exp(1.0im * ϕ * sign( cross2D(-y, x) ) )
-            hops[R][Iterators.reverse(k.+1)...] += v
-            if R!=R0
-                hops[-R][(k.+1)...] += conj(v)
-            end
-        end
-        # h[-R] = deepcopy(transpose(h[R]))
     end
 
     hops

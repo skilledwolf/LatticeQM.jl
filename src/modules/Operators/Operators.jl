@@ -45,7 +45,7 @@ include("peierls.jl")
 include("interactions.jl")
 # export gethubbard, getcappedyukawa
 
-include("graphene.jl") # adds 1.5 seconds to the load time due to PyCall
+include("graphene.jl")
 
 include("haldanelike.jl")
 

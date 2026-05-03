@@ -15,8 +15,6 @@ module Utils
     include("Context.jl")
     import .Context
 
-    include("pycall.jl")
-
     include("scalar2vector.jl")
 
     include("fermidirac.jl")

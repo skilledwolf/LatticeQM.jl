@@ -56,7 +56,7 @@ end
 
 
 import LatticeQM.Eigen
-using SharedArrays
+import LatticeQM.Parallel
 using ProgressMeter
 
 import LinearAlgebra
@@ -73,25 +73,21 @@ chemical potential, `Γ` the phenomenological broadening and `T` the temperature
 (all in the same energy units as `H`). Additional keyword arguments are
 forwarded to the eigenvalue solver.
 """
-function opticalconductivity(frequencies::AbstractVector, H, J1, J2, ks::AbstractMatrix; μ::Float64=0.0, Γ::Float64=0.025, T::Float64=0.1, kwargs...)
-
-#     ks = points(ks)
+function opticalconductivity(frequencies::AbstractVector, H, J1, J2, ks::AbstractMatrix;
+                              μ::Float64=0.0, Γ::Float64=0.025, T::Float64=0.1,
+                              multimode::Symbol=:auto,
+                              executor::Union{Nothing,Parallel.Executor}=nothing,
+                              kwargs...)
     N = size(ks, 2)
-    function spectrumf(k)
-        Eigen.geteigen(H(k); kwargs...)
-    end
-
-#     OC = SharedArray(complex(zero(frequencies)))
     OC = complex(zero(frequencies))
 
-#     @sync @showprogress 1 "Computing spectrum... " @distributed for j_=1:N
-    @showprogress 1 "Computing spectrum... " for j_=1:N
-        k = ks[:,j_]
-        ϵs, U = spectrumf(k)
+    exec = executor === nothing ? Parallel.to_executor(multimode) : executor
+    Parallel.configure_blas!(exec; verbose=false)
 
-        kubo!(OC, frequencies, real(ϵs), U, J1(k), J2(k)'; μ=μ, Γ=Γ, T=T)
+    Parallel.kspace_reduce!(OC, ks, exec) do local_OC, _scratch, _j, k
+        ϵs, U = Eigen.geteigen(H(k); kwargs...)
+        kubo!(local_OC, frequencies, real(ϵs), U, J1(k), J2(k)'; μ=μ, Γ=Γ, T=T)
     end
-    OC .= -1im .* OC ./ N
-
+    OC .*= -1im / N
     OC
 end

@@ -124,15 +124,31 @@ function canonicalpurification_grid_realspace(H, E_min, E_max, max_iter, filling
     P
 end
 
-using Distributed 
-import LatticeQM.Eigen 
+import LatticeQM.Eigen
+import LatticeQM.Parallel
 
+# Find spectral bounds by visiting each k once and computing both extremes —
+# the original did two separate `pmap`s, doubling the work. kspace_foreach!
+# distributes the loop across the chosen executor (auto-picks distributed
+# if workers exist, else threaded, else serial).
 function gridspectrumbound(H, ks)
-    emin = min(real.(pmap(k -> Eigen.eigmin_sparse(H(k)), eachcol(ks)))...)
-    emax = max(real.(pmap(k -> Eigen.eigmax_sparse(H(k)), eachcol(ks)))...)
-    # emin = min(real.([LatticeQM.Eigen.eigmin_sparse(H(k)) for k in eachcol(ks)])...)
-    # emax = max(real.([LatticeQM.Eigen.eigmax_sparse(H(k)) for k in eachcol(ks)])...)
-    emin, emax
+    exec = Parallel.to_executor(:auto)
+    Parallel.configure_blas!(exec; verbose=false)
+
+    emin = Ref(Inf)
+    emax = Ref(-Inf)
+    bounds_lock = Threads.SpinLock()
+
+    Parallel.kspace_foreach!(ks, exec) do _scratch, _j, k
+        Hk = H(k)
+        a = real(Eigen.eigmin_sparse(Hk))
+        b = real(Eigen.eigmax_sparse(Hk))
+        Base.@lock bounds_lock begin
+            emin[] = min(emin[], a)
+            emax[] = max(emax[], b)
+        end
+    end
+    emin[], emax[]
 end
 
 ####### MWE

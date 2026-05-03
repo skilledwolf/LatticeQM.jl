@@ -95,8 +95,12 @@ geteigen!(args...; format=:dense, kwargs...) = (format == :sparse) ? eigen_spars
 # Sparse eigensolver
 ###################################################################################################
 
-# include("eigen_sparse_krylovkit.jl")
-# include("eigen_sparse_julia.jl")
-include("eigen_sparse_arpack.jl") # Arpack implementation. Not multi-threading safe with julia.
+# Sparse Hermitian eigensolver. KrylovKit (default) is pure-Julia, thread-safe,
+# and gives tighter residuals than Arpack — see test_eigen.jl for the regression.
+# To temporarily revert to Arpack (e.g. to debug a numerical regression), swap
+# the include to "eigen_sparse_arpack.jl"; both files implement the same API.
+include("eigen_sparse_krylovkit.jl")
+# include("eigen_sparse_arpack.jl")  # legacy fallback, NOT thread-safe
+# include("eigen_sparse_julia.jl")   # ArnoldiMethod fallback (incomplete)
 
 end # module Eigen

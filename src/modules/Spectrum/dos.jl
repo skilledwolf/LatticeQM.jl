@@ -1,12 +1,9 @@
-using Distributed
-# using SharedArrays
-import LatticeQM.Structure: regulargrid
-
-using Distributed
 using ProgressMeter
 
+import LatticeQM.Structure: regulargrid
 import LatticeQM.Eigen
 import LatticeQM.Spectrum
+import LatticeQM.Parallel
 
 const PROGRESSBAR_LDOS_DEFAULTLABEL = "LDOS"::String
 
@@ -30,16 +27,17 @@ function density(H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; format=:dense,
     density!(n, spectrum, ks, μ; kwargs...)
 end
 
-function density!(n::AbstractVector{Float64}, spectrum::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0)
-    n .= zero(n)
+function density!(n::AbstractVector{Float64}, spectrum::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0;
+                   multimode::Symbol=:auto, executor::Union{Nothing,Parallel.Executor}=nothing)
+    n .= 0
     L = size(ks, 2)
+    exec = executor === nothing ? Parallel.to_executor(multimode) : executor
+    Parallel.configure_blas!(exec; verbose=false)
 
-    n .= @distributed (+) for j = 1:L # @todo: this should be paralellized
-        n0 = zero(n)    ## <-- it annoys me that I don't know how to get around this allocation
-        density_at_k!(n0, spectrum(ks[:, j]), μ)
-        n0 .= n0 ./ L
+    Parallel.kspace_reduce!(n, ks, exec) do local_n, _scratch, _j, k
+        density_at_k!(local_n, spectrum(k), μ)
     end
-    n
+    n ./= L
 end
 
 ##########################################################################################
@@ -55,17 +53,22 @@ function ldos!(n::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix, ωs::A
     n[:] ./= size(ωs)
 end
 
-function ldos!(n::AbstractVector, H, ks::AbstractMatrix, ωs::AbstractVector; Γ::Real=0.1, progress_label=PROGRESSBAR_LDOS_DEFAULTLABEL, kwargs...)
+function ldos!(n::AbstractVector, H, ks::AbstractMatrix, ωs::AbstractVector;
+                Γ::Real=0.1,
+                multimode::Symbol=:auto,
+                executor::Union{Nothing,Parallel.Executor}=nothing,
+                kwargs...)
     L = size(ks, 2)
+    n .= 0
+    exec = executor === nothing ? Parallel.to_executor(multimode) : executor
+    Parallel.configure_blas!(exec; verbose=false)
 
-
-    n[:] = @sync @showprogress dt = Spectrum.PROGRESSBAR_MINTIME desc = progress_label enabled = Spectrum.PROGRESSBAR_SHOWDEFAULT @distributed (+) for j = 1:L
-        n0 = zero(n)
-        ϵs, U = Eigen.geteigen(H(ks[:, j]); kwargs...)
-        ldos!(n0, ϵs, U, ωs; Γ=Γ)
-        n0
+    Parallel.kspace_reduce!(n, ks, exec) do local_n, _scratch, _j, k
+        ϵs, U = Eigen.geteigen(H(k); kwargs...)
+        ldos!(local_n, ϵs, U, ωs; Γ=Γ)
     end
-    n[:] .= -n ./ L ./ π
+    n .*= -1 / (L * π)
+    n
 end
 
 ldos(H, ks, frequency::Real; kwargs...) = ldos(H, ks, [frequency]; kwargs...)
@@ -127,17 +130,13 @@ and for the frequencies ω=(ω1, ω2, ...). The paremter \$\\Gamma\$ is the ener
 Mode can be :distributed or :serial, format can be :auto, :sparse or :dense.
 """
 getdos(h, ωs::AbstractVector, ks, args...; kwargs...) = (DOS=zero(ωs); getdos!(DOS, h, ωs, ks, args...; kwargs...))
-function getdos!(DOS, h, frequencies::AbstractVector, ks, args...; parallel=true, mode=:distributed, kwargs...)
-    if nprocs()<2 || mode!=:distributed
-        parallel=false
-    end
-    
-    if parallel
-        DOS = dos_parallel!(DOS, h, frequencies, ks, args...; kwargs...)
-    else
-        DOS = dos_serial!(DOS, h, frequencies, ks, args...; kwargs...)
-    end
 
+function getdos!(DOS, h, frequencies::AbstractVector, ks, args...;
+                  multimode::Symbol=:auto,
+                  executor::Union{Nothing,Parallel.Executor}=nothing,
+                  kwargs...)
+    exec = executor === nothing ? Parallel.to_executor(multimode) : executor
+    dos_compute!(DOS, h, frequencies, ks, args..., exec; kwargs...)
     DOS
 end
 
@@ -147,89 +146,39 @@ function dos!(DOS, energy::Number, ωs; broadening::Number, weight::Number=1.0)
     DOS
 end
 
-function dos_serial!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix{<:Real}; Γ::Number, kwargs...)
-    L = size(ks,2)
-    function ϵs(k)
-        let h0 = h(k), kwargs = kwargs
-            Eigen.geteigvals(h0; kwargs...)
-        end
-    end
+import LatticeQM.Structure: Mesh, meshweights
 
-    @showprogress 6 "Computing DOS... " for k=eachcol(ks) # j=1:L
-        dos!(DOS, ϵs(k), frequencies; broadening=Γ)
+# Single unified DOS kernel: chooses executor, runs the per-k accumulation,
+# normalises by k-point count (for unweighted) or leaves weights as-is.
+#
+# `dos!` adds δ(ω - ϵ_k) (broadened) for each k to the local accumulator.
+# Per-task accumulators are merged at the end by Parallel.kspace_reduce!.
+function dos_compute!(DOS, h, frequencies::AbstractVector,
+                      ks::AbstractMatrix{<:Real}, exec::Parallel.Executor;
+                      Γ::Number, kwargs...)
+    L = size(ks, 2)
+    Parallel.configure_blas!(exec; verbose=false)
+    Parallel.kspace_reduce!(DOS, ks, exec) do local_dos, _scratch, _j, k
+        dos!(local_dos, Eigen.geteigvals(h(k); kwargs...), frequencies; broadening=Γ)
     end
     DOS ./= L
     DOS
 end
 
-function dos_parallel!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix; Γ::Number, kwargs...)
-    L = size(ks,2)
-    function ϵs(k)
-        let h0 = h(k), kwargs = kwargs
-            Eigen.geteigvals(h0; kwargs...)
-        end
+function dos_compute!(DOS, h, frequencies::AbstractVector,
+                      ks::AbstractMatrix, kweights::AbstractVector,
+                      exec::Parallel.Executor;
+                      Γ::Number, kwargs...)
+    Parallel.configure_blas!(exec; verbose=false)
+    Parallel.kspace_reduce!(DOS, ks, exec) do local_dos, _scratch, j, k
+        dos!(local_dos, Eigen.geteigvals(h(k); kwargs...), frequencies;
+             broadening=Γ, weight=kweights[j])
     end
-
-
-    DOS0 = @sync @showprogress 6 "Computing DOS... " @distributed (+) for j=1:L # over ks
-        tmp = zero(DOS)
-        dos!(tmp, ϵs(ks[:,j]), frequencies; broadening=Γ)
-
-        tmp
-    end
-    DOS[:] += (DOS0 / L)[:]
-
     DOS
 end
 
-function dos_serial!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix, kweights::AbstractVector; Γ::Number, kwargs...)
-    L = size(ks,2)
-    function ϵs(k)
-        let h0=h(k), kwargs=kwargs
-            Eigen.geteigvals(h0; kwargs...)
-        end
-    end
-
-    @showprogress 6 "Computing DOS... " for (k,w)=zip(eachcol(ks),kweights) # j=1:L
-        dos!(DOS, ϵs(k), frequencies; broadening=Γ, weight=w)
-    end
-    # DOS ./= L
-    DOS
-end
-
-function dos_parallel!(DOS, h, frequencies::AbstractVector, ks::AbstractMatrix, kweights::AbstractVector; Γ::Number, kwargs...)
-    L = size(ks,2)
-    function ϵs(k)
-        let h0 = h(k), kwargs = kwargs
-            Eigen.geteigvals(h0; kwargs...)
-        end
-    end
-
-
-    DOS0 = @sync @showprogress 6 "Computing DOS... " @distributed (+) for j=1:L # over ks
-        tmp = zero(DOS)
-        dos!(tmp, ϵs(ks[:,j]), frequencies; broadening=Γ, weight=kweights[j])
-
-        tmp
-    end
-    # DOS[:] += (DOS0 / L)[:]
-    DOS[:] += DOS0[:]
-
-    DOS
-end
-
-import LatticeQM.Structure: Mesh, meshweights
-
-function dos_serial!(DOS, h, frequencies::AbstractVector, kgrid::Mesh; kwargs...)
-    ks = kgrid.points
-    kweights = meshweights(kgrid)
-    dos_serial!(DOS, h, frequencies, ks, kweights; kwargs...)
-end
-
-function dos_parallel!(DOS, h, frequencies::AbstractVector, kgrid::Mesh; kwargs...)
-    ks = kgrid.points
-    kweights = meshweights(kgrid)
-    dos_parallel!(DOS, h, frequencies, ks, kweights; kwargs...)
+function dos_compute!(DOS, h, frequencies::AbstractVector, kgrid::Mesh, exec::Parallel.Executor; kwargs...)
+    dos_compute!(DOS, h, frequencies, kgrid.points, meshweights(kgrid), exec; kwargs...)
 end
 
 # using HCubature

@@ -3,6 +3,14 @@ using SharedArrays
 using ProgressMeter
 import SparseArrays
 import LatticeQM.Eigen
+import LatticeQM.Parallel
+
+# Build H(k) into a preallocated buffer. Generic fallback: materialise `H(k)`
+# (which may allocate inside the user-supplied operator) and copy. The
+# `AbstractHops` specialisation in TightBinding/types.jl uses `fouriersum!`
+# for a true zero-allocation path — that's what removes ~1 GB allocation
+# churn / ~30% GC overhead on a TBG-N=5 bandmatrix call.
+@inline _build_H!(out::AbstractMatrix, H, k) = (out .= H(k); out)
 
 const IMAG_THRESHOLD = 1e-9::Float64
 const PROGRESSBAR_MINTIME = 1::Int
@@ -108,124 +116,113 @@ sanatize_distributed_hamiltonian(H) = H
     bandmatrix(H, ks::Matrix{Float} [, As]; kwargs...)
 
 Calculates the energies for operator `H(k)` for each column vector `k` of matrix `ks`.
-If operators `As=[A1, A2, ...]` are given, their expectaction values are
+If operators `As=[A1, A2, ...]` are given, their expectation values are
 calculated and stored for each eigenvector.
 
-Accepts the same keywords as `geteigvals`, `geteigvecs`, `geteigen`.
-In particular: `format` (`:sparse` or `:dense`) and `num_bands::Int`.
+Accepts the same keywords as `geteigvals`, `geteigvecs`, `geteigen`. In particular:
+`format` (`:sparse` or `:dense`) and `num_bands::Int`.
 
-Returns a matrix where each column contains the energies for each column `k` in `ks`.
-If `As` were given, a second matrix of the same format is returned containing expectation values.
+Parallelism is selected via `multimode`:
+- `:serial` — no parallelism
+- `:multithreaded` / `:threaded` — `Threads.@spawn` over the default pool
+- `:distributed` — `pmap` over `Distributed.workers()`
+- `:auto` (default) — distributed if workers exist, else threads if >1, else serial
+
+For full control, pass a `Parallel.Executor` directly via the `executor` kwarg
+(e.g. `executor=Parallel.ThreadedExec(8; schedule=:static)`).
+
+Returns `(bands, obs)`: bands is `num_bands × num_k`, obs is the matching tensor
+of projector expectation values.
 
 ### Example
 ```julia
 using LatticeQM
-
 lat = Geometries.honeycomb()
 h = Operators.graphene(lat)
 ks = kpath(lat; num_points=200)
-valley = Operators.valleyoperator(lat)
-
-bands, obs = bandmatrix(h, ks.points, valley)
-
+bands, obs = bandmatrix(h, ks.points, Operators.valley(lat))
 ```
 """
-function bandmatrix(H, ks, projectors...; multimode=:distributed, progress_label=PROGRESSBAR_DIAG_DEFAULTLABEL, hidebar=!PROGRESSBAR_SHOWDEFAULT, kwargs...)
+function bandmatrix(H, ks, projectors...;
+                    multimode=:auto,
+                    executor::Union{Nothing,Parallel.Executor}=nothing,
+                    progress_label=PROGRESSBAR_DIAG_DEFAULTLABEL,
+                    hidebar=!PROGRESSBAR_SHOWDEFAULT,
+                    kwargs...)
 
-    ks = Structure.points(ks) # sanatize ks to be a matrix
-    projectors = handleprojector(projectors...) # sanatize projectors
+    ks = Structure.points(ks)
+    projectors = handleprojector(projectors...)
     bands, obs = bandmatrix_preallocate(H, ks, projectors; kwargs...)
 
-    progressbar = Progress(size(ks, 2); dt=PROGRESSBAR_MINTIME, desc=progress_label, enabled=!hidebar)
+    exec = executor === nothing ? Parallel.to_executor(multimode) : executor
 
-    if multimode == :distributed && nprocs() > 1
+    # Distributed shared-memory optimisation: convert H to SharedDenseHops
+    # so workers don't each receive a full copy via serialisation.
+    if exec isa Parallel.DistributedExec
         H = sanatize_distributed_hamiltonian(H)
-        bands, obs = SharedArray(bands), SharedArray(obs) # convert to shared arrays
-        # bandmatrix_distributed!(bands, obs, H, ks, projectors, progressbar; kwargs...)
-        bandmatrix_pmap!(bands, obs, H, ks, projectors, progressbar; kwargs...)
-        bands, obs = sdata(bands), sdata(obs) # convert back to normal arrays
-    elseif multimode == :multithreaded && Threads.nthreads() > 1 && get(kwargs, :format, :dense) != :sparse #Arpack.eigs is not thread-safe
-        bandmatrix_multithreaded!(bands, obs, H, ks, projectors, progressbar; kwargs...)
-    else 
-        bandmatrix_serial!(bands, obs, H, ks, projectors, progressbar; kwargs...)
+        bands = SharedArray(bands)
+        obs = SharedArray(obs)
+    end
+
+    Parallel.configure_blas!(exec; verbose=false)
+
+    progressbar = Progress(size(ks, 2);
+                           dt=PROGRESSBAR_MINTIME,
+                           desc=progress_label,
+                           enabled=!hidebar)
+
+    Parallel.kspace_foreach!(ks, exec;
+        scratch_factory = () -> bandmatrix_scratch(H, ks; kwargs...),
+        progress = progressbar) do scratch, j, k
+        _band_kpoint!(scratch, j, k, bands, obs, H, projectors; kwargs...)
     end
     finish!(progressbar)
 
-    bands, obs
-end
-
-function bandmatrix_serial!(bands, obs, H, ks, projectors, progressbar=nothing; progress_channel=nothing, kwargs...)
-
-    Hcache = bandmatrix_Hcache(H, ks) # local cache
-    Ucache = bandmatrix_Ucache(H, ks) # local cache
-
-    for j_ = axes(ks, 2)
-        Hcache .= H(ks[:, j_])
-        energies_k, Ucache = Eigen.geteigen!(Hcache; kwargs...) # Hermitian(Hcache)
-        @views insertbands_bandexpvals_k!(bands[:, j_], obs[:, j_, :], energies_k, Ucache, ks[:, j_], projectors)
-
-        !isnothing(progress_channel) && put!(progress_channel, true)
-        !isnothing(progressbar) && ProgressMeter.next!(progressbar)
+    if exec isa Parallel.DistributedExec
+        bands, obs = sdata(bands), sdata(obs)
     end
-    Hcache = nothing
-    Ucache = nothing
-    GC.gc() # eagerly collect garbage, especially for the local caches
-    bands, obs
-end
-
-function bandmatrix_distributed!(bands::SharedArray, obs::SharedArray, H, ks, projectors, progressbar::ProgressMeter.AbstractProgress; kwargs...)
-    channel = RemoteChannel(() -> Channel{Bool}(), 1)
-    @sync begin
-        @async while take!(channel)
-            ProgressMeter.next!(progressbar)
-        end
-
-        @async begin
-            bandmatrix_distributed!(bands, obs, H, ks, projectors; progress_channel=channel, kwargs...)
-            put!(channel, false)
-        end
-    end
-    bands, obs
-end
-
-function bandmatrix_distributed!(bands::SharedArray, obs::SharedArray, H, ks, projectors; num_chunks=:auto, kwargs...)
-    nks = size(ks, 2)
-    num_chunks = num_chunks == :auto ? nworkers() : num_chunks
-    chunks = compute_chunks(nks, num_chunks)
-
-    @sync @distributed for j_=1:num_chunks
-        chunk = chunks[j_]
-        @views bandmatrix_serial!(bands[:, chunk], obs[:, chunk, :], H, ks[:, chunk], projectors; kwargs...)
-    end
-    GC.gc()
 
     bands, obs
 end
 
-function bandmatrix_pmap!(bands::SharedArray, obs::SharedArray, H, ks, projectors, progressbar; num_chunks=:auto, kwargs...)
-    nks = size(ks, 2)
-    num_chunks = num_chunks == :auto ? nworkers() : num_chunks
-    chunks = compute_chunks(nks, num_chunks)
-
-    progress_pmap(chunks, progress=progressbar) do chunk
-        @views bandmatrix_serial!(bands[:, chunk], obs[:, chunk, :], H, ks[:, chunk], projectors; kwargs...)
+# Per-task scratch: H buffer reused across every k handled by the same task.
+#
+# Dense path (default): preallocate a dense Hcache, fouriersum! the Bloch sum
+# into it each k. Zero allocation per k for AbstractHops.
+#
+# Sparse path (format=:sparse): no preallocated buffer. We build H(k) fresh
+# as a sparse matrix per k. The per-k allocation is O(nnz), small compared to
+# O(N²) for dense, and crucially the sparse eigensolver can then do sparse
+# shift-invert LU instead of dense LU — a dramatic speedup on moiré.
+function bandmatrix_scratch(H, ks; format=:dense, kwargs...)
+    if format === :sparse
+        return (Hcache = nothing,)
     end
-    GC.gc()
-
-    bands, obs
+    return (Hcache = bandmatrix_Hcache(H, ks),)
 end
 
-function bandmatrix_multithreaded!(bands::AbstractArray, obs::AbstractArray, H, ks, projectors, progressbar; num_chunks=:auto, kwargs...)
-    nks = size(ks, 2)
-    num_chunks = num_chunks == :auto ? Threads.nthreads() : num_chunks
-    chunks = compute_chunks(nks, num_chunks)
-
-    Threads.@threads for j_ = 1:num_chunks
-        chunk = chunks[j_]
-        @views bandmatrix_serial!(bands[:, chunk], obs[:, chunk, :], H, ks[:, chunk], projectors, progressbar; kwargs...)
+function _band_kpoint!(scratch, j, k, bands, obs, H, projectors; kwargs...)
+    Hk = if scratch.Hcache === nothing
+        H(k)  # sparse path: keep H sparse, hand the sparse matrix to the eigensolver
+    else
+        _build_H!(scratch.Hcache, H, k)
+        scratch.Hcache
     end
-    GC.gc()
+    energies_k, U = Eigen.geteigen!(Hk; kwargs...)
+    @views insertbands_bandexpvals_k!(bands[:, j], obs[:, j, :], energies_k, U, k, projectors)
+    return nothing
+end
 
+# Legacy thin wrapper: still useful for callers that already have bands/obs
+# and want a serial in-place fill (e.g. tests, small ad-hoc scripts).
+function bandmatrix_serial!(bands, obs, H, ks, projectors, progressbar=nothing;
+                            progress_channel=nothing, kwargs...)
+    scratch = bandmatrix_scratch(H, ks; kwargs...)
+    @inbounds for j in axes(ks, 2)
+        _band_kpoint!(scratch, j, view(ks, :, j), bands, obs, H, projectors; kwargs...)
+        progress_channel !== nothing && put!(progress_channel, true)
+        progressbar !== nothing && ProgressMeter.next!(progressbar)
+    end
     bands, obs
 end
 

@@ -184,68 +184,66 @@ Commensurate twisted bilayer built from triangular lattices using twist index
 `N` (moiré periodicity). If `fold=true`, folds positions back to the primitive
 cell. Sets a compact set of special k‑points.
 """
-function triangular_twisted(N::Int, a::Float64=1.0, z::Float64=3.0; fold=true)
+function triangular_twisted(N::Int, a::Float64=1.0, z::Float64=3.0;
+                             fold=true, verbose::Bool=false)
     lat = triangular(a)
-    slat = Lattices.twist(lat, lat, N; z=z, m=1)
+    slat = Lattices.twist(lat, lat, N; z=z, m=1, verbose=verbose)
     slat.specialpoints = kdict_tri_mini
-    if fold 
-        Lattices.foldPC!(slat; shift=[1/3,1/3,0])
-    end
+    fold && Lattices.foldPC!(slat; shift=[1/3,1/3,0])
     return slat
 end
 precompile(triangular_twisted, (Int, Float64, Float64))
 
 """
-    honeycomb_twisted(N, a=1.0, z=3.0; fold=true)
+    honeycomb_twisted(N, a=1.0, z=3.0; fold=true, verbose=false)
 
 Commensurate twisted bilayer graphene (TBG) with twist index `N`. If `fold=true`
-the structure is wrapped to the primitive cell.
+the structure is wrapped to the primitive cell. Uses the legacy √3-rotated
+moiré supercell (`3n²+3n+1` cells/layer); see `Lattices.moire_supercell` for
+why the smaller minimal cell is currently unsupported.
 """
-function honeycomb_twisted(N::Int, a::Float64=1.0, z::Float64=3.0; fold=true)
+function honeycomb_twisted(N::Int, a::Float64=1.0, z::Float64=3.0;
+                            fold=true, verbose::Bool=false)
     lat = honeycomb(a)
-    slat = Lattices.twist(lat, lat, N; z=z, m=1)
+    slat = Lattices.twist(lat, lat, N; z=z, m=1, verbose=verbose)
     slat.specialpoints = kdict_tri_mini
-    if fold 
-        Lattices.foldPC!(slat; shift=[1/3,1/3,0])
-    end
+    fold && Lattices.foldPC!(slat; shift=[1/3,1/3,0])
     return slat
 end
 precompile(honeycomb_twisted, (Int, Float64, Float64))
 
 """
-    honeycomb_twisted_ABBA(N, a=1.0, z=3.0; fold=true)
+    honeycomb_twisted_ABBA(N, a=1.0, z=3.0; fold=true, verbose=false)
 
 Four‑layer twisted stack with ABBA stacking within layers prior to twisting.
 """
-function honeycomb_twisted_ABBA(N::Int, a::Float64=1.0, z::Float64=3.0; fold=true)
+function honeycomb_twisted_ABBA(N::Int, a::Float64=1.0, z::Float64=3.0;
+                                 fold=true, verbose::Bool=false)
     lat1 = honeycomb_AB(a, z)
     Lattices.translate!(lat1, 3, z/2)
     lat2 = honeycomb_AB(a, z)
     Lattices.translate!(lat2, 3, z/2)
-    slat = Lattices.twist(lat1, lat2, N; z=z, m=1)
+    slat = Lattices.twist(lat1, lat2, N; z=z, m=1, verbose=verbose)
     slat.specialpoints = kdict_tri_mini
-    if fold 
-        Lattices.foldPC!(slat; shift=[1/3,1/3,0])
-    end
+    fold && Lattices.foldPC!(slat; shift=[1/3,1/3,0])
     return slat
 end
 precompile(honeycomb_twisted_ABBA, (Int, Float64, Float64))
 
 """
-    honeycomb_twisted_ABAB(N, a=1.0, z=3.0; fold=true)
+    honeycomb_twisted_ABAB(N, a=1.0, z=3.0; fold=true, verbose=false)
 
 Four‑layer twisted stack with ABAB stacking within layers prior to twisting.
 """
-function honeycomb_twisted_ABAB(N::Int, a::Float64=1.0, z::Float64=3.0; fold=true)
+function honeycomb_twisted_ABAB(N::Int, a::Float64=1.0, z::Float64=3.0;
+                                 fold=true, verbose::Bool=false)
     lat1 = honeycomb_AB(a, z)
     Lattices.translate!(lat1, 3, z/2)
     lat2 = honeycomb_BA(a, z)
     Lattices.translate!(lat2, 3, z/2)
-    slat = Lattices.twist(lat1, lat2, N; z=z, m=1)
+    slat = Lattices.twist(lat1, lat2, N; z=z, m=1, verbose=verbose)
     slat.specialpoints = kdict_tri_mini
-    if fold 
-        Lattices.foldPC!(slat; shift=[1/3,1/3,0])
-    end
+    fold && Lattices.foldPC!(slat; shift=[1/3,1/3,0])
     return slat
 end
 precompile(honeycomb_twisted_ABAB, (Int, Float64, Float64))

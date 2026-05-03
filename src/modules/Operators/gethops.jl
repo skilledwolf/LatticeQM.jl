@@ -9,7 +9,11 @@ import ..TightBinding
 import ..TightBinding: autoconversion
 
 TightBinding.Hops(lat::Lattice, args...; kwargs...) = gethops(lat, args...; kwargs...)
-TightBinding.addhops!(hops::Hops, lat::Lattice, t::Function, args...; kwargs...) = TightBinding.addhops!(hops, gethops(lat, t, args...; kwargs...))
+# `t` is annotated `::Any` rather than `::Function` so that callable structs
+# (functor types like Operators.DistanceWindowHopping) are accepted alongside
+# anonymous functions and methods. The Lattice-typed dispatch on `lat` is what
+# disambiguates this method from TightBinding.addhops!(::Hops, ::Hops...).
+TightBinding.addhops!(hops::Hops, lat::Lattice, t, args...; kwargs...) = TightBinding.addhops!(hops, gethops(lat, t, args...; kwargs...))
 
 """
     gethops(lat::Lattice, t::Function; cellrange=1, format=:auto, vectorized=false)
@@ -33,7 +37,10 @@ end
 
 import ..Structure.Lattices: getneighbordict
 
-function hops!(hops::Hops, lat::Lattice, t::Function; cellrange=2, vectorized=false, kwargs...)
+# `t` is left untyped (callable) here too — see comment on TightBinding.addhops!
+# above. Internal recursion stays type-stable because Julia specialises on the
+# concrete type of `t` at each call site regardless of declared annotation.
+function hops!(hops::Hops, lat::Lattice, t; cellrange=2, vectorized=false, kwargs...)
     R = Lattices.allpositions(lat)
     neighbor_dict = getneighbordict(lat, cellrange)
     if vectorized
@@ -47,12 +54,12 @@ end
 
 using ..Utils: padvec
 
-function hops!(hops::Hops, lat::Lattice, neighbors::AbstractVector{Vector{Int}}, t::Function; kwargs...)
+function hops!(hops::Hops, lat::Lattice, neighbors::AbstractVector{Vector{Int}}, t; kwargs...)
     A = Lattices.getA(lat);  neighbor_dict = Dict(δL => padvec(A * δL, Lattices.allspacedim(lat)) for δL in neighbors)
     hops!(hops, lat, neighbor_dict, t; kwargs...)
 end
 
-function hops!(hops::Hops, lat::Lattice, neighbor_dict::Dict{Vector{Int},Vector{Float64}}, t::Function; cellrange=2, vectorized=false, kwargs...)
+function hops!(hops::Hops, lat::Lattice, neighbor_dict::Dict{Vector{Int},Vector{Float64}}, t; cellrange=2, vectorized=false, kwargs...)
     R = Lattices.allpositions(lat)
     if vectorized
         vectorizedhops!(hops, R, neighbor_dict, t; kwargs...)
@@ -70,7 +77,7 @@ end
 asserthopdim(t0::Number) = 1
 asserthopdim(t0::AbstractMatrix) = size(t0,1)
 
-function vectorizedhops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function) #, format=:auto    
+function vectorizedhops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t) #, format=:auto
     R2 = similar(R)
     for (δL,δa) in neighbors
         R2 .= R .+ δa
@@ -82,7 +89,7 @@ end
 
 import ..TightBinding: zero_matrix
 
-function hops!(hops::Hops{K,T}, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t::Function; kwargs...) where {K,T}
+function hops!(hops::Hops{K,T}, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t; kwargs...) where {K,T}
     N = size(R,2)
     d = asserthopdim(t(R[:,1]))::Int
     V  = Matrix{ComplexF64}(undef, (d, d)) # preallocate memory for the hopping matrix
@@ -96,11 +103,11 @@ function hops!(hops::Hops{K,T}, R::Matrix{Float64}, neighbors::Dict{Vector{Int},
     hops
 end
 
-function hoppingmatrix!(M::AbstractMatrix{ComplexF64}, 
-                             V::Array{ComplexF64}, 
-                             Ri::Matrix{Float64}, 
-                             Rj::Matrix{Float64}, 
-                             t::Function; 
+function hoppingmatrix!(M::AbstractMatrix{ComplexF64},
+                             V::Array{ComplexF64},
+                             Ri::Matrix{Float64},
+                             Rj::Matrix{Float64},
+                             t;
                              precision::Float64=DEFAULT_PRECISION,
                              maxsize::Int=0)
     

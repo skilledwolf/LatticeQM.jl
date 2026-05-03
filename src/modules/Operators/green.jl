@@ -1,15 +1,8 @@
-#####################################
-#
-# The implementation in this file needs reviewing and testing!
-#
-#####################################
-
-using Distributed
-using SharedArrays
 using ProgressMeter
 
 import ..Utils: fermidirac
 using ..TightBinding: Hops, AbstractHops, dim
+import LatticeQM.Parallel
 
 function green(H, ks::AbstractMatrix{Float64}, μ::Float64; kwargs...)
     d = dim(H, ks)
@@ -43,76 +36,33 @@ end
 import LatticeQM.Eigen
 import LatticeQM.Utils
 
-function green_parallel!(G::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
-    L = size(ks,2)
-
-    energies0_k = zeros(Float64, L) #convert(SharedArray, zeros(Float64, L))
-    function spectrumf(k)
-        let H0 = H(k), kwargs = kwargs
-            Eigen.geteigen(H0; kwargs...)
-        end
+function green!(G::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0;
+                T::Float64=0.01,
+                multimode::Symbol=:auto,
+                executor::Union{Nothing,Parallel.Executor}=nothing,
+                kwargs...)
+    L = size(ks, 2)
+    for δL in keys(G)
+        G[δL] .= 0
     end
 
-    for δL = keys(G)
-        G[δL][:] .= 0.0 #convert(SharedArray, zero(ρ0))[:]
+    exec = executor === nothing ? Parallel.to_executor(multimode) : executor
+    Parallel.configure_blas!(exec; verbose=false)
+
+    energy_lock = Threads.SpinLock()
+    total_energy = Ref(0.0)
+
+    Parallel.kspace_reduce!(G, ks, exec) do local_G, _scratch, _j, k
+        ϵs, U = Eigen.geteigen(H(k); kwargs...)
+        green!(local_G, k, real.(ϵs) .- μ, U; T=T)
+        e = Utils.groundstate_sumk(real.(ϵs), μ)
+        Base.@lock energy_lock total_energy[] += e
     end
 
-    channel = RemoteChannel(()->Channel{Tuple{Int, Vector{Float64}, Matrix{Complex}}}(L), 1)
-    @sync begin
-        @async begin # update G
-            done = 0
-            while done < L
-                (i_, ϵs, U) = take!(channel) # read the result from channel (wait if necessary)
-                green!(G, ks[:,i_], ϵs.-μ, U; T=T)
-                energies0_k[i_] = Utils.groundstate_sumk(real(ϵs), μ)
-                done = done+1
-            end
-        end
-
-        @async begin # compute spectrum at different k points asynchronosly (good for large/huge systems)
-            @sync @showprogress 1 "Eigensolver... " @distributed for i_=1:L
-                k = ks[:,i_]
-                energies_k, U_k = spectrumf(k) # calculation
-                put!(channel, (i_, real.(energies_k), U_k)) # passing the result to the channel
-            end
-        end
+    for δL in keys(G)
+        G[δL] ./= L
     end
 
-    for δL = keys(G)
-        G[δL][:] ./= L
-    end
-
-    sum(energies0_k)/L # return the groundstate energy
+    total_energy[] / L
 end
-
-function green_serial!(G::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; T::Float64=0.01, kwargs...)
-    L = size(ks,2)
-
-    energies0_k = zeros(Float64, L)
-    function spectrumf(k)
-        let H0 = H(k), kwargs=kwargs
-            Eigen.geteigen(H0; kwargs...)
-        end
-    end
-
-    for δL = keys(G)
-        G[δL][:] .= 0.0 #convert(SharedArray, zero(ρ0))[:]
-    end
-
-    @showprogress 1 "Eigensolver... " for i_=1:L
-        k = ks[:,i_]
-        energies_k, U_k = spectrumf(k) #@time
-
-        green!(G, k, energies_k.-μ, U_k; T=T)
-        energies0_k[i_] = Utils.groundstate_sumk(real(energies_k), μ)
-    end
-
-    for δL = keys(G)
-        G[δL][:] ./= L
-    end
-
-    sum(energies0_k)/L # return the groundstate energy
-end
-
-green!(G::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; parallel::Bool=false, kwargs...) = (parallel && nprocs()>1) ? green_parallel!(G, H, ks, μ; kwargs...) : green_serial!(G, H, ks, μ; kwargs...)
 
