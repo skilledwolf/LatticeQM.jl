@@ -59,11 +59,6 @@ import LatticeQM.TightBinding: efficientzero, flexibleformat!, fourierphase
 import LatticeQM.TightBinding: SharedDenseHops, Hops
 
 
-# SharedDenseHops case: take a per-chunk view onto its underlying buffers and
-# delegate to the SubarrayHops path (which is what kspace_reduce! understands).
-densitymatrix_compute_add!(ρs::SharedDenseHops, args...; kwargs...) =
-    densitymatrix_compute_add!(TightBinding.gethopsview(ρs), args...; kwargs...)
-
 # Per-task scratch: a Hops accumulator with the same δL keys / matrix shapes
 # as the master. Allocated once per chunk, reused across every k in the chunk.
 function _densitymatrix_local(ρs::AbstractHops)

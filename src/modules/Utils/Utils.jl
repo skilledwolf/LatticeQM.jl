@@ -31,6 +31,7 @@ module Utils
 
     densecopy(A::Array) = Array(A)
     densecopy(A::SubArray) = Array(A)
+    densecopy(A::SharedArrays.SharedArray) = Array(A)
 
     export dense
 

@@ -47,23 +47,38 @@ If you *want* BLAS threading (e.g., one big serial dense diagonalisation per wor
 
 If you need a parallelism pattern that's not already wrapped (e.g., a custom observable that doesn't fit `dos`/`density`/`Green`/`opticalconductivity`), use the primitives directly.
 
+The examples below run as part of the doc build (a small graphene problem, no parallelism actually engaged — but the API exercise is real and they break the build if a future change drifts).
+
+```@example parallelism
+using LatticeQM
+import LatticeQM.Parallel
+import LatticeQM.Spectrum
+import LatticeQM.Eigen
+
+# Tiny test problem for the worked examples below.
+lat = Geometries.honeycomb()
+H   = Hops(); Operators.nearestneighbor!(H, lat)
+ks  = LatticeQM.Structure.points(kpath(lat; num_points=16))
+nothing # hide
+```
+
 ### `kspace_foreach!` — plain iteration
 
-```julia
-using LatticeQM
-exec = Parallel.to_executor(:auto)
+```@example parallelism
+exec = Parallel.to_executor(:serial)   # set to :auto in production code
 Parallel.configure_blas!(exec; verbose=false)
 
-# Output array (per-k results live here)
-out = zeros(ComplexF64, size(ks, 2))
+# Output array (per-k results live here).
+sum_of_negatives = zeros(Float64, size(ks, 2))
 
 Parallel.kspace_foreach!(ks, exec;
-    scratch_factory = () -> (Hcache = Spectrum.bloch_buffer(H, ks),)
+    scratch_factory = () -> (Hcache = Spectrum.bloch_buffer(H, ks),),
 ) do scratch, j, k
     Hk = Spectrum.bloch!(scratch.Hcache, H, k)   # zero-alloc for AbstractHops + dense format
-    ϵs, U = Eigen.geteigen!(Hk)
-    out[j] = sum(ϵ for ϵ in ϵs if ϵ < 0)         # whatever per-k observable you need
+    ϵs, _ = Eigen.geteigen!(Hk)
+    sum_of_negatives[j] = sum(ϵ for ϵ in real.(ϵs) if ϵ < 0)
 end
+sum_of_negatives[1:3]
 ```
 
 `scratch_factory` is called **once per chunk** (one per thread / one per worker), not per k. Reuse heavy buffers (Hcache, U·D scratch, anything proportional to N²) here. Per-k allocations defeat the whole point of having parallelism on dense moiré.
@@ -72,20 +87,22 @@ end
 
 For observables where each k contributes additively to a global accumulator:
 
-```julia
+```@example parallelism
+frequencies = LinRange(-3.5, 3.5, 200)
 DOS = zeros(Float64, length(frequencies))
 
 Parallel.kspace_reduce!(DOS, ks, exec;
     scratch_factory = () -> (Hcache = Spectrum.bloch_buffer(H, ks),),
-    progress = ProgressMeter.Progress(size(ks, 2); desc="DOS")
 ) do local_dos, scratch, j, k
     Hk = Spectrum.bloch!(scratch.Hcache, H, k)
     ϵs = Eigen.geteigvals!(Hk)
-    Spectrum.dos!(local_dos, ϵs, frequencies; broadening=0.05)
+    Spectrum.dos!(local_dos, real.(ϵs), frequencies; broadening=0.05)
 end
+DOS ./= size(ks, 2)
+sum(DOS)  # ≈ 2 (orbitals/cell) × π / Γ-broadening — order-of-magnitude check
 ```
 
-Each task accumulates into its own `local_dos` (lock-free), then `kspace_reduce!` folds the partials into `DOS` once at the end. The progress bar is funneled through a `Channel` (or `RemoteChannel` for distributed) so the bar isn't touched concurrently.
+Each task accumulates into its own `local_dos` (lock-free), then `kspace_reduce!` folds the partials into `DOS` once at the end. The progress bar (when supplied via `progress=ProgressMeter.Progress(...)`) is funneled through a `Channel` (or `RemoteChannel` for distributed) so the bar isn't touched concurrently.
 
 ## Bloch-matrix helpers
 

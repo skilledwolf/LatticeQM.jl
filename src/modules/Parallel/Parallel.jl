@@ -329,19 +329,32 @@ function kspace_reduce!(body!, output, ks::AbstractMatrix, exec::Executor;
                 _accumulate!(output, p)
             end
         elseif exec isa DistributedExec
+            # Streaming reduction: workers `put!` their partial to a
+            # `RemoteChannel`, master folds via `_accumulate!` as each
+            # arrives. Peak memory is one partial (vs n_chunks held
+            # simultaneously under the old pmap-then-fold pattern), and
+            # the fold overlaps with stragglers.
             chunks = _chunked_ranges(nks, exec.nworkers)
-            partials = pmap(chunks) do chunk
+            n_chunks = length(chunks)
+            partial_ch = RemoteChannel(() -> Channel{Any}(n_chunks), 1)
+
+            folder = @async begin
+                for _ in 1:n_chunks
+                    _accumulate!(output, take!(partial_ch))
+                end
+            end
+
+            @sync pmap(chunks) do chunk
                 local_out = zero(output)
                 scratch = scratch_factory()
                 for j in chunk
                     body!(local_out, scratch, j, view(ks, :, j))
                     publish()
                 end
-                return local_out
+                put!(partial_ch, local_out)
+                return nothing
             end
-            for p in partials
-                _accumulate!(output, p)
-            end
+            wait(folder)
         else
             error("Unsupported executor $(typeof(exec))")
         end

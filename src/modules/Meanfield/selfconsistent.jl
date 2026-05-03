@@ -53,14 +53,18 @@ function solveselfconsistent!(ρ0::T, ρ1::T, mf::MeanfieldGenerator, filling::F
     exec = Parallel.to_executor(mm)
 
     if exec isa Parallel.DistributedExec
-        # Reduce per-iteration shared-array allocation pressure by converting
-        # to SharedDenseHops once up front and passing views down. Originally
-        # a workaround for a julia 1.5–1.10 GC bug; still beneficial.
-        ρ0_shared = TightBinding.shareddense(ρ0)
-        ρ1_shared = TightBinding.shareddense(ρ1)
-        ρ0_views = TightBinding.gethopsview(ρ0_shared)
-        ρ1_views = TightBinding.gethopsview(ρ1_shared)
-        return _solveselfconsistent_impl!(ρ0_views, ρ1_views, mf, filling, ks; multimode=:distributed, kwargs...)
+        # Convert to SharedDenseHops so the in-tree
+        # `Spectrum.sanatize_distributed_hamiltonian(::DenseHops)` hook can hand
+        # workers a shared buffer instead of full per-worker copies. The
+        # historical extra step of wrapping each matrix in a `view` (via
+        # `gethopsview` → `SubarrayHops`) is no longer needed: the per-task
+        # accumulator is allocated by `Parallel.kspace_reduce!` via
+        # `Base.zero(::Hops)`, so workers don't write into the SharedMatrix
+        # directly anymore.
+        return _solveselfconsistent_impl!(TightBinding.shareddense(ρ0),
+                                           TightBinding.shareddense(ρ1),
+                                           mf, filling, ks;
+                                           multimode=:distributed, kwargs...)
     elseif exec isa Parallel.ThreadedExec
         # Threading shares memory by reference; a plain dense copy is fine.
         # (Previously this path errored — the legacy Context dispatch had no
