@@ -48,16 +48,26 @@ import LatticeQM.Utils: dense
 # end
 
 
-eigvals_dense(M; kwargs...) = LinearAlgebra.eigvals(dense(M); kwargs...)
-eigvecs_dense(M; kwargs...) = LinearAlgebra.eigvecs(dense(M); kwargs...)
-eigen_dense(M; kwargs...) = LinearAlgebra.eigen(dense(M); kwargs...)
+eigvals_dense(M; kwargs...) = LinearAlgebra.eigvals(_hermitianize(dense(M)); kwargs...)
+eigvecs_dense(M; kwargs...) = LinearAlgebra.eigvecs(_hermitianize(dense(M)); kwargs...)
+eigen_dense(M; kwargs...) = LinearAlgebra.eigen(_hermitianize(dense(M)); kwargs...)
 
 # In-place dense variants. `eigvals!`/`eigen!` overwrite their input but skip
 # the dense() copy that the non-bang versions allocate on every call. They're
 # the right path inside hot k-loops where the caller has already filled a
 # scratch Hcache via `Spectrum._build_H!`.
-eigvals_dense!(M; kwargs...) = LinearAlgebra.eigvals!(dense(M); kwargs...)
-eigen_dense!(M; kwargs...) = LinearAlgebra.eigen!(dense(M); kwargs...)
+eigvals_dense!(M; kwargs...) = LinearAlgebra.eigvals!(_hermitianize(dense(M)); kwargs...)
+eigen_dense!(M; kwargs...) = LinearAlgebra.eigen!(_hermitianize(dense(M)); kwargs...)
+
+# Hamiltonians in this package are physically Hermitian (tight-binding, BdG,
+# Floquet). Wrap dense matrices in `Hermitian(...)` so LAPACK uses the
+# Hermitian solver (`heevr`) instead of the generic `geevx` path. The
+# Hermitian path is faster *and* numerically stable on borderline matrices —
+# `LAPACKException(3)` failures were observed on BdG sweeps with the generic
+# solver. `Hermitian` reads from the upper triangle and ignores the lower,
+# which is fine for our user-controlled Hamiltonians.
+@inline _hermitianize(M::AbstractMatrix) = LinearAlgebra.Hermitian(M)
+@inline _hermitianize(M::LinearAlgebra.Hermitian) = M
 
 geteigvals(args...; format=:dense, kwargs...) = (format == :sparse) ? eigvals_sparse(args...; kwargs...) : eigvals_dense(args...; kwargs...)
 geteigvecs(args...; format=:dense, kwargs...) = (format == :sparse) ? eigvecs_sparse(args...; kwargs...) : eigvecs_dense(args...; kwargs...)

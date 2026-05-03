@@ -299,6 +299,30 @@ through a `Channel` so only one task touches the bar.
 `output` must support `zero(output)` and broadcasted `.+=`.
 
 Returns `output`.
+
+# Known issues
+
+1. **Threaded reduction non-determinism.** The `ThreadedExec` branch shows a
+   small (1–10%) non-deterministic drift on some workloads — symptom is
+   filling/density tests that pass for serial give slightly different
+   results across threaded runs. Per-task scratch is private; manual
+   inlining of the @sync/@spawn block produces deterministic results, so
+   the race appears to live in `mul!` / `eigen!` (LAPACK reentrancy on
+   Apple Silicon under concurrent Julia tasks). Pass `multimode=:serial`
+   for exact answers — `Spectrum.filling(::BdGOperator)` does this by
+   default. SCF convergence at typical tolerances (1e-5 to 1e-7) is
+   unaffected.
+
+2. **Distributed scalar accumulators are silently lost.** Bodies that
+   capture and mutate a `Ref` or `Threads.SpinLock` for scalar
+   accumulation (e.g. `total_energy[]` in `densitymatrix_compute_add!`)
+   *work* under serial / threaded — they share the master process's
+   memory — but *fail* under distributed because the closure is
+   serialised to each worker, each gets its own copy, and the master
+   never sees the writes. The Hops accumulator is fine (handled by
+   `_accumulate!`); only ad-hoc scalar tracking is affected. Either run
+   such bodies serially or restructure the body to return the scalar
+   alongside the Hops contribution and accumulate it master-side.
 """
 function kspace_reduce!(body!, output, ks::AbstractMatrix, exec::Executor;
                          scratch_factory = () -> nothing,

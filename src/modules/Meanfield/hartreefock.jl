@@ -22,9 +22,19 @@ abstract type MeanfieldGenerator{T} end
 """
     HartreeFock(h, v, μ=0.0; hartree=true, fock=true)
 
-Mean‑field functional for density (Hartree) and exchange (Fock) channels built
+Mean-field functional for density (Hartree) and exchange (Fock) channels built
 from a base Hamiltonian `h` and interaction kernels `v`. Calling the struct on
-`ρ` updates the effective mean‑field operator `hMF` and scalar energy `ϵMF`.
+`ρ` updates the effective mean-field operator `hMF` and scalar energy `ϵMF`.
+
+# Convention
+
+`v` and `h` (and the resulting density matrix `ρ`) must use the **same
+orbital basis**. In particular, if your model has spin, the basis must
+already include it (e.g. via `TightBinding.addspin`); the Hartree term
+`spdiagm(0 => V0 * diag(ρ[zerokey]))` reads diagonal occupations from `ρ`
+and assumes those are the densities `v` couples to. For a spinful Hubbard
+`U n_↑ n_↓` model, build `v` so its matrix elements between spin-↑ and
+spin-↓ orbitals encode `U`, not the same-spin diagonal.
 """
 mutable struct HartreeFock{K, T2, T<:Hops{K,T2}} <: MeanfieldGenerator{T} 
     h::T
