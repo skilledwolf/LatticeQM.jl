@@ -163,9 +163,9 @@ one task touches the bar.
 Returns `nothing`. Side effects on whatever `body!` mutates (`bands`/`obs`
 matrices, accumulated densities, etc.) are the caller's responsibility.
 """
-function kspace_foreach!(body!, ks::AbstractMatrix, exec::Executor;
-                          scratch_factory = () -> nothing,
-                          progress::Union{Nothing,ProgressMeter.AbstractProgress}=nothing)
+function kspace_foreach!(body!::F, ks::AbstractMatrix, exec::Executor;
+                          scratch_factory::G = () -> nothing,
+                          progress::Union{Nothing,ProgressMeter.AbstractProgress}=nothing) where {F, G}
     nks = size(ks, 2)
     publish, finish = _progress_pump(progress, exec)
     try
@@ -184,7 +184,7 @@ function kspace_foreach!(body!, ks::AbstractMatrix, exec::Executor;
     return nothing
 end
 
-function _kspace_serial!(body!, ks, nks, scratch_factory, publish)
+function _kspace_serial!(body!::F, ks, nks, scratch_factory::G, publish::P) where {F, G, P}
     scratch = scratch_factory()
     @inbounds for j in 1:nks
         body!(scratch, j, view(ks, :, j))
@@ -192,7 +192,7 @@ function _kspace_serial!(body!, ks, nks, scratch_factory, publish)
     end
 end
 
-function _kspace_threaded!(body!, ks, nks, scratch_factory, publish, exec::ThreadedExec)
+function _kspace_threaded!(body!::F, ks, nks, scratch_factory::G, publish::P, exec::ThreadedExec) where {F, G, P}
     nt = max(1, exec.nthreads)
 
     if exec.schedule === :dynamic
@@ -227,7 +227,7 @@ function _kspace_threaded!(body!, ks, nks, scratch_factory, publish, exec::Threa
     return nothing
 end
 
-function _kspace_distributed!(body!, ks, nks, scratch_factory, publish, exec::DistributedExec)
+function _kspace_distributed!(body!::F, ks, nks, scratch_factory::G, publish::P, exec::DistributedExec) where {F, G, P}
     nw = max(1, exec.nworkers)
     chunks = _chunked_ranges(nks, nw)
     pmap(chunks) do chunk
@@ -239,6 +239,46 @@ function _kspace_distributed!(body!, ks, nks, scratch_factory, publish, exec::Di
         return length(chunk)
     end
     return nothing
+end
+
+# Threaded additive reduce. Extracted into its own function (rather than
+# inlining the @sync/@spawn loop in `kspace_reduce!`) so the closures `body!`
+# and `scratch_factory` get specialised on their concrete types — without that
+# specialisation, calls go through dynamic dispatch and (empirically) leak
+# observed-state across iterations on Julia ≥ 1.10, producing 1–10% drift
+# on accumulators. Each task owns one `partial` and one `scratch`; partials
+# are folded back into `output` serially after `@sync`.
+#
+# `scalar_init === nothing` skips scalar accumulation; otherwise each body
+# return is added to a per-chunk slot, summed at the end. Returns either
+# `output` or the accumulated scalar (matching `kspace_reduce!`'s contract).
+function _kspace_threaded_reduce!(body!::F, output, ks, scratch_factory::G, publish::P,
+                                   scalar_init, exec::ThreadedExec) where {F, G, P}
+    nks = size(ks, 2)
+    chunks = _chunked_ranges(nks, exec.nthreads)
+    nc = length(chunks)
+    partials = [zero(output) for _ in 1:nc]
+    scalars = scalar_init === nothing ? nothing : fill(scalar_init, nc)
+    @sync for (ic, chunk) in enumerate(chunks)
+        Threads.@spawn begin
+            scratch = scratch_factory()
+            local s = scalar_init
+            for j in chunk
+                v = body!(partials[ic], scratch, j, view(ks, :, j))
+                if scalar_init !== nothing
+                    s += v
+                end
+                publish()
+            end
+            if scalar_init !== nothing
+                scalars[ic] = s
+            end
+        end
+    end
+    for p in partials
+        _accumulate!(output, p)
+    end
+    return scalar_init === nothing ? output : sum(scalars)
 end
 
 function _chunked_ranges(total::Int, nchunks::Int)
@@ -281,7 +321,7 @@ end
 # ---------------------------------------------------------------------------
 
 """
-    kspace_reduce!(body!, output, ks, exec; scratch_factory, progress=nothing)
+    kspace_reduce!(body!, output, ks, exec; scratch_factory, scalar_init=nothing, progress=nothing)
 
 Run `body!(local_out, scratch, j, k)` once per k-index. `local_out` is a
 per-task accumulator (one per chunk on threaded/distributed; just `output`
@@ -298,94 +338,81 @@ through a `Channel` so only one task touches the bar.
 
 `output` must support `zero(output)` and broadcasted `.+=`.
 
-Returns `output`.
-
-# Known issues
-
-1. **Threaded reduction non-determinism.** The `ThreadedExec` branch shows a
-   small (1–10%) non-deterministic drift on some workloads — symptom is
-   filling/density tests that pass for serial give slightly different
-   results across threaded runs. Per-task scratch is private; manual
-   inlining of the @sync/@spawn block produces deterministic results, so
-   the race appears to live in `mul!` / `eigen!` (LAPACK reentrancy on
-   Apple Silicon under concurrent Julia tasks). Pass `multimode=:serial`
-   for exact answers — `Spectrum.filling(::BdGOperator)` does this by
-   default. SCF convergence at typical tolerances (1e-5 to 1e-7) is
-   unaffected.
-
-2. **Distributed scalar accumulators are silently lost.** Bodies that
-   capture and mutate a `Ref` or `Threads.SpinLock` for scalar
-   accumulation (e.g. `total_energy[]` in `densitymatrix_compute_add!`)
-   *work* under serial / threaded — they share the master process's
-   memory — but *fail* under distributed because the closure is
-   serialised to each worker, each gets its own copy, and the master
-   never sees the writes. The Hops accumulator is fine (handled by
-   `_accumulate!`); only ad-hoc scalar tracking is affected. Either run
-   such bodies serially or restructure the body to return the scalar
-   alongside the Hops contribution and accumulate it master-side.
+If `scalar_init === nothing` (default), `kspace_reduce!` returns `output`
+and the body's return value is ignored. If `scalar_init` is given (e.g.
+`0.0`), each body return value is summed into a per-task accumulator and
+the total is returned in place of `output` — this is how to get a scalar
+side-channel (e.g. kinetic energy) under any executor, including
+distributed (where `Ref` capture in the body would be silently lost).
 """
-function kspace_reduce!(body!, output, ks::AbstractMatrix, exec::Executor;
-                         scratch_factory = () -> nothing,
-                         progress::Union{Nothing,ProgressMeter.AbstractProgress}=nothing)
+function kspace_reduce!(body!::F, output, ks::AbstractMatrix, exec::Executor;
+                         scratch_factory::G = () -> nothing,
+                         scalar_init=nothing,
+                         progress::Union{Nothing,ProgressMeter.AbstractProgress}=nothing) where {F, G}
     nks = size(ks, 2)
     publish, finish = _progress_pump(progress, exec)
 
     try
         if exec isa SerialExec
             scratch = scratch_factory()
+            scalar_acc = scalar_init
             for j in 1:nks
-                body!(output, scratch, j, view(ks, :, j))
+                v = body!(output, scratch, j, view(ks, :, j))
+                if scalar_init !== nothing
+                    scalar_acc += v
+                end
                 publish()
             end
+            return scalar_init === nothing ? output : scalar_acc
         elseif exec isa ThreadedExec
-            chunks = _chunked_ranges(nks, exec.nthreads)
-            partials = [zero(output) for _ in 1:length(chunks)]
-            @sync for (ic, chunk) in enumerate(chunks)
-                Threads.@spawn begin
-                    scratch = scratch_factory()
-                    for j in chunk
-                        body!(partials[ic], scratch, j, view(ks, :, j))
-                        publish()
-                    end
-                end
-            end
-            for p in partials
-                _accumulate!(output, p)
-            end
+            return _kspace_threaded_reduce!(body!, output, ks, scratch_factory, publish, scalar_init, exec)
         elseif exec isa DistributedExec
-            # Streaming reduction: workers `put!` their partial to a
-            # `RemoteChannel`, master folds via `_accumulate!` as each
-            # arrives. Peak memory is one partial (vs n_chunks held
-            # simultaneously under the old pmap-then-fold pattern), and
-            # the fold overlaps with stragglers.
+            # Streaming reduction: workers `put!` their partial (and
+            # optional scalar contribution) into a `RemoteChannel`, master
+            # folds via `_accumulate!` (and `+`) as each arrives. Peak
+            # memory is one partial vs n_chunks held simultaneously under
+            # the old pmap-then-fold pattern, and the fold overlaps with
+            # stragglers.
             chunks = _chunked_ranges(nks, exec.nworkers)
             n_chunks = length(chunks)
             partial_ch = RemoteChannel(() -> Channel{Any}(n_chunks), 1)
+            scalar_total = Ref{Any}(scalar_init)
 
             folder = @async begin
                 for _ in 1:n_chunks
-                    _accumulate!(output, take!(partial_ch))
+                    item = take!(partial_ch)
+                    if scalar_init === nothing
+                        _accumulate!(output, item)
+                    else
+                        partial, s = item::Tuple
+                        _accumulate!(output, partial)
+                        scalar_total[] += s
+                    end
                 end
             end
 
             @sync pmap(chunks) do chunk
                 local_out = zero(output)
                 scratch = scratch_factory()
+                local s = scalar_init
                 for j in chunk
-                    body!(local_out, scratch, j, view(ks, :, j))
+                    v = body!(local_out, scratch, j, view(ks, :, j))
+                    if scalar_init !== nothing
+                        s += v
+                    end
                     publish()
                 end
-                put!(partial_ch, local_out)
+                put!(partial_ch, scalar_init === nothing ? local_out : (local_out, s))
                 return nothing
             end
             wait(folder)
+            return scalar_init === nothing ? output : scalar_total[]
         else
             error("Unsupported executor $(typeof(exec))")
         end
     finally
         finish()
     end
-    return output
 end
 
 end # module Parallel

@@ -40,6 +40,71 @@ end
     end
 end
 
+# Regression: `kspace_reduce!` on `ThreadedExec(>1)` was producing 1–10%
+# non-deterministic drift on accumulators (filling/density/energy) before
+# the closure-specialisation fix (`where {F, G, P}` on the threaded helper).
+# This test reproduces the original drift signature on a small graphene
+# density-matrix sweep and asserts the threaded result matches serial to
+# floating-point precision across multiple runs.
+@testset "Parallel: kspace_reduce! threaded matches serial" begin
+    if Threads.nthreads() > 1
+        lat = Geometries.honeycomb()
+        h = Hops(); Operators.nearestneighbor!(h, lat, -1.0)
+        ks = LatticeQM.Structure.points(LatticeQM.Structure.regulargrid(nk=12^2))
+
+        ρS = Hops(); for k in keys(h); ρS[k] = zeros(ComplexF64, size(h[k])); end
+        ϵS = Operators.getdensitymatrix!(ρS, h, ks, fill(1/size(ks,2), size(ks,2)), 0.0;
+                                           T=0.05, hidebar=true, multimode=:serial)
+        fS = real(LinearAlgebra.tr(ρS[[0, 0]])) / 2
+
+        # 3 trials — drift was non-deterministic, would flake even with one
+        # threaded run, but multiple trials make the test more sensitive.
+        for _ in 1:3
+            ρT = Hops(); for k in keys(h); ρT[k] = zeros(ComplexF64, size(h[k])); end
+            ϵT = Operators.getdensitymatrix!(ρT, h, ks, fill(1/size(ks,2), size(ks,2)), 0.0;
+                                               T=0.05, hidebar=true, multimode=:multithreaded)
+            fT = real(LinearAlgebra.tr(ρT[[0, 0]])) / 2
+            @test isapprox(fT, fS; atol=1e-10)
+            @test isapprox(ϵT, ϵS; atol=1e-10)
+        end
+    end
+end
+
+# Regression: scalar accumulators captured by closure (Ref + SpinLock) used
+# to be silently lost under `DistributedExec` because the closure was
+# serialised per-worker. The fix is the `scalar_init` kwarg on
+# `kspace_reduce!`, which collects body return values across tasks /
+# workers. This test exercises serial / threaded / distributed and asserts
+# the kinetic-energy scalar matches across all three.
+@testset "Parallel: kspace_reduce! scalar_init across modes" begin
+    lat = Geometries.honeycomb()
+    h = Hops(); Operators.nearestneighbor!(h, lat, -1.0)
+    ks = LatticeQM.Structure.points(LatticeQM.Structure.regulargrid(nk=8^2))
+    nks = size(ks, 2)
+    kweights = fill(1/nks, nks)
+
+    ρS = Hops(); for k in keys(h); ρS[k] = zeros(ComplexF64, size(h[k])); end
+    ϵS = Operators.getdensitymatrix!(ρS, h, ks, kweights, 0.0;
+                                       T=0.05, hidebar=true, multimode=:serial)
+
+    if Threads.nthreads() > 1
+        ρT = Hops(); for k in keys(h); ρT[k] = zeros(ComplexF64, size(h[k])); end
+        ϵT = Operators.getdensitymatrix!(ρT, h, ks, kweights, 0.0;
+                                           T=0.05, hidebar=true, multimode=:multithreaded)
+        @test isapprox(ϵT, ϵS; atol=1e-10)
+    end
+
+    # Distributed: skip if no extra workers; nworkers()==1 means we're
+    # running with the master only (which would degrade to serial anyway).
+    if nworkers() > 1
+        ρD = Hops(); for k in keys(h); ρD[k] = zeros(ComplexF64, size(h[k])); end
+        ϵD = Operators.getdensitymatrix!(ρD, h, ks, kweights, 0.0;
+                                           T=0.05, hidebar=true, multimode=:distributed)
+        @test isapprox(ϵD, ϵS; atol=1e-10)
+        @test ϵD != 0.0  # silent loss bug would have returned 0
+    end
+end
+
 # Each `multimode` for `bandmatrix` must produce identical bands and projector
 # expectation values, otherwise we have a parallel-mode regression.
 @testset "Spectrum: bandmatrix multimode equivalence" begin

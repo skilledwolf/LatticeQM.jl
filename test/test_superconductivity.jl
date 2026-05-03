@@ -129,12 +129,6 @@ end
     ks = reshape([0.0, 0.0], 2, 1)
 
     # Compute via getdensitymatrix! at μ=0, T→0 (use small T for numerics).
-    # Force serial: under distributed mode the scalar-energy accumulator in
-    # `densitymatrix_compute_add!` (`Threads.SpinLock` + `Ref{Float64}`) is
-    # captured by closure and serialised per-worker, so the master never
-    # sees the workers' contributions and `out` returns 0. The Hops density
-    # matrix is correct under distributed; only the scalar energy is broken.
-    # See known-issues note in `Parallel.kspace_reduce!` docstring.
     ρ = BdGOperator(zero(LatticeQM.Utils.copyelectronsector(Hbdg)))
     ϵ_kin = Operators.getdensitymatrix!(ρ, Hbdg, ks, 0.0;
                                         T=1e-6, hidebar=true, format=:dense,

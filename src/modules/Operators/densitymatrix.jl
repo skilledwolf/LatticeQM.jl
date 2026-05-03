@@ -107,19 +107,17 @@ function densitymatrix_compute_add!(ρs::Hops, H, ks::AbstractMatrix{Float64}, k
                                      format=:dense, kwargs...)
     Parallel.configure_blas!(exec; verbose=false)
 
-    # Lock-protected scalar accumulator for the kinetic energy. Lock contention
-    # is negligible: the per-k work (eigen + density-matrix outer product)
-    # dominates the addition by orders of magnitude.
-    energy_lock = Threads.SpinLock()
-    total_energy = Ref(0.0)
-
+    # `kspace_reduce!`'s `scalar_init` collects per-k kinetic-energy
+    # contributions (the body's return value) and sums them across tasks /
+    # workers. This sidesteps the closure-capture pitfall under distributed
+    # mode (a `Ref` would be serialised per worker and the master would
+    # never see the writes — see Parallel.kspace_reduce! docstring).
     Parallel.kspace_reduce!(ρs, ks, exec;
         scratch_factory = () -> _densitymatrix_scratch(ρs, H, ks; format=format, kwargs...),
+        scalar_init = 0.0,
         progress = progressbar) do local_ρ, scratch, j, k
-        e = densitymatrix_kpoint!(local_ρ, scratch, H, k, kweights[j]; μ=μ, T=T, format=format, kwargs...)
-        Base.@lock energy_lock total_energy[] += e
+        densitymatrix_kpoint!(local_ρ, scratch, H, k, kweights[j]; μ=μ, T=T, format=format, kwargs...)
     end
-    total_energy[]
 end
 
 # Single-k kernel: builds H(k) into the scratch buffer (zero-alloc for dense

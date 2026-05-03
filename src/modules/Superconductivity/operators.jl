@@ -81,13 +81,18 @@ Electron filling fraction at chemical potential `μ` for the BdG Hamiltonian
 `H`, computed from the full BdG density matrix (i.e. accounting for any
 pairing block Δ). This is `Tr(ρ_el(k=0)) / N` averaged over `ks` weights.
 
-`multimode` defaults to `:serial` here because the BdG `getdensitymatrix!`
-mutates `H` in place via `addchemicalpotential!(H, ±μ)` to apply the
-chemical potential. Running the underlying density-matrix sweep under a
-non-serial executor while `H` is shifted is fragile (the threaded
-reduction picks up race-prone state in the BdG-shape Hops). Pass
-`multimode=:multithreaded` or `:distributed` explicitly if you've verified
-your H/Δ shape is safe to sweep concurrently — most users don't need to.
+`multimode` defaults to `:serial` here for two reasons:
+
+1. The BdG `getdensitymatrix!` mutates `H` in place via
+   `addchemicalpotential!(H, ±μ)` to apply the chemical potential. The
+   shift is bracketed around the k-loop (added before, undone after), so
+   threaded reads are safe — but the bracket is exception-fragile if a
+   worker throws. Serial keeps the contract simple.
+
+2. Bisection in `chemicalpotential(::BdGOperator)` calls this in a tight
+   loop (Roots.find_zero); the per-call threading overhead exceeds the
+   per-call eigen cost on small (e.g. 144-k) grids. Pass
+   `multimode=:multithreaded` or `:distributed` for larger workloads.
 """
 function Spectrum.filling(H::BdGOperator, ks::AbstractMatrix, μ::Real=0.0;
                           T::Real=0.01, multimode::Symbol=:serial, kwargs...)

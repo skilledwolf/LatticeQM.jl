@@ -55,17 +55,14 @@ function green!(G::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0
 
     progressbar = ProgressMeter.Progress(L; dt=1, desc=progress_label, enabled=!hidebar)
 
-    energy_lock = Threads.SpinLock()
-    total_energy = Ref(0.0)
-
-    Parallel.kspace_reduce!(G, ks, exec;
+    total_energy = Parallel.kspace_reduce!(G, ks, exec;
         scratch_factory = () -> (Hcache=Spectrum.bloch_buffer(H, ks; format=format),),
+        scalar_init = 0.0,
         progress = progressbar) do local_G, scratch, _j, k
         Hk = Spectrum.bloch!(scratch.Hcache, H, k)
         ϵs, U = Eigen.geteigen!(Hk; format=format, kwargs...)
         green!(local_G, k, real.(ϵs) .- μ, U; T=T)
-        e = Utils.groundstate_sumk(real.(ϵs), μ)
-        Base.@lock energy_lock total_energy[] += e
+        Utils.groundstate_sumk(real.(ϵs), μ)
     end
     ProgressMeter.finish!(progressbar)
 
@@ -73,6 +70,6 @@ function green!(G::AbstractHops, H, ks::AbstractMatrix{Float64}, μ::Float64=0.0
         G[δL] ./= L
     end
 
-    total_energy[] / L
+    total_energy / L
 end
 
