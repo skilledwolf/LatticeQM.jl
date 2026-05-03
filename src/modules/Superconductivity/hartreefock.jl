@@ -13,13 +13,11 @@ mutable struct HartreeFockBDG{K,T2,T<:Hops{K,T2}} <: Meanfield.MeanfieldGenerato
     hartree::Bool
 
     function HartreeFockBDG(h::T, v::T, μ=0.0; hartree=true, fock=true) where {K,T2,T<:Hops{K,T2}}
-        # Extract K and T2 from T if needed inside the constructor
-        # Example: Suppose AbstractHops is defined as AbstractHops{K, T2}
-        # K = Base.parameter_upper_bound(T, 1)
-        # T2 = Base.parameter_upper_bound(T, 2)
         V0 = sum(v[L] for L in keys(v))
-        hMF = zero(h)  # Pre-allocated for performance
-        ΔMF = zero(h)  # Pre-allocated for performance
+        # See note in `Meanfield.HartreeFock`: type-preserving zero through
+        # the underlying matrix, since `Base.zero(::Hops)` always densifies.
+        hMF = T(Dict{K,T2}(L => zero(h[L]) for L in keys(h)))
+        ΔMF = T(Dict{K,T2}(L => zero(h[L]) for L in keys(h)))
         ϵMF = 0.0
         new{K,T2,T}(h, v, μ, V0, hMF, ΔMF, ϵMF, fock, hartree)
     end
