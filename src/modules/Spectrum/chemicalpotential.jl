@@ -46,14 +46,17 @@ end
 # Interface of chemicalpotential to Hamiltonian type
 ##########################################################################################
 
-function chemicalpotential(H, ks, filling::Real; multimode = :distributed, kwargs...)
+function chemicalpotential(H, ks, filling::Real; multimode = :distributed, hidebar=false, kwargs...)
     H = Utils.getelectronsector(H)
-    chemicalpotential(bandmatrix(H, ks; multimode = multimode, progress_label="Chemical potential")[1], ks, filling; kwargs...)
+    chemicalpotential(bandmatrix(H, ks; multimode=multimode, hidebar=hidebar,
+                                  progress_label="Chemical potential")[1],
+                      ks, filling; kwargs...)
 end
 
-function chemicalpotential(H, ks, fillings::AbstractVector; multimode = :distributed, kwargs...)
+function chemicalpotential(H, ks, fillings::AbstractVector; multimode = :distributed, hidebar=false, kwargs...)
     H = Utils.getelectronsector(H)
-    bands = bandmatrix(H, ks; multimode = multimode)[1] # compute once to determine multiple fillings later on
+    bands = bandmatrix(H, ks; multimode=multimode, hidebar=hidebar,
+                       progress_label="Chemical potential")[1]
     [chemicalpotential(bands, ks, filling; kwargs...) for filling in fillings]
 end
 

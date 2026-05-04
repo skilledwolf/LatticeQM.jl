@@ -106,7 +106,8 @@ parallel=true might help if diagonalization per k point is very time consuming
 note that for small problems `parallel=true` may decrease performance (communication overhead)
 """
 function _solveselfconsistent_impl!(ρ0::T1, ρ1::T1, hartreefock::MeanfieldGenerator, filling::Float64, ks;
-    convergenceerror=false, multimode=:serial, checkpoint::String="", callback=(x -> nothing), hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...) where {T1}
+    convergenceerror=false, multimode=:serial, checkpoint::String="", callback=(x -> nothing), hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false,
+    hidebar::Bool=false, kwargs...) where {T1}
 
     # if checkpoint != "" && isfile(checkpoint) && hotstart
     #     println("Loading checkpoint file as initial guess: $checkpoint")
@@ -123,10 +124,10 @@ function _solveselfconsistent_impl!(ρ0::T1, ρ1::T1, hartreefock::MeanfieldGene
         # println("sparsity: ", sum(abs.(hartreefock.hMF[[0, 0]]) .> 1e-9) / length(hartreefock.hMF[[0, 0]]))
 
         verbose ? @info("Updating chemical potential for given filling...") : nothing
-        hartreefock.μ = Spectrum.chemicalpotential(hMF(hartreefock), ks, filling; T=T, multimode=multimode)
+        hartreefock.μ = Spectrum.chemicalpotential(hMF(hartreefock), ks, filling; T=T, multimode=multimode, hidebar=hidebar)
 
         verbose ? @info("Updating the mean field density matrix...") : nothing
-        ϵ0 = Operators.getdensitymatrix!(ρ1, hMF(hartreefock), ks, hartreefock.μ; multimode=multimode, T=T, format=:dense) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
+        ϵ0 = Operators.getdensitymatrix!(ρ1, hMF(hartreefock), ks, hartreefock.μ; multimode=multimode, T=T, format=:dense, hidebar=hidebar) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
 
         @assert TightBinding.ishermitian(ρ1) "SANITY CHECK: HERMITIAN?"
 
