@@ -11,6 +11,7 @@ import LatticeQM.Structure.Lattices
 # Default if no argument is `:testing`.
 const PARAMS = Dict(
     :testing         => (n_angle=6,  tz=0.52, U=2.8, guess=:random, outname="output_testing"),
+    :testing_fm         => (n_angle=6,  tz=0.52, U=2.8, guess=:ferro, outname="output_testing2"),
     :testing_purif   => (n_angle=6,  tz=0.52, U=2.8, guess=:ferro,  outname="output_testing_purif"),
     :n10_fm3         => (n_angle=10, tz=0.52, U=2.2, guess=:ferro,  outname="output_n10_fm3"),
     :n10_fm4         => (n_angle=10, tz=0.52, U=2.7, guess=:ferro,  outname="output_n10_fm4"),
@@ -35,12 +36,12 @@ sx, sy, sz, sublA, sublB = Operators.getoperator(lat, ["sx", "sy", "sz", "sublat
 hops = Operators.graphene(lat; format=:sparse, mode=:spinhalf, tz=p.tz)
 Operators.addzeeman!(hops, lat, 1e-9)
 
-filling = 0.5 + 6.0 / hopdim(hops)
+filling = 0.5 - 6.0 / hopdim(hops)
 println("Target filling: ", filling)
 
 @info "Set up mean-field interaction..."
 v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=p.U)
-ρ_init = Meanfield.initialguess(v, p.guess; lat=lat)
+ρ_init = Meanfield.initialguess(v, p.guess; lat=lat) 
 
 @info "Band plot..."
 ks_plot = kpath(lat; num_points=100)
@@ -56,8 +57,8 @@ savefig("$(p.outname)/bands_noninteracting.pdf")
 @info "Run mean field..."
 @everywhere (hops = $hops, v = $v)
 ρ_sol, ϵ_GS, HMF, converged, residue = Meanfield.solvehartreefock(
-    hops, v, ρ_init, filling; klin=6, iterations=30, tol=5e-3,
-    T=0.002, β=0.93, show_trace=false, verbose=false, multimode=multimode
+    hops, v, ρ_init, filling; klin=6, iterations=30, tol=5e-3, hidebar=true,
+    T=0.002, β=0.85, show_trace=true, verbose=false, multimode=multimode
 )
 
 @info "Magnetization..."

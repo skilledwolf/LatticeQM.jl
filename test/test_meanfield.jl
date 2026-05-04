@@ -1,6 +1,6 @@
 using Test
 using LatticeQM
-using LinearAlgebra: dot, norm
+using LinearAlgebra: dot, norm, diag
 
 # analyticbands.jl is also included by test_spectrum_graphene.jl; redefining
 # the module is harmless but using-imports must avoid Main-level conflicts.
@@ -76,6 +76,75 @@ function hubbardmodelcriticalpoint()
     return ddgaps[minidx - 2] == maxdd || ddgaps[minidx - 1] == maxdd
 end
 
+# Anderson acceleration must converge to the same ground-state energy as
+# linear mixing on graphene Hubbard at U=4, but in far fewer iterations. We
+# don't pin the exact iteration count (it depends on system, history depth,
+# damping), only that Anderson stays at least 3× faster than the β=0.20
+# linear baseline that the Néel test uses.
+function andersonacceleration()
+    lat = Geometries.honeycomb()
+    hops = Operators.graphene(lat; mode=:spinhalf)
+    v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=4.0)
+    ρ_init = Meanfield.initialguess(v, :antiferro; lat=lat)
+
+    log_lin = Tuple{Int,Float64,Float64}[]
+    _, ϵ_lin, _, conv_lin, _ = Meanfield.solvehartreefock(
+        hops, v, deepcopy(ρ_init), 0.5; klin=15, iterations=400, tol=1e-7,
+        T=0.01, β=0.20, verbose=false, show_trace=false,
+        log_callback=(it, ϵ, r) -> push!(log_lin, (it, ϵ, r)))
+
+    log_and = Tuple{Int,Float64,Float64}[]
+    _, ϵ_and, _, conv_and, _ = Meanfield.solvehartreefock(
+        hops, v, deepcopy(ρ_init), 0.5; klin=15, iterations=400, tol=1e-7,
+        T=0.01, β=1.0, acceleration=:anderson, anderson_depth=5, verbose=false,
+        show_trace=false,
+        log_callback=(it, ϵ, r) -> push!(log_and, (it, ϵ, r)))
+
+    converged = conv_lin && conv_and
+    same_energy = isapprox(ϵ_lin, ϵ_and; atol=1e-6)
+    much_faster = length(log_and) * 3 ≤ length(log_lin)
+    return converged && same_energy && much_faster
+end
+
+# Regression test for the purification SCF. Until commit 6ffeb8f-ish, the
+# closure inside `_solveselfconsistent_purification_impl!` did
+# `ρ1 = canonicalpurification_grid_realspace(...)`, rebinding the local
+# parameter. fixedpoint!'s outer ρ1 was never updated, the residual was 0
+# from iter 1, and the routine returned the initial guess as the "converged"
+# answer.
+#
+# We cover that bug here without committing to numerical agreement with the
+# diagonalization solver — the canonical-purification algorithm in the tree
+# has further unrelated issues (notably `compute_AB_product` truncates the
+# real-space convolution to keys(A), and the inner McWeeny `c`-coefficient
+# can fall outside [0,1] on some Hamiltonians) that make a hard energy-match
+# test infeasible until that algorithm is fixed.
+function purificationiterates()
+    lat = Geometries.honeycomb_twisted(5)
+    hops = Operators.graphene(lat; format=:sparse, mode=:spinhalf, tz=0.52)
+    v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=2.0)
+    ρ_init = Meanfield.initialguess(v, :ferro; lat=lat)
+
+    log = Tuple{Int,Float64,Float64}[]
+    ρ, ϵ, _, _, _ = Meanfield.solvehartreefock_purification(
+        hops, v, deepcopy(ρ_init), 0.5; klin=3, iterations=6, tol=1e-2,
+        β=0.5, relative=false, verbose=false,
+        log_callback=(it, ϵ, r) -> push!(log, (it, ϵ, r)))
+
+    energies = [step[2] for step in log]
+    residuals = [step[3] for step in log]
+
+    iterated = length(log) ≥ 2 &&
+               length(unique(round.(energies, sigdigits=6))) ≥ 2 &&
+               length(unique(round.(residuals, sigdigits=6))) ≥ 2
+    zk = LatticeQM.TightBinding.zerokey(ρ)
+    finite = isfinite(real(ϵ)) && all(isfinite, real.(diag(ρ[zk])))
+    energy_decreased = real(energies[end]) < real(energies[1])
+    hermitian = LatticeQM.TightBinding.ishermitian(ρ)
+
+    return iterated && finite && energy_decreased && hermitian
+end
+
 # At U=4, the AF Hartree-Fock solution should be a Néel state: the magnetisation
 # vectors on the two sublattices must be exactly anti-aligned.
 function hubbardmodelantiferro()
@@ -110,6 +179,12 @@ end
         end
         @testset "Néel order at U=4 (sublattice mags anti-aligned)" begin
             @test hubbardmodelantiferro()
+        end
+        @testset "Anderson acceleration converges 3× faster than β=0.20 linear" begin
+            @test andersonacceleration()
+        end
+        @testset "Purification SCF actually iterates (regression for in-place fix)" begin
+            @test purificationiterates()
         end
     end
 end

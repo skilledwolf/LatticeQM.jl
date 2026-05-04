@@ -120,11 +120,11 @@ function spinspiraldensitymatrix(lat::Lattice, superperiods; n::Vector=[0,0,1], 
 end
 
 
-function setrandom!(ρ::Hops, kind=:nonlocal)
+function setrandom!(ρ::Hops, kind=:nonlocal; filling=nothing)
     N = hopdim(ρ); @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
     n = div(N,2)
 
-    if kind==:local 
+    if kind==:local
         M = mapspindensitymatrix(:random, n)
         setzero!(ρ, M)
     elseif kind==:nonlocal
@@ -146,6 +146,22 @@ function setrandom!(ρ::Hops, kind=:nonlocal)
         error("Unrecognized request for mode '$kind'.")
     end
 
+    # Project the diagonal of the zero-key block so tr(ρ[0]) = filling*N.
+    # Without this, e.g. `:nonlocal` leaves a uniformly-distributed random
+    # density (mean diagonal ≈ 1) that bears no relation to the target
+    # filling — SCF then has to drift μ from a meaningless starting point.
+    if filling !== nothing
+        zk = zerokey(ρ)
+        H0 = ρ[zk]
+        target = filling * N
+        actual = real(tr(H0))
+        δ = (target - actual) / N
+        @inbounds for i in 1:N
+            H0[i, i] += δ
+        end
+    end
+
+    ρ
 end
 
 function setferro!(ρ::Hops, d=:up) 

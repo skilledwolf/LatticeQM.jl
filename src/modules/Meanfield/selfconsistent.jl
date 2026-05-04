@@ -1,4 +1,3 @@
-# using JLD
 import LatticeQM.Utils
 import LatticeQM.Structure
 import LatticeQM.Operators
@@ -14,9 +13,9 @@ Convenience wrapper around `solveselfconsistent` that constructs a `HartreeFock`
 functional from base Hamiltonian `h` and interaction kernel `v`. Returns the
 converged mean‑field solution and metadata.
 """
-solvehartreefock(h::T, v, ρ_init, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v), filling, args...; kwargs...)
-solvefock(h::T, v, ρ_init, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=false, fock=true), filling, args...; kwargs...)
-solvehartree(h::T, v, ρ_init, filling::Number, args...; kwargs...) where {T} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=true, fock=false), filling, args...; kwargs...)
+solvehartreefock(h::T0, v, ρ_init, filling::Number, args...; kwargs...) where {T0} = solveselfconsistent(ρ_init, HartreeFock(h, v), filling, args...; kwargs...)
+solvefock(h::T0, v, ρ_init, filling::Number, args...; kwargs...) where {T0} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=false, fock=true), filling, args...; kwargs...)
+solvehartree(h::T0, v, ρ_init, filling::Number, args...; kwargs...) where {T0} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=true, fock=false), filling, args...; kwargs...)
 
 # Interface to solveselfconsistent!(ρ0, ...)
 """
@@ -30,7 +29,8 @@ initial density matrix `ρ0`, iterate the mean‑field functional `mf` (e.g.,
 The `filling` sets the target electronic filling (0–1 per spin). Supply either
 an explicit k‑grid `ks` or a grid resolution via `klin` (uses `klin×klin`).
 
-Common keywords: `iterations`, `tol`, `T`, `β` (mixing), `multimode` (parallel).
+Common keywords: `iterations`, `tol`, `T` (temperature), `β` (mixing),
+`multimode` (parallel), `log_callback`.
 """
 solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling::Number, ks; kwargs...) = solveselfconsistent!(deepcopy(ρ0), mf, filling, ks; kwargs...)
 solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling::Number; klin, kwargs...) = solveselfconsistent!(deepcopy(ρ0), mf, filling; klin=klin, kwargs...)
@@ -48,7 +48,7 @@ solveselfconsistent!(ρ0, ρ1, mf::MeanfieldGenerator, filling::Float64; klin::I
 # to `:auto` (the old `:global` resolved to `getautocontext()` *at module-load
 # time*, which froze to whatever Julia was started with — a footgun if
 # `addprocs` happened later). `:auto` re-evaluates each call.
-function solveselfconsistent!(ρ0::T, ρ1::T, mf::MeanfieldGenerator, filling::Float64, ks; multimode=:auto, kwargs...) where {T}
+function solveselfconsistent!(ρ0::T0, ρ1::T0, mf::MeanfieldGenerator, filling::Float64, ks; multimode=:auto, kwargs...) where {T0}
     mm = (multimode === :global) ? :auto : multimode
     exec = Parallel.to_executor(mm)
 
@@ -76,8 +76,6 @@ function solveselfconsistent!(ρ0::T, ρ1::T, mf::MeanfieldGenerator, filling::F
     end
 end
 
-using SharedArrays
-
 sanitize!(X) = X # dummy function, supply dispatch for your type
 function sanitize!(ρ::TightBinding.Hops)
     if !TightBinding.ishermitian(ρ)
@@ -88,31 +86,30 @@ function sanitize!(ρ::TightBinding.Hops)
 end
 
 """
-    solveselfconsistent!(ρ0, ρ1, ℋ_op, ℋ_scalar, filling, ks; convergenceerror=false, multimode=:serial, checkpoint::String="", hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false, kwargs...)
-    solveselfconsistent!(ρ0, ℋ_op, ℋ_scalar, filling, ks; kwargs...)
-    solveselfconsistent!(ρ0, ρ1, ℋ_op, ℋ_scalar, filling; klin, kwargs...)
-    solveselfconsistent!(ρ0, ℋ_op, ℋ_scalar, filling; klin, kwargs...)
+    _scf_driver!(ρ0, ρ1, mf, update_ρ!; kwargs...)
 
-Searches a self-consistent meanfield solution for the functional ℋ: ρ → h
-at given filling (between 0 and 1). k space is discretized with the given points ks.
-returns (1) the density matrix of the meanfield (2) ground state energy of the meanfield operator (3) the chemical potential (4) convergence flag (bool) (5) error estimate
+Common SCF skeleton shared by `solveselfconsistent!` (k-space diagonalization)
+and `solveselfconsistent_purification!` (real-space canonical purification).
+The caller supplies a closure `update_ρ!(ρ1, mf) -> ϵ_kinetic` that overwrites
+`ρ1` from the current mean-field operator and returns the kinetic energy
+contribution at this iteration.
 
-If the checkpoint keyword is set, e.g. `checkpoint="mf.jld"`, the mean field will be saved into a file at each step of the iteration,
-allowing to interrupt and restart a long-running calculation safely. If `checkpoint` is set and the file exists, this method
-will assume that the file contains a valid mean-field and use it as initial guess. To avoid this behavior, specify `hotstart=false`.
+Keywords:
 
-parallel=true might help if diagonalization per k point is very time consuming
-(e.g. for twisted bilayer graphene)
-note that for small problems `parallel=true` may decrease performance (communication overhead)
+  * `convergenceerror::Bool=false` — throw if SCF did not converge.
+  * `callback=(ρ1 -> nothing)` — invoked with the freshly computed `ρ1` at
+    each iteration. Existing user hook.
+  * `log_callback=nothing` — if non-`nothing`, called as
+    `log_callback(iter, ϵ, residual)` from within `fixedpoint!`. Lets callers
+    log SCF progress without enabling the progress bar.
+  * `iterations::Int=500`, `tol::Real=1e-7`, `verbose::Bool=false` — passed
+    through to `fixedpoint!`.
+  * Any other kwargs are forwarded to `fixedpoint!` (e.g. `β`, `p_norm`,
+    `relative`, `show_trace`).
 """
-function _solveselfconsistent_impl!(ρ0::T1, ρ1::T1, hartreefock::MeanfieldGenerator, filling::Float64, ks;
-    convergenceerror=false, multimode=:serial, checkpoint::String="", callback=(x -> nothing), hotstart=true, iterations=500, tol=1e-7, T=0.0, format=:dense, verbose::Bool=false,
-    hidebar::Bool=false, kwargs...) where {T1}
-
-    # if checkpoint != "" && isfile(checkpoint) && hotstart
-    #     println("Loading checkpoint file as initial guess: $checkpoint")
-    #     ρ0 = JLD.load(checkpoint, "mf")
-    # end
+function _scf_driver!(ρ0, ρ1, hartreefock, update_ρ!::F;
+    convergenceerror=false, callback=(x -> nothing), log_callback=nothing,
+    iterations=500, tol=1e-7, verbose::Bool=false, kwargs...) where {F}
 
     sanitize!(ρ0)
     sanitize!(ρ1)
@@ -120,37 +117,70 @@ function _solveselfconsistent_impl!(ρ0::T1, ρ1::T1, hartreefock::MeanfieldGene
 
     function update!(ρ1, ρ0)
         verbose ? @info("Updating mean field operators...") : nothing
-        hartreefock(ρ0) # update meanfield (h is updated in-place)
-        # println("sparsity: ", sum(abs.(hartreefock.hMF[[0, 0]]) .> 1e-9) / length(hartreefock.hMF[[0, 0]]))
-
-        verbose ? @info("Updating chemical potential for given filling...") : nothing
-        hartreefock.μ = Spectrum.chemicalpotential(hMF(hartreefock), ks, filling; T=T, multimode=multimode, hidebar=hidebar)
+        hartreefock(ρ0)
 
         verbose ? @info("Updating the mean field density matrix...") : nothing
-        ϵ0 = Operators.getdensitymatrix!(ρ1, hMF(hartreefock), ks, hartreefock.μ; multimode=multimode, T=T, format=:dense, hidebar=hidebar) # get new meanfield and return the groundstate energy (density matrix was written to ρ1)
-
-        @assert TightBinding.ishermitian(ρ1) "SANITY CHECK: HERMITIAN?"
+        ϵ0 = update_ρ!(ρ1, hartreefock)
 
         callback(ρ1)
-
-        # if checkpoint != ""
-        #     verbose ? @info("Saving intermediate mean field...") : nothing
-        #     JLD.save(checkpoint, "mf", DenseHops(ρ1))
-        # end
-
-        ϵ0 + hartreefock.ϵMF # proper ground state energy
+        ϵ0 + hartreefock.ϵMF
     end
 
-    # Compute the ground state energy for the mean-field fixed point
-    ϵ_GS, residual, converged = fixedpoint!(update!, ρ1, ρ0; iterations=iterations, tol=tol, verbose=verbose, kwargs...)
+    ϵ_GS, residual, converged = fixedpoint!(update!, ρ1, ρ0;
+        iterations=iterations, tol=tol, verbose=verbose,
+        log_callback=log_callback, kwargs...)
 
     if convergenceerror && !converged
         error("Convergence error.")
     end
-    hartreefock(ρ1) # update meanfield (h is updated in-place)
+    hartreefock(ρ1)
 
-    ρout = Utils.densecopy(ρ1)
-    sanitize!(ρout)
+    ρ_out = Utils.densecopy(ρ1)
+    sanitize!(ρ_out)
 
-    ρout, ϵ_GS, hartreefock, converged, residual
-end 
+    ρ_out, ϵ_GS, hartreefock, converged, residual
+end
+
+"""
+    solveselfconsistent!(ρ0, ρ1, mf, filling, ks; kwargs...)
+    solveselfconsistent!(ρ0, mf, filling, ks; kwargs...)
+    solveselfconsistent!(ρ0, ρ1, mf, filling; klin, kwargs...)
+    solveselfconsistent!(ρ0, mf, filling; klin, kwargs...)
+
+Search for a self-consistent mean-field solution at the given `filling`
+(between 0 and 1). The `MeanfieldGenerator` `mf` (e.g. `HartreeFock`) maps a
+density matrix `ρ` to the effective single-particle Hamiltonian. k-space is
+discretized with the supplied points `ks` (or built from `klin`).
+
+Returns `(ρ, ϵ_GS, mf, converged, residual)`:
+
+  1. converged density matrix,
+  2. mean-field ground-state energy,
+  3. the updated `MeanfieldGenerator` (with chemical potential `mf.μ`),
+  4. convergence flag,
+  5. final residual.
+
+Keywords (all optional): `iterations`, `tol`, `T` (electronic temperature),
+`β` (linear mixing), `convergenceerror`, `multimode`, `verbose`, `hidebar`,
+`callback`, `log_callback`. See [`_scf_driver!`](@ref) and
+[`fixedpoint!`](@ref) for details.
+
+`parallel=true` (via `multimode`) helps when per-k diagonalization dominates
+(e.g. twisted bilayer graphene). For small problems, the serial path can be
+faster due to communication overhead.
+"""
+function _solveselfconsistent_impl!(ρ0::T1, ρ1::T1, hartreefock::MeanfieldGenerator, filling::Float64, ks;
+    multimode=:serial, T=0.0, hidebar::Bool=false, verbose::Bool=false, kwargs...) where {T1}
+
+    update_ρ!(ρ1, hf) = begin
+        verbose ? @info("Updating chemical potential for given filling...") : nothing
+        hf.μ = Spectrum.chemicalpotential(hMF(hf), ks, filling; T=T, multimode=multimode, hidebar=hidebar)
+        ϵ0 = Operators.getdensitymatrix!(ρ1, hMF(hf), ks, hf.μ; multimode=multimode, T=T, format=:dense, hidebar=hidebar)
+        if HARTREEFOCK_DEBUG[]
+            @assert TightBinding.ishermitian(ρ1) "SANITY CHECK: HERMITIAN?"
+        end
+        ϵ0
+    end
+
+    _scf_driver!(ρ0, ρ1, hartreefock, update_ρ!; verbose=verbose, kwargs...)
+end
