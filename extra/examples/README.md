@@ -86,6 +86,29 @@ is a working sbatch template.
 - **`BLAS.set_num_threads(1)`**: required for distributed/threaded modes
   to avoid BLAS oversubscription on multi-core boxes. Already set in the
   examples that need it.
+- **Apple Silicon / macOS performance**: the default OpenBLAS backend is
+  significantly slower than Apple's Accelerate framework for the dense
+  Hermitian `heevr` calls that dominate the chempot solve and density
+  matrix on big TBG cells. To switch:
+
+  ```julia
+  ]add AppleAccelerate          # one-off
+  using AppleAccelerate         # MUST come before `using LatticeQM`
+  using LatticeQM
+  ```
+
+  On the n=10 TBG cell (2648 orbitals), this is a **~3× speedup on
+  serial dense `eigen!`** and ~1.8× on threaded — the single biggest
+  performance lever on M-series.
+
+  If you're on OpenBLAS and stuck with it, the threaded path benefits
+  from `BLAS.set_num_threads(3)` on a 9-thread Julia (`-t 9`) — about
+  30% faster than BLAS=1. Pass via
+  `Parallel.configure_blas!(exec; threads=3)` if you call it directly,
+  or set `BLAS.set_num_threads(3)` and toggle
+  `LatticeQM.Parallel._BLAS_CONFIGURED[] = true` to suppress the
+  later default-pin to 1. Apple Accelerate doesn't benefit from
+  BLAS>1 — its `heevr` doesn't internally thread.
 
 ## Smoke tests
 

@@ -1,6 +1,7 @@
 using Distributed
+using AppleAccelerate
 using LinearAlgebra
-LinearAlgebra.BLAS.set_num_threads(1)
+# LinearAlgebra.BLAS.set_num_threads(1)
 
 using Plots
 @everywhere using LatticeQM
@@ -56,7 +57,7 @@ savefig("$(p.outname)/bands_noninteracting.pdf")
 @everywhere (hops = $hops, v = $v)
 ρ_sol, ϵ_GS, HMF, converged, residue = Meanfield.solvehartreefock(
     hops, v, ρ_init, filling; klin=6, iterations=30, tol=5e-3,
-    T=0.002, β=0.93, show_trace=true, verbose=false, multimode=multimode
+    T=0.002, β=0.93, show_trace=false, verbose=false, multimode=multimode
 )
 
 @info "Magnetization..."

@@ -111,32 +111,51 @@ end
 const _BLAS_CONFIGURED = Ref(false)
 
 """
-    configure_blas!(exec; verbose=true) -> Int
+    configure_blas!(exec; threads=nothing, verbose=true) -> Int
 
-For non-serial executors, set BLAS to 1 thread per worker (and on every
-distributed worker). Idempotent: subsequent calls are a no-op.
+Pin BLAS threads for `exec`. Idempotent — subsequent calls are no-ops
+unless `_BLAS_CONFIGURED[]` is reset.
 
-Returns the BLAS thread count it ended up setting (or `BLAS.get_num_threads()`
-if no change was needed).
+- `SerialExec` → no change.
+- `DistributedExec` → BLAS = `threads` (default 1) on master and every
+  worker. Each Julia process is its own worker, so BLAS multi-threading
+  oversubscribes.
+- `ThreadedExec` → BLAS = `threads` (default 1). The library defaults
+  to 1 because each Julia thread already calls LAPACK; with N Julia
+  threads × M BLAS threads the box oversubscribes.
+
+  This is workload- and backend-dependent. Empirically on Apple Silicon
+  with the n=10 TBG cell (dense Hermitian `heevr`, 2648 orbitals):
+  OpenBLAS prefers `threads=3` (~30% better than `threads=1`); Apple
+  Accelerate prefers `threads=1`. Pass `threads=k` to override; or set
+  it yourself via `BLAS.set_num_threads` and call
+  `configure_blas!(exec; threads=BLAS.get_num_threads())` explicitly.
+
+Returns the BLAS thread count actually set.
 """
-function configure_blas!(exec::Executor; verbose::Bool=true)
+function configure_blas!(exec::Executor; threads::Union{Nothing,Int}=nothing,
+                                          verbose::Bool=true)
     if exec isa SerialExec
         return BLAS.get_num_threads()
     end
     _BLAS_CONFIGURED[] && return BLAS.get_num_threads()
 
-    target = 1
+    target = threads === nothing ? 1 : threads
     BLAS.set_num_threads(target)
     if exec isa DistributedExec && nworkers() > 1
-        # Push BLAS=1 to every worker. `LinearAlgebra` may not be in `Main`
-        # on the worker process, so import there first. Julia 1.12 world-age
-        # semantics require `invokelatest` to use the freshly-imported binding
-        # in the same expression — without it we get a noisy warning per
-        # worker on every BLAS pinning.
+        # Push BLAS=`target` to every worker. `LinearAlgebra` may not be in
+        # `Main` on the worker process, so import there first. Julia 1.12
+        # world-age semantics require `invokelatest` to use the freshly-
+        # imported binding in the same expression — without it we get a
+        # noisy warning per worker on every BLAS pinning. The local `t`
+        # binding is captured by the closure that gets serialised to each
+        # worker.
         for w in workers()
-            remotecall_wait(w) do
-                Core.eval(Main, :(import LinearAlgebra))
-                Base.invokelatest(() -> Main.LinearAlgebra.BLAS.set_num_threads(1))
+            let t = target
+                remotecall_wait(w) do
+                    Core.eval(Main, :(import LinearAlgebra))
+                    Base.invokelatest(() -> Main.LinearAlgebra.BLAS.set_num_threads(t))
+                end
             end
         end
     end

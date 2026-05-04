@@ -211,8 +211,18 @@ bandmatrix_scratch(H, ks; format=:dense, kwargs...) =
 
 function _band_kpoint!(scratch, j, k, bands, obs, H, projectors; kwargs...)
     Hk = bloch!(scratch.Hcache, H, k)
-    energies_k, U = Eigen.geteigen!(Hk; kwargs...)
-    @views insertbands_bandexpvals_k!(bands[:, j], obs[:, j, :], energies_k, U, k, projectors)
+    if isempty(projectors)
+        # Eigenvectors aren't needed (no observables / projectors). Skipping
+        # them via `geteigvals!` instead of `geteigen!` is ~2.5× faster on
+        # the dense Hermitian path (LAPACK `heevr` only does the
+        # eigenvalue half). The chempot solve hits this branch on every
+        # call.
+        energies_k = Eigen.geteigvals!(Hk; kwargs...)
+        @views insertbands!(bands[:, j], energies_k)
+    else
+        energies_k, U = Eigen.geteigen!(Hk; kwargs...)
+        @views insertbands_bandexpvals_k!(bands[:, j], obs[:, j, :], energies_k, U, k, projectors)
+    end
     return nothing
 end
 
