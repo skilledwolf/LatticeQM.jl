@@ -183,11 +183,6 @@ Utils.densecopy(H::BdGOperator) = (h0 = Utils.densecopy(H.h); BdGOperator{typeof
 SparseArrays.sparse(H::BdGOperator) = (h0 = SparseArrays.sparse(H.h); BdGOperator{typeof(h0)}(h0))
 TightBinding.shareddense(H::BdGOperator) = (h0 = TightBinding.shareddense(H.h); BdGOperator{typeof(h0)}(h0))
 
-function TightBinding.gethopsview(H::BdGOperator)
-    h_view = TightBinding.gethopsview(H.h)
-    BdGOperator{typeof(h_view)}(h_view)
-end
-
 Base.:-(h1::BdGOperator, h2::BdGOperator) = h1.h - h2.h
 Base.:-(h1::BdGOperator, h2::Hops) = h1.h - h2
 Base.:+(h1::BdGOperator, h2::BdGOperator) = h1.h + h2.h

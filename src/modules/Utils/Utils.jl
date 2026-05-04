@@ -6,12 +6,6 @@ module Utils
 
     using LinearAlgebra
 
-    # include("DummySave.jl")
-    # export DummySave
-
-    # include("legacymacros.jl")
-    # export @legacyalias, @legacymoved, @legacyremoved
-
     include("scalar2vector.jl")
 
     include("fermidirac.jl")

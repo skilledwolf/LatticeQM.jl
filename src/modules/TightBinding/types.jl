@@ -58,10 +58,6 @@ end
 const DenseHops{K}       = Hops{K,Matrix{ComplexF64}}
 const SharedDenseHops{K} = Hops{K,SharedMatrix{ComplexF64}}
 const SparseHops{K}      = Hops{K,SparseMatrixCSC{ComplexF64,Int64}}
-const SubarrayHops{K} = Hops{K,<:SubArray} # todo: run checks
-
-gethopsview(h::Hops) = Hops(Dict(L => view(M, :, :) for (L, M) in h))
-gethopsview(h::SubarrayHops) = h
 
 import SparseArrays
 # Constrain the K type parameter explicitly so the SparseHops method is
@@ -272,32 +268,6 @@ end
 const MAX_DENSE = 500::Int
 const MAX_DIAGS = 100::Int
 
-decidetype(hops::Hops) = decidetype(hopdim(hops))
-
-function decidetype(N::Int)
-    if N < MAX_DENSE + 1
-        return :dense
-    else
-        return :sparse
-    end
-end
-
-
-function ensuretype(hops::Hops, format=:auto)
-    if format==:auto
-        # format = decidetype(hops) # old behaviour
-        return hops
-    end 
-
-    if format==:dense
-        hops = DenseHops(hops)
-    elseif format==:sparse
-        hops = SparseHops(hops)
-    end
-
-    hops
-end
-
 import LinearAlgebra: norm
 import SparseArrays
 
@@ -320,23 +290,6 @@ function trim!(ρ::SparseHops{K}; kwargs...) where {K}
 end
 
 
-function efficientformat(ρ::Hops)
-    L = length(ρ)
-    @assert L > 0 "Must have at least one hopping element."
-
-    dims = size(first(values(ρ)))
-    
-    A = Array{ComplexF64}(undef, dims..., L) #Array{eltype(valtype(ρ))}(undef, dims..., L)
-    
-    keylist = []
-    for (i,δL) in enumerate(keys(ρ))
-        A[:,:,i] .= ρ[δL]
-        append!(keylist, [δL])
-    end
-    
-    A, keylist
-end
-
 function efficientzero(ρ::Hops)
     L = length(ρ)
     @assert L > 0 "Must have at least one hopping element."
@@ -346,10 +299,6 @@ function efficientzero(ρ::Hops)
     A = zeros(ComplexF64, dims..., L) #zeros(eltype(valtype(ρ)), dims..., L)
 
     A, collect(keys(ρ))
-end
-
-function flexibleformat(A::AbstractArray, keylist::AbstractVector)
-    Dict(L=>m for (L,m)=zip(keylist, eachslice(A; dims=3)))
 end
 
 function flexibleformat!(ρ::Hops, A::AbstractArray, keylist::AbstractVector)

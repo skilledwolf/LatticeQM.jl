@@ -4,6 +4,8 @@ import SharedArrays: SharedArray
 import LatticeQM.Spectrum
 import LatticeQM.Eigen
 
+@inline _eigvecs_at(H, k; kwargs...) = Eigen.geteigvecs(H(k); kwargs...)
+
 """
     statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
 
@@ -17,12 +19,7 @@ function statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
     NY = (NY<1) ? NX : NY
     indices = collect(Iterators.product(1:NX, 1:NY))
 
-    function wavefunctionsf(k; kwargs...)
-        h0 = H(k)
-        Eigen.geteigvecs(h0; kwargs...)
-    end
-    
-    M1 = size(wavefunctionsf(zeros(2)), 2) # dimension of Hilbert space
+    M1 = size(_eigvecs_at(H, zeros(2)), 2) # dimension of Hilbert space
     bandindices = (bandindices==[]) ? collect(1:M1) : bandindices
     M2 = size(bandindices,1) # number of occupied bands
 
@@ -33,19 +30,14 @@ function statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
     # Compute eigenspectrum on the k-grid
     statesgrid0 = convert(SharedArray, zeros(ComplexF64, NX, NY, M1, M2))
     @sync @distributed for (i_,j_) in indices
-        statesgrid0[i_,j_, :, :] = wavefunctionsf(kgrid[i_,j_].+1.34e-8)[:,bandindices]
+        statesgrid0[i_,j_, :, :] = _eigvecs_at(H, kgrid[i_,j_].+1.34e-8)[:,bandindices]
     end
 
     kgrid, midkgrid, statesgrid0
 end
 
 function statesgrid1D(H, NX::Int, bandindices::AbstractArray=[])
-    function wavefunctionsf(k; kwargs...)
-        h0 = H(k)
-        Eigen.geteigvecs(h0; kwargs...)
-    end
-
-    M1 = size(wavefunctionsf(zeros(1)), 2) # dimension of hilbert space
+    M1 = size(_eigvecs_at(H, zeros(1)), 2) # dimension of hilbert space
     bandindices = (bandindices==[]) ? collect(1:M1) : bandindices
     M2 = size(bandindices,1) # number of occupied bands
 
@@ -55,7 +47,7 @@ function statesgrid1D(H, NX::Int, bandindices::AbstractArray=[])
     # Compute eigenspectrum on the k-grid
     statesgrid0 = convert(SharedArray, zeros(ComplexF64, NX, M1, M2))
     @sync @distributed for i_ in 1:NX
-        statesgrid0[i_, :, :] = wavefunctionsf([kgrid[i_]])[:,bandindices]
+        statesgrid0[i_, :, :] = _eigvecs_at(H, [kgrid[i_]])[:,bandindices]
     end
 
     kgrid, statesgrid0
@@ -125,13 +117,8 @@ It builds little plaquettes along the path between the kpoints[:,i] and kpoints[
 """
 function berryalongpath(H, kpoints)
 
-    function wavefunctionsf(k; kwargs...)
-        h0 = H(k)
-        Eigen.geteigvecs(h0; kwargs...)
-    end
-
     N = size(kpoints,2) # number of k points
-    M = size(wavefunctionsf(zero(first(eachcol(kpoints)))), 2) # number of bands
+    M = size(_eigvecs_at(H, zero(first(eachcol(kpoints)))), 2) # number of bands
 
     # add some "dummy" points to build the grid
     k0 = kpoints[:,1] - (kpoints[:,2]-kpoints[:,1])
@@ -155,7 +142,7 @@ function berryalongpath(H, kpoints)
 
         plaquette = k0 .+  hcat(δkR, δkU, δkD, δkL)
 
-        States = [wavefunctionsf(k) for k in eachcol(plaquette)]
+        States = [_eigvecs_at(H, k) for k in eachcol(plaquette)]
 
         for i_=1:M
             berryc[i_,j_-1] = plaquettephase(
