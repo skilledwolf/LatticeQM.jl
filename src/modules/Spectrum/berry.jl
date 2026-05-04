@@ -1,55 +1,103 @@
 import LinearAlgebra: det, norm, I, svd
-import SharedArrays: SharedArray
+import SharedArrays: SharedArray, sdata
 
 import LatticeQM.Spectrum
 import LatticeQM.Eigen
+import LatticeQM.Parallel
 
 @inline _eigvecs_at(H, k; kwargs...) = Eigen.geteigvecs(H(k); kwargs...)
 
-"""
-    statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
+# Common eigenvector-grid loop shared between `statesgrid` and `statesgrid1D`.
+# Builds H(k) into a per-task scratch via the Spectrum/bands.jl
+# `bloch_buffer` / `bloch!` primitives, runs the eigensolver in-place, and
+# slices the requested `bandindices` columns into `out` via the caller's
+# `placement(out, j) -> view`. Reuses the same `kspace_foreach!` executor
+# pipeline as `bandmatrix`, so callers gain :threaded and :auto support and
+# scratch reuse for free.
+function _eigvecs_grid!(out, H, ks::AbstractMatrix, bandindices, placement::P;
+                        multimode=:auto,
+                        executor::Union{Nothing,Parallel.Executor}=nothing,
+                        format::Symbol=:dense) where {P}
+    exec = executor === nothing ? Parallel.to_executor(multimode) : executor
+    if exec isa Parallel.DistributedExec
+        H = sanatize_distributed_hamiltonian(H)
+    end
+    Parallel.configure_blas!(exec; verbose=false)
 
-Evaluates the eigenvectors on a discretized grid (2D Hamiltonian only!) and stores the result (preserving the grid information).
-This method is useful when plaquette phases need to be calculated.
+    Parallel.kspace_foreach!(ks, exec;
+        scratch_factory = () -> (Hcache = bloch_buffer(H, ks; format=format),)
+    ) do scratch, j, k
+        Hk = bloch!(scratch.Hcache, H, k)
+        _, U = Eigen.geteigen!(Hk)
+        @views placement(out, j) .= U[:, bandindices]
+    end
+    out
+end
 
-Note thate `statesgrid[i,j,:,k]` is the `k`-th eigenvector at gridpoint `i,j`.
 """
-function statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[])
-    # Prepare indices and sizes
+    statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[]; kwargs...)
+
+Evaluates the eigenvectors on a discretized grid (2D Hamiltonian only!) and
+stores the result (preserving the grid information). Useful when plaquette
+phases need to be calculated.
+
+`statesgrid[i,j,:,k]` is the `k`-th eigenvector at gridpoint `i,j`.
+
+Accepts `multimode`/`executor` and `format` like `bandmatrix`; defaults to
+`:auto` and `:dense`.
+"""
+function statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[];
+                    multimode=:auto,
+                    executor::Union{Nothing,Parallel.Executor}=nothing,
+                    format::Symbol=:dense)
     NY = (NY<1) ? NX : NY
-    indices = collect(Iterators.product(1:NX, 1:NY))
 
-    M1 = size(_eigvecs_at(H, zeros(2)), 2) # dimension of Hilbert space
-    bandindices = (bandindices==[]) ? collect(1:M1) : bandindices
-    M2 = size(bandindices,1) # number of occupied bands
-
-    # Prepare k-grid
+    # 2D k-grid (NX × NY matrix of 2-vectors). Flattened column-major into a
+    # 2 × (NX*NY) matrix for `kspace_foreach!`; linear index `j` maps back to
+    # `(mod1(j, NX), cld(j, NX))`.
     kgrid = [[x;y] for x=range(0; stop=1, length=NX), y=range(0; stop=1, length=NY)]
     midkgrid = [[1/(2*NX)+x;1/(2*NY)+y] for x=range(0; stop=1-1.0/NX, length=NX-1), y=range(0; stop=1-1.0/NY, length=NY-1)]
 
-    # Compute eigenspectrum on the k-grid
-    statesgrid0 = convert(SharedArray, zeros(ComplexF64, NX, NY, M1, M2))
-    @sync @distributed for (i_,j_) in indices
-        statesgrid0[i_,j_, :, :] = _eigvecs_at(H, kgrid[i_,j_].+1.34e-8)[:,bandindices]
-    end
+    ks = reduce(hcat, vec(kgrid)) .+ 1.34e-8
 
+    M1 = dim(H, ks)
+    bandindices = isempty(bandindices) ? collect(1:M1) : bandindices
+    M2 = length(bandindices)
+
+    exec = executor === nothing ? Parallel.to_executor(multimode) : executor
+    out = exec isa Parallel.DistributedExec ?
+              SharedArray{ComplexF64}(NX, NY, M1, M2) :
+              zeros(ComplexF64, NX, NY, M1, M2)
+
+    placement = (out, j) -> @views out[mod1(j, NX), cld(j, NX), :, :]
+    _eigvecs_grid!(out, H, ks, bandindices, placement;
+                   multimode=multimode, executor=exec, format=format)
+
+    statesgrid0 = exec isa Parallel.DistributedExec ? sdata(out) : out
     kgrid, midkgrid, statesgrid0
 end
 
-function statesgrid1D(H, NX::Int, bandindices::AbstractArray=[])
-    M1 = size(_eigvecs_at(H, zeros(1)), 2) # dimension of hilbert space
-    bandindices = (bandindices==[]) ? collect(1:M1) : bandindices
-    M2 = size(bandindices,1) # number of occupied bands
+function statesgrid1D(H, NX::Int, bandindices::AbstractArray=[];
+                      multimode=:auto,
+                      executor::Union{Nothing,Parallel.Executor}=nothing,
+                      format::Symbol=:dense)
+    kgrid = LinRange(0, 1, NX)
+    ks = reshape(collect(Float64, kgrid), 1, NX)
 
-    # Prepare k-grid
-    kgrid = LinRange(0,1,NX)
+    M1 = dim(H, ks)
+    bandindices = isempty(bandindices) ? collect(1:M1) : bandindices
+    M2 = length(bandindices)
 
-    # Compute eigenspectrum on the k-grid
-    statesgrid0 = convert(SharedArray, zeros(ComplexF64, NX, M1, M2))
-    @sync @distributed for i_ in 1:NX
-        statesgrid0[i_, :, :] = _eigvecs_at(H, [kgrid[i_]])[:,bandindices]
-    end
+    exec = executor === nothing ? Parallel.to_executor(multimode) : executor
+    out = exec isa Parallel.DistributedExec ?
+              SharedArray{ComplexF64}(NX, M1, M2) :
+              zeros(ComplexF64, NX, M1, M2)
 
+    placement = (out, j) -> @views out[j, :, :]
+    _eigvecs_grid!(out, H, ks, bandindices, placement;
+                   multimode=multimode, executor=exec, format=format)
+
+    statesgrid0 = exec isa Parallel.DistributedExec ? sdata(out) : out
     kgrid, statesgrid0
 end
 

@@ -71,3 +71,26 @@ end
     @test isapprox(ev[1], -0.5196152422706632; atol=1e-12)
     @test isapprox(ev[2],  0.5196152422706632; atol=1e-12)
 end
+
+# Chern numbers from `getcherns` on the Haldane phase: the lower band must
+# have C = +1 and the upper band C = -1 at ϕ = π/2 (sign flips at ϕ = -π/2).
+# This is the only test that exercises Spectrum.statesgrid + Spectrum.berry
+# end-to-end; without it, the k-loop refactor in berry.jl is unverified.
+@testset "Haldane: Chern numbers via berry()" begin
+    lat = Geometries.honeycomb()
+    H = Hops()
+    Operators.nearestneighbor!(H, lat, -1.0)
+    addhaldane_fast!(H, lat, x -> 0.1; ϕ=π/2)
+
+    cherns = LatticeQM.Spectrum.getcherns(H, 30, 30)
+    @test isapprox(cherns[1],  1.0; atol=0.05)
+    @test isapprox(cherns[2], -1.0; atol=0.05)
+
+    # Sign of ϕ flips the chirality.
+    H2 = Hops()
+    Operators.nearestneighbor!(H2, lat, -1.0)
+    addhaldane_fast!(H2, lat, x -> 0.1; ϕ=-π/2)
+    cherns2 = LatticeQM.Spectrum.getcherns(H2, 30, 30)
+    @test isapprox(cherns2[1], -1.0; atol=0.05)
+    @test isapprox(cherns2[2],  1.0; atol=0.05)
+end
