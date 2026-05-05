@@ -9,7 +9,11 @@ mutable struct HartreeFockBDG{K, T2h, Th<:Hops{K,T2h}, T2v, Tv<:Hops{K,T2v}} <: 
     const V0::T2v
     const hMF::Th
     const ΔMF::Th
-    ϵMF::Float64
+    ϵH::Float64
+    ϵF::Float64
+    ϵP::Float64
+    ϵband::Float64
+    ϵkin::Float64
     const fock::Bool
     const hartree::Bool
 
@@ -19,8 +23,10 @@ mutable struct HartreeFockBDG{K, T2h, Th<:Hops{K,T2h}, T2v, Tv<:Hops{K,T2v}} <: 
         # the underlying matrix, since `Base.zero(::Hops)` always densifies.
         hMF = Th(Dict{K,T2h}(L => zero(h[L]) for L in keys(h)))
         ΔMF = Th(Dict{K,T2h}(L => zero(h[L]) for L in keys(h)))
-        ϵMF = 0.0
-        new{K,T2h,Th,T2v,Tv}(h, v, μ, V0, hMF, ΔMF, ϵMF, fock, hartree)
+        # `ϵkin` is set by the SCF driver and shares the BdG quasi-particle
+        # convention of the underlying band energy; for BdG the variational
+        # identity has extra pairing-channel pieces, so interpret with care.
+        new{K,T2h,Th,T2v,Tv}(h, v, μ, V0, hMF, ΔMF, 0.0, 0.0, 0.0, 0.0, 0.0, fock, hartree)
     end
 end
 
@@ -78,15 +84,12 @@ function meanfieldOperator!(hf::HartreeFockBDG, ρ_el, ρΔ)
 end
 
 function meanfieldScalar!(hf::HartreeFockBDG, ρ_el, ρΔ)
-    hf.ϵMF = 0.0
-
-    if hf.fock
-        hf.ϵMF += Meanfield.meanfieldScalar_fock(hf, ρ_el)
-        hf.ϵMF += meanfieldScalar_fock_pairing(hf, ρΔ)
-    end
-    if hf.hartree
-        hf.ϵMF += Meanfield.meanfieldScalar_hartree(hf, ρ_el)
-    end
+    hf.ϵH = hf.hartree ? Meanfield.hartree_energy(hf, ρ_el) : 0.0
+    hf.ϵF = hf.fock    ? Meanfield.fock_energy(hf, ρ_el)    : 0.0
+    # Pairing channel: `meanfieldScalar_fock_pairing` returns `-½ Σ |Δ|² v`
+    # (the double-counting form), so the physical pairing energy is its
+    # negative.
+    hf.ϵP = hf.fock    ? -meanfieldScalar_fock_pairing(hf, ρΔ) : 0.0
     nothing
 end
 

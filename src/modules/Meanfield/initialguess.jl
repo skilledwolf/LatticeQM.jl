@@ -202,11 +202,69 @@ function initialguess(v::Hops, mode=:random, args...; lat=:nothing, kwargs...)
         setferro!(ρs, args...; kwargs...)
     elseif mode==:antiferro
         setantiferro!(ρs, lat, args...; kwargs...)
-    elseif mode==:spiral        
+    elseif mode==:spiral
         setzero!(ρs, spinspiraldensitymatrix(lat, args...; kwargs...))
     else
         error("Unrecognized mode '$mode' in initialguess(...).")
     end
 
     ρs
+end
+
+"""
+    enrichkeys!(ρ::Hops, klin::Int) → Hops
+
+Expand `keys(ρ)` to cover the full Wigner-Seitz cell of the inverse k-grid
+that `regulargrid(nk=klin^d)` produces, so the SCF can populate every
+Fourier mode of `ρ_full(k)`. Keys are added with zero matrix blocks; any
+existing block content is preserved.
+
+This is the prerequisite for using `residual_norm=:commutator` as a hard
+convergence criterion: with sparse `keys(ρ)` (the default for e.g. on-site
+Hubbard `v`), `bloch!(ρ, k)` reconstructs only a low-rank approximation of
+`ρ_full(k)`, and `‖[H, ρ]‖_F` hits a non-vanishing truncation floor.
+
+# klin parity
+
+`klin` should be **odd**. The WS cell `{-Lmax, …, Lmax}^d` for odd `klin`
+is closed under `L → -L`, so the lattice-Hops Hermiticity condition
+`ρ[L]^† = ρ[-L]` is satisfied without adding redundant keys. With even
+`klin`, `hermitianize!` adds keys at the BZ boundary that double-count the
+`k = ±½` Fourier mode, leaving a small (~10⁻²) residual floor.
+
+# Cost
+
+Memory: `klin^d × N²` complex doubles. For `klin = 9`, `d = 2`, `N = 4`
+(graphene-Hubbard): 81 × 16 ≈ 1300 doubles. Negligible. For `klin = 9`,
+`N = 1588` (TBG-N=11): ~ 200 MB — non-trivial but tractable.
+
+# Example
+
+```julia
+ρ_init = Meanfield.initialguess(v, :antiferro; lat=lat)
+Meanfield.enrichkeys!(ρ_init, 9)  # commutator residual now valid
+ρ, ϵ, mf, conv, res = Meanfield.solvehartreefock(
+    hops, v, ρ_init, 0.5; klin=9, residual_norm=:commutator, tol=1e-7)
+# converges in ~8 iterations to res ≈ 1e-9
+```
+"""
+function enrichkeys!(ρ::Hops, klin::Int)
+    isodd(klin) || @warn "enrichkeys!: klin=$klin is even. The Hops " *
+                         "Hermiticity check will add duplicate keys at the " *
+                         "BZ boundary, leaving a small commutator residual " *
+                         "floor. Use odd klin for machine-precision convergence."
+    N = hopdim(ρ)
+    isempty(ρ.data) && error("enrichkeys!: ρ must have at least one key " *
+                              "to infer matrix type and lattice dimension")
+    sample_key = first(keys(ρ.data))
+    sample_mat = ρ.data[sample_key]
+    d = length(sample_key)
+    Lmax = klin ÷ 2
+    for L_indices in Iterators.product(ntuple(_ -> -Lmax:Lmax, d)...)
+        L = typeof(sample_key)(collect(L_indices))
+        if !haskey(ρ.data, L)
+            ρ.data[L] = zero(sample_mat)
+        end
+    end
+    ρ
 end

@@ -33,7 +33,9 @@ const HARTREEFOCK_DEBUG = Ref(false)
 
 Mean-field functional for density (Hartree) and exchange (Fock) channels built
 from a base Hamiltonian `h` and interaction kernels `v`. Calling the struct on
-`ρ` updates the effective mean-field operator `hMF` and scalar energy `ϵMF`.
+`ρ` updates the effective mean-field operator `hMF` and the scalar energy
+fields `ϵH`, `ϵF` (see *Energy decomposition* below). The SCF driver fills in
+`ϵband` and `ϵkin` once a density-matrix iteration has run.
 
 `h` and `v` may use different matrix backends (e.g. dense `h` with sparse
 Hubbard `v`); they only need to share the lattice key type and dimensions.
@@ -46,6 +48,29 @@ already include it (e.g. via `TightBinding.addspin`); the Hartree term reads
 diagonal occupations from `ρ` and assumes those are the densities `v` couples
 to. For a spinful Hubbard `U n_↑ n_↓` model, build `v` so its matrix elements
 between spin-↑ and spin-↓ orbitals encode `U`, not the same-spin diagonal.
+
+# Energy decomposition (physical-sign convention)
+
+After `hf(ρ)`:
+
+  * `ϵH = +½ nᵀ V₀ n = ½ Tr[V_H ρ]` — Hartree energy (positive for
+    repulsive `V₀`)
+  * `ϵF = -½ Σ_L Σ_{ij} v_L[i,j] |ρ_L[i,j]|² = ½ Tr[V_F ρ]` — Fock /
+    exchange energy (negative for repulsive `v`)
+
+After one SCF iteration the driver sets:
+
+  * `ϵband = Tr[hMF · ρ]` — sum of occupied band energies
+  * `ϵkin = Tr[h · ρ] = ϵband - 2(ϵH + ϵF)` — kinetic / bare-Hamiltonian
+    expectation value (derived from the variational identity
+    `E_band = ⟨T⟩ + 2(E_H + E_F)`)
+
+The total HF energy can be read off in three equivalent ways — useful as
+self-consistency checks at convergence:
+
+  * `E_HF = ϵkin + ϵH + ϵF`            (physical, additive)
+  * `E_HF = ϵband - ϵH - ϵF`           (band − double-counting)
+  * `E_HF = ½ (ϵkin + ϵband)`          (`½ Tr[ρ (h₀ + hMF)]`)
 """
 mutable struct HartreeFock{K, T2h, Th<:Hops{K,T2h}, T2v, Tv<:Hops{K,T2v}} <: MeanfieldGenerator{Th}
     const h::Th
@@ -53,7 +78,10 @@ mutable struct HartreeFock{K, T2h, Th<:Hops{K,T2h}, T2v, Tv<:Hops{K,T2v}} <: Mea
     μ::Float64
     const V0::T2v
     const hMF::Th
-    ϵMF::Float64
+    ϵH::Float64
+    ϵF::Float64
+    ϵband::Float64
+    ϵkin::Float64
     const fock::Bool
     const hartree::Bool
 
@@ -65,8 +93,7 @@ mutable struct HartreeFock{K, T2h, Th<:Hops{K,T2h}, T2v, Tv<:Hops{K,T2v}} <: Mea
         # the underlying matrix's `zero` instead to keep sparse Hamiltonians
         # sparse.
         hMF = Th(Dict{K,T2h}(L => zero(h[L]) for L in keys(h)))
-        ϵMF = 0.0
-        new{K,T2h,Th,T2v,Tv}(h, v, μ, V0, hMF, ϵMF, fock, hartree)
+        new{K,T2h,Th,T2v,Tv}(h, v, μ, V0, hMF, 0.0, 0.0, 0.0, 0.0, fock, hartree)
     end
 end
 
@@ -106,14 +133,8 @@ function meanfieldOperator!(hf::HartreeFock, ρ)
 end
 
 function meanfieldScalar!(hf::HartreeFock, ρs)
-    hf.ϵMF = 0.0
-
-    if hf.fock
-        hf.ϵMF += meanfieldScalar_fock(hf, ρs)
-    end
-    if hf.hartree
-        hf.ϵMF += meanfieldScalar_hartree(hf, ρs)
-    end
+    hf.ϵH = hf.hartree ? hartree_energy(hf, ρs) : 0.0
+    hf.ϵF = hf.fock    ? fock_energy(hf, ρs)    : 0.0
     nothing
 end
 
@@ -163,15 +184,33 @@ end
 # scale with the number of orbitals in the zero-key block.
 _imag_tol(ρs) = sqrt(eps()) * max(1, size(ρs[zerokey(ρs)], 1))
 
-function meanfieldScalar_hartree(hf, ρs)
+"""
+    hartree_energy(hf, ρ) → Real
+
+Physical Hartree energy `+½ nᵀ V₀ n` (positive for repulsive `V₀`).
+"""
+function hartree_energy(hf, ρs)
     vρ = diag(ρs[zerokey(ρs)])
-    energy = -1/2 * (transpose(vρ) * hf.V0 * vρ) # Hartree contribution
+    energy = 1/2 * (transpose(vρ) * hf.V0 * vρ)
     @assert isapprox(imag(energy), 0; atol=_imag_tol(ρs))
     real(energy)
 end
 
-function meanfieldScalar_fock(hf, ρs)
-    energy = 1/2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L, vL) in hf.v)) # Fock contribution
+"""
+    fock_energy(hf, ρ) → Real
+
+Physical Fock (exchange) energy `-½ Σ_L Σ_{ij} v_L[i,j] |ρ_L[i,j]|²`
+(negative for repulsive `v`).
+"""
+function fock_energy(hf, ρs)
+    energy = -1/2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L, vL) in hf.v))
     @assert isapprox(imag(energy), 0; atol=_imag_tol(ρs))
     real(energy)
 end
+
+# Legacy double-counting-correction helpers (negatives of the physical
+# energies above). Kept because `Superconductivity.HartreeFockBDG` reuses
+# them in its mean-field scalar; new code should call `hartree_energy` /
+# `fock_energy` instead.
+meanfieldScalar_hartree(hf, ρs) = -hartree_energy(hf, ρs)
+meanfieldScalar_fock(hf, ρs)    = -fock_energy(hf, ρs)

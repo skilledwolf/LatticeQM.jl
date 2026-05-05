@@ -81,29 +81,84 @@ end
 # don't pin the exact iteration count (it depends on system, history depth,
 # damping), only that Anderson stays at least 3× faster than the β=0.20
 # linear baseline that the Néel test uses.
+function commutatorresidual()
+    # With keys(ρ) = inverse-grid WS cell, the Bloch reconstruction of ρ
+    # equals ρ_full(k) at every grid k, so [H_MF(k), ρ(k)] vanishes at
+    # convergence. Pick odd klin so the WS cell `{-Lmax..Lmax}^d` is
+    # closed under L → -L (no double-count from `hermitianize!`).
+    lat = Geometries.honeycomb()
+    hops = Operators.graphene(lat; mode=:spinhalf)
+    v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=4.0)
+    ρ_init = Meanfield.initialguess(v, :antiferro; lat=lat)
+    Meanfield.enrichkeys!(ρ_init, 9)
+
+    log = Tuple{Int,Float64,Float64}[]
+    _, _, _, conv, res = Meanfield.solvehartreefock(
+        hops, v, deepcopy(ρ_init), 0.5; klin=9, iterations=50, tol=1e-7,
+        T=0.01, β=1.0, acceleration=:anderson, anderson_depth=5,
+        verbose=false, show_trace=false,
+        residual_norm=:commutator,
+        log_callback=(it, ϵ, r) -> push!(log, (it, ϵ, r)))
+
+    # Should reach tol in well under the iteration budget.
+    converged_to_tol = conv && res < 1e-7
+    # And the trajectory must actually drop multiple orders of magnitude
+    # — guards against accidentally regressing to the truncation-floor case.
+    log_drop = !isempty(log) && log[1][3] / log[end][3] > 1e6
+
+    return converged_to_tol && log_drop
+end
+
 function andersonacceleration()
     lat = Geometries.honeycomb()
     hops = Operators.graphene(lat; mode=:spinhalf)
     v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=4.0)
     ρ_init = Meanfield.initialguess(v, :antiferro; lat=lat)
 
+    # Linear: 3-arg log_callback (legacy form must still work).
     log_lin = Tuple{Int,Float64,Float64}[]
-    _, ϵ_lin, _, conv_lin, _ = Meanfield.solvehartreefock(
+    _, ϵ_lin, mf_lin, conv_lin, _ = Meanfield.solvehartreefock(
         hops, v, deepcopy(ρ_init), 0.5; klin=15, iterations=400, tol=1e-7,
-        T=0.01, β=0.20, verbose=false, show_trace=false,
+        T=0.01, β=0.20, acceleration=:linear, verbose=false, show_trace=false,
         log_callback=(it, ϵ, r) -> push!(log_lin, (it, ϵ, r)))
 
-    log_and = Tuple{Int,Float64,Float64}[]
-    _, ϵ_and, _, conv_and, _ = Meanfield.solvehartreefock(
+    # Anderson: 4-arg log_callback (info NamedTuple via `applicable` dispatch).
+    log_and = Tuple{Int,Float64,Float64,NamedTuple}[]
+    _, ϵ_and, mf_and, conv_and, _ = Meanfield.solvehartreefock(
         hops, v, deepcopy(ρ_init), 0.5; klin=15, iterations=400, tol=1e-7,
         T=0.01, β=1.0, acceleration=:anderson, anderson_depth=5, verbose=false,
         show_trace=false,
-        log_callback=(it, ϵ, r) -> push!(log_and, (it, ϵ, r)))
+        log_callback=(it, ϵ, r, info) -> push!(log_and, (it, ϵ, r, info)))
 
     converged = conv_lin && conv_and
     same_energy = isapprox(ϵ_lin, ϵ_and; atol=1e-6)
     much_faster = length(log_and) * 3 ≤ length(log_lin)
-    return converged && same_energy && much_faster
+
+    # Variational identity `ϵkin = ϵband - 2(ϵH + ϵF)` is enforced by the SCF
+    # driver, so it holds to machine precision regardless of SCF tolerance.
+    decomp_identity = isapprox(mf_lin.ϵkin, mf_lin.ϵband - 2 * (mf_lin.ϵH + mf_lin.ϵF); atol=1e-12) &&
+                      isapprox(mf_and.ϵkin, mf_and.ϵband - 2 * (mf_and.ϵH + mf_and.ϵF); atol=1e-12)
+
+    # Three equivalent forms of E_HF at the SCF fixed point. ϵ_GS comes from
+    # the last update_ρ! (Pulay-style, uses prior-iteration hMF), so we
+    # allow SCF-tol slack.
+    decomp_additive = isapprox(mf_lin.ϵkin + mf_lin.ϵH + mf_lin.ϵF, ϵ_lin; atol=1e-5) &&
+                      isapprox(mf_and.ϵkin + mf_and.ϵH + mf_and.ϵF, ϵ_and; atol=1e-5)
+    decomp_dc       = isapprox(mf_lin.ϵband - mf_lin.ϵH - mf_lin.ϵF, ϵ_lin; atol=1e-5) &&
+                      isapprox(mf_and.ϵband - mf_and.ϵH - mf_and.ϵF, ϵ_and; atol=1e-5)
+    decomp_pulay    = isapprox((mf_lin.ϵkin + mf_lin.ϵband) / 2, ϵ_lin; atol=1e-5) &&
+                      isapprox((mf_and.ϵkin + mf_and.ϵband) / 2, ϵ_and; atol=1e-5)
+
+    info_present = !isempty(log_and) &&
+                   haskey(log_and[end][4], :ϵkin) &&
+                   haskey(log_and[end][4], :ϵband) &&
+                   haskey(log_and[end][4], :ϵH) &&
+                   haskey(log_and[end][4], :ϵF) &&
+                   haskey(log_and[end][4], :μ)
+
+    return converged && same_energy && much_faster &&
+           decomp_identity && decomp_additive && decomp_dc && decomp_pulay &&
+           info_present
 end
 
 # Regression test for the purification SCF. Until commit 6ffeb8f-ish, the
@@ -182,6 +237,9 @@ end
         end
         @testset "Anderson acceleration converges 3× faster than β=0.20 linear" begin
             @test andersonacceleration()
+        end
+        @testset "Commutator residual reaches tol with rich keys + odd klin" begin
+            @test commutatorresidual()
         end
         @testset "Purification SCF actually iterates (regression for in-place fix)" begin
             @test purificationiterates()

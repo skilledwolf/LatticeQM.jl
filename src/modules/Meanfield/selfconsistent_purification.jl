@@ -13,6 +13,15 @@ import LatticeQM.TightBinding: Hops
 
 using SparseArrays
 
+# Real-space convolution restricted to keys(A): (A * B)(R) = Σ_{R'} A(R-R') B(R')
+# for every R already in keys(A). This is intentional — the McWeeny iteration
+# would otherwise grow the support exponentially per step, which is fatal on
+# small unit cells where droptol! can't prune the dense O(D²) blocks fast
+# enough. Practical implication: P stays pinned to H's sparsity pattern, so
+# the converged ρ is the projection of the true density matrix onto that
+# pattern. For accurate ρ, ensure the H you pass already covers the support
+# you need — e.g. by precomputing `H * H' * ...` enough times to grow keys
+# before invoking purification.
 function compute_AB_product(A_matrices::Dict{K,T1}, B_matrices::Dict{K,T2}) where {K,T1,T2}
     T3 = promote_type(T1, T2)
     AB_product = Dict{K,T3}()
@@ -21,8 +30,7 @@ function compute_AB_product(A_matrices::Dict{K,T1}, B_matrices::Dict{K,T2}) wher
         AB_product_R = zero(A_matrices[R])
 
         for R_prime in keys(B_matrices)
-            R_diff = R .- R_prime  # Compute R - R'
-
+            R_diff = R .- R_prime
             if haskey(A_matrices, R_diff)
                 AB_product_R += A_matrices[R_diff] * B_matrices[R_prime]
             end
@@ -36,8 +44,15 @@ end
 
 SparseArrays.droptol!(H::Hops, args...) = SparseArrays.droptol!(H.data, args...)
 function SparseArrays.droptol!(A::Dict{K,T}, tol::Real) where {K,T<:SparseMatrixCSC}
+    # Drop small entries within each block, then prune blocks that became
+    # all-zero so the convolution support doesn't grow without bound.
+    to_remove = K[]
     for R in keys(A)
         SparseArrays.droptol!(A[R], tol)
+        nnz(A[R]) == 0 && push!(to_remove, R)
+    end
+    for R in to_remove
+        delete!(A, R)
     end
     return A
 end
@@ -45,6 +60,20 @@ end
 
 function compute_AB_product(A::Hops, B::Hops)
     Hops(compute_AB_product(A.data, B.data))
+end
+
+# ‖A[R] - B[R]‖_∞, treating missing blocks as zero. Used by McWeeny
+# convergence check after the convolution fix made A and B's key sets diverge.
+function _block_diff_norm(A::Hops, B::Hops, R)
+    if haskey(A, R) && haskey(B, R)
+        return norm(A[R] - B[R], Inf)
+    elseif haskey(A, R)
+        return norm(A[R], Inf)
+    elseif haskey(B, R)
+        return norm(B[R], Inf)
+    else
+        return 0.0
+    end
 end
 
 #############################################
@@ -92,9 +121,12 @@ function canonicalpurification_grid_realspace(H, E_min, E_max, max_iter, filling
         P_2 = compute_AB_product(P, P)
         droptol!(P_2, drop_tol)
         P_3 = compute_AB_product(P, P_2)
-        droptol!(P_2, drop_tol)
+        droptol!(P_3, drop_tol)
 
-        residual = maximum(norm(P_2[R] - P[R], Inf) for R in keys(P))
+        # Convergence: P should equal P² (idempotent projector). Use the
+        # union of supports because droptol! can prune blocks asymmetrically
+        # between P and P_2 (e.g. one becomes all-zero and is removed).
+        residual = maximum(_block_diff_norm(P, P_2, R) for R in union(keys(P), keys(P_2)))
 
         ProgressMeter.update!(prog, residual; showvalues=[(:iter, iter)])
 
@@ -191,6 +223,7 @@ function _solveselfconsistent_purification_impl!(ρ0::T1, ρ1::T1, hartreefock::
     purification_steps::Int=15,
     purification_eps::Real=1e-3,
     purification_drop_tol::Real=1e-4,
+    residual_norm::Symbol=:density,
     kwargs...) where {T1}
 
     update_ρ!(ρ1, hf) = begin
@@ -213,5 +246,19 @@ function _solveselfconsistent_purification_impl!(ρ0::T1, ρ1::T1, hartreefock::
         sum(tr(h0[R]' * ρ1[R]) for R in keys(h0))
     end
 
-    _scf_driver!(ρ0, ρ1, hartreefock, update_ρ!; kwargs...)
+    # See `_solveselfconsistent_impl!` for the rationale on residual choice.
+    # Purification grows `keys(ρ)` over iterations, so commutator residual
+    # *can* converge here (unlike the k-space SCF with truncated `ρ`), but
+    # only if McWeeny is run to a tight enough tolerance per step.
+    residual_fn = if residual_norm === :density
+        nothing
+    elseif residual_norm === :commutator
+        (ρ1_, ρ0_) -> commutator_kspace_norm(hMF(hartreefock), ρ0_, ks;
+                                              multimode=multimode)
+    else
+        throw(ArgumentError("residual_norm must be :density or :commutator, got $(residual_norm)"))
+    end
+
+    _scf_driver!(ρ0, ρ1, hartreefock, update_ρ!;
+                 residual_fn=residual_fn, kwargs...)
 end

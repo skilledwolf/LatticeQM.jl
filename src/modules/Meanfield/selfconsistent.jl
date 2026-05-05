@@ -5,6 +5,9 @@ import LatticeQM.Spectrum
 import LatticeQM.TightBinding
 import LatticeQM.Parallel
 
+using LinearAlgebra: mul!
+using Printf: @sprintf, @printf
+
 # Specialized cases
 """
     solvehartreefock(h, v, ρ_init, filling; kwargs...)
@@ -30,7 +33,31 @@ The `filling` sets the target electronic filling (0–1 per spin). Supply either
 an explicit k‑grid `ks` or a grid resolution via `klin` (uses `klin×klin`).
 
 Common keywords: `iterations`, `tol`, `T` (temperature), `β` (mixing),
-`multimode` (parallel), `log_callback`.
+`multimode` (parallel), `log_callback`, `residual_norm`.
+
+# Returned energy decomposition
+
+The returned `mf` carries the converged decomposition (physical-sign
+convention):
+
+  * `mf.ϵkin`  — kinetic energy `Tr[h₀ · ρ]` (derived from the variational
+    identity `ϵkin = ϵband - 2(ϵH + ϵF)`, exact at the SCF fixed point)
+  * `mf.ϵH`    — Hartree energy `+½ nᵀ V₀ n` (positive for repulsive `V₀`)
+  * `mf.ϵF`    — Fock energy `-½ Σ_L Σ_{ij} v_L[i,j] |ρ_L[i,j]|²` (negative
+    for repulsive `v`)
+  * `mf.ϵband` — band energy `Tr[H_MF · ρ]` = sum of occupied eigenvalues
+
+The total HF energy (returned as the second tuple element) can be expressed
+in three equivalent ways at the SCF fixed point:
+
+  * `E_HF = ϵkin + ϵH + ϵF`         (additive physical decomposition)
+  * `E_HF = ϵband - ϵH - ϵF`        (band − double-counting)
+  * `E_HF = ½ (ϵkin + ϵband)`       (`½ Tr[ρ (h₀ + H_MF)]`)
+
+When `log_callback` is supplied, the driver invokes it as
+`log_callback(iter, ϵ, residual, info)` if the callback can take a 4th arg
+(detected via `applicable`), with `info = (ϵkin, ϵband, ϵH, ϵF, μ)`. Otherwise
+it falls back to the legacy 3-arg form `log_callback(iter, ϵ, residual)`.
 """
 solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling::Number, ks; kwargs...) = solveselfconsistent!(deepcopy(ρ0), mf, filling, ks; kwargs...)
 solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling::Number; klin, kwargs...) = solveselfconsistent!(deepcopy(ρ0), mf, filling; klin=klin, kwargs...)
@@ -86,22 +113,141 @@ function sanitize!(ρ::TightBinding.Hops)
 end
 
 """
+    commutator_kspace_norm(H, ρ, ks; multimode=:auto, kweights=nothing) → Real
+
+Frobenius norm of the commutator `[H, ρ]`, evaluated in k-space:
+
+```math
+‖[H, ρ]‖_F = \\sqrt{\\sum_k w_k\\,‖H(k)\\,ρ(k) - ρ(k)\\,H(k)‖_F^2}
+```
+
+`H` and `ρ` must share an orbital basis (same matrix dimension per `Hops`
+block); their key sets may differ. Used as the SCF convergence metric:
+self-consistency is exactly `[H_MF[ρ], ρ] = 0`, so the commutator norm is a
+direct, basis-independent measure of how far the iteration is from a
+fixed point.
+"""
+function commutator_kspace_norm(H, ρ, ks::AbstractMatrix{Float64};
+                                kweights::Union{Nothing,AbstractVector{Float64}}=nothing,
+                                multimode::Symbol=:auto,
+                                executor::Union{Nothing,Parallel.Executor}=nothing)
+    nk = size(ks, 2)
+    weights = kweights === nothing ? fill(1.0/nk, nk) : kweights
+
+    exec = executor === nothing ? Parallel.to_executor(multimode) : executor
+    Parallel.configure_blas!(exec; verbose=false)
+
+    factory = () -> begin
+        Hbuf = Spectrum.bloch_buffer(H, ks; format=:dense)
+        ρbuf = Spectrum.bloch_buffer(ρ, ks; format=:dense)
+        N = size(Hbuf, 1)
+        Cbuf = Matrix{ComplexF64}(undef, N, N)
+        (Hcache=Hbuf, ρcache=ρbuf, C=Cbuf)
+    end
+
+    # `kspace_reduce!` requires an additive output, but we only need the
+    # scalar reduction. A 1-element zero vector satisfies the contract;
+    # `scalar_init=0.0` collects the per-k norm² contributions across tasks
+    # / workers and returns their sum (distributed-safe — `Ref` capture
+    # would silently lose worker writes).
+    norm_sq = Parallel.kspace_reduce!([0.0], ks, exec;
+        scratch_factory = factory,
+        scalar_init = 0.0) do _dummy, scratch, j, k
+        Hk = Spectrum.bloch!(scratch.Hcache, H, k)
+        ρk = Spectrum.bloch!(scratch.ρcache, ρ, k)
+        # C = Hk * ρk - ρk * Hk, computed via two BLAS3 calls into the
+        # same buffer.
+        mul!(scratch.C, Hk, ρk)
+        mul!(scratch.C, ρk, Hk, -1, 1)
+        weights[j] * sum(abs2, scratch.C)
+    end
+
+    sqrt(real(norm_sq))
+end
+
+# Wraps a user-supplied 3-arg `log_callback` so the SCF driver can pass a
+# 4th NamedTuple of energy-decomposition fields without breaking older
+# callbacks. `applicable` returns true for any signature that accepts the
+# extra argument (concrete or untyped slot).
+function _wrap_log_callback(cb, info_provider)
+    cb === nothing && return nothing
+    function (iter, ϵ, residual)
+        info = info_provider()
+        if applicable(cb, iter, ϵ, residual, info)
+            cb(iter, ϵ, residual, info)
+        else
+            cb(iter, ϵ, residual)
+        end
+    end
+end
+
+# ----------------------------------------------------------------------------
+# Tabular SCF logger (installed by `_scf_driver!` when verbose=true and the
+# user hasn't supplied their own `log_callback`).
+# ----------------------------------------------------------------------------
+
+const _SCF_LOG_HEADER =
+    "  iter        E_HF              E_kin              E_H              E_F          residual"
+const _SCF_LOG_RULE = "  " * "─"^88
+
+function _scf_log_print_header(io::IO=stderr)
+    println(io)
+    println(io, _SCF_LOG_RULE)
+    println(io, _SCF_LOG_HEADER)
+    println(io, _SCF_LOG_RULE)
+end
+
+function _scf_log_print_row(io::IO, iter::Integer, ϵ::Real, info::NamedTuple, residual::Real)
+    @printf(io, "  %4d   %16.10f   %16.10f   %14.8f   %14.8f   %.3e\n",
+            iter, ϵ, info.ϵkin, info.ϵH, info.ϵF, residual)
+end
+
+function _scf_log_print_footer(io::IO, iters::Integer, residual::Real, converged::Bool)
+    println(io, _SCF_LOG_RULE)
+    if converged
+        @printf(io, "  SCF converged after %d iterations  (residual %.3e)\n", iters, residual)
+    else
+        @printf(io, "  SCF did NOT converge in %d iterations  (residual %.3e)\n", iters, residual)
+    end
+    println(io)
+end
+
+# Default tabular printer. Returns `(callback, iter_ref)` — the closure
+# matches the 4-arg `log_callback` shape, and `iter_ref[]` exposes the
+# last iteration count so the SCF driver can read it for the footer.
+function _make_default_logger(io::IO)
+    iter_ref = Ref(0)
+    cb = function (iter::Integer, ϵ::Real, residual::Real, info::NamedTuple)
+        _scf_log_print_row(io, iter, ϵ, info, residual)
+        iter_ref[] = iter
+    end
+    cb, iter_ref
+end
+
+"""
     _scf_driver!(ρ0, ρ1, mf, update_ρ!; kwargs...)
 
 Common SCF skeleton shared by `solveselfconsistent!` (k-space diagonalization)
 and `solveselfconsistent_purification!` (real-space canonical purification).
-The caller supplies a closure `update_ρ!(ρ1, mf) -> ϵ_kinetic` that overwrites
-`ρ1` from the current mean-field operator and returns the kinetic energy
-contribution at this iteration.
+The caller supplies a closure `update_ρ!(ρ1, mf) -> ϵ_band` that overwrites
+`ρ1` from the current mean-field operator and returns the band-energy
+contribution `Tr[H_MF · ρ_{k+1}]` at this iteration. The driver caches that
+on `mf.ϵband` and derives `mf.ϵkin = ϵband - 2(ϵH + ϵF)` (variational
+identity), so callers read the full physical decomposition
+`(ϵkin, ϵH, ϵF, ϵband)` from the returned mean-field generator.
 
 Keywords:
 
   * `convergenceerror::Bool=false` — throw if SCF did not converge.
   * `callback=(ρ1 -> nothing)` — invoked with the freshly computed `ρ1` at
     each iteration. Existing user hook.
-  * `log_callback=nothing` — if non-`nothing`, called as
-    `log_callback(iter, ϵ, residual)` from within `fixedpoint!`. Lets callers
-    log SCF progress without enabling the progress bar.
+  * `log_callback=nothing` — if non-`nothing`, called every iteration. The
+    driver invokes it as either `log_callback(iter, ϵ, residual, info)` (4
+    args) or the legacy `log_callback(iter, ϵ, residual)` (3 args), picked
+    via `applicable`. `info` is a NamedTuple `(ϵkin, ϵband, ϵH, ϵF, μ)`.
+  * `residual_fn=nothing` — closure `(ρ1, ρ0) -> Real` that overrides the
+    convergence metric used by `fixedpoint!`. Defaults provided by the
+    caller (typically the commutator norm `‖[H_MF, ρ]‖_F`).
   * `iterations::Int=500`, `tol::Real=1e-7`, `verbose::Bool=false` — passed
     through to `fixedpoint!`.
   * Any other kwargs are forwarded to `fixedpoint!` (e.g. `β`, `p_norm`,
@@ -109,31 +255,77 @@ Keywords:
 """
 function _scf_driver!(ρ0, ρ1, hartreefock, update_ρ!::F;
     convergenceerror=false, callback=(x -> nothing), log_callback=nothing,
-    iterations=500, tol=1e-7, verbose::Bool=false, kwargs...) where {F}
+    residual_fn=nothing,
+    iterations=500, tol=1e-7, verbose::Bool=false,
+    log_io::IO=stderr,
+    kwargs...) where {F}
 
     sanitize!(ρ0)
     sanitize!(ρ1)
     @assert TightBinding.ishermitian(ρ0) "Initial guess for density matrix must be hermitian."
 
-    function update!(ρ1, ρ0)
-        verbose ? @info("Updating mean field operators...") : nothing
-        hartreefock(ρ0)
-
-        verbose ? @info("Updating the mean field density matrix...") : nothing
-        ϵ0 = update_ρ!(ρ1, hartreefock)
-
-        callback(ρ1)
-        ϵ0 + hartreefock.ϵMF
+    # Default per-iteration logger: only installed when `verbose=true` and
+    # the user hasn't supplied their own `log_callback`. Prints a clean
+    # tabular row per iteration. Header/footer are printed by the driver
+    # below (around `fixedpoint!`); `iter_ref` carries the last iteration
+    # count back to the footer.
+    is_default_logger = verbose && log_callback === nothing
+    iter_ref = Ref(0)
+    if is_default_logger
+        log_callback, iter_ref = _make_default_logger(log_io)
     end
 
+    function update!(ρ1, ρ0)
+        hartreefock(ρ0)
+        ϵband = real(update_ρ!(ρ1, hartreefock))
+        hartreefock.ϵband = ϵband
+        # Variational identity: `Tr[hMF·ρ] = ⟨T⟩ + 2(E_H + E_F)`. Derive
+        # `ϵkin` rather than running a second Bloch loop just for `Tr[h·ρ]`.
+        # Exact at the SCF fixed point; during iteration, picks up the same
+        # ρ_old/ρ_new mismatch the band energy itself carries.
+        hartreefock.ϵkin = ϵband - 2 * (hartreefock.ϵH + hartreefock.ϵF)
+
+        callback(ρ1)
+        # E_HF = ϵband - ϵH - ϵF (DC form)
+        #      = ϵkin + ϵH + ϵF (additive physical form, equivalent)
+        ϵband - hartreefock.ϵH - hartreefock.ϵF
+    end
+
+    info_provider = () -> (
+        ϵkin  = hartreefock.ϵkin,
+        ϵband = hartreefock.ϵband,
+        ϵH    = hartreefock.ϵH,
+        ϵF    = hartreefock.ϵF,
+        μ     = hartreefock.μ,
+    )
+    wrapped_log = _wrap_log_callback(log_callback, info_provider)
+
+    is_default_logger && _scf_log_print_header(log_io)
+
+    # When we own the per-iteration log, silence `fixedpoint!`'s own
+    # final-summary `@info` (it would print after our footer). Its
+    # non-convergence `@warn` still fires — we want that.
+    fp_verbose = is_default_logger ? false : verbose
     ϵ_GS, residual, converged = fixedpoint!(update!, ρ1, ρ0;
-        iterations=iterations, tol=tol, verbose=verbose,
-        log_callback=log_callback, kwargs...)
+        iterations=iterations, tol=tol, verbose=fp_verbose,
+        log_callback=wrapped_log, residual_fn=residual_fn, kwargs...)
 
     if convergenceerror && !converged
         error("Convergence error.")
     end
+    # Refresh `hMF, ϵH, ϵF` for the actually-converged ρ. `ϵband` still
+    # reflects the last iteration's Bloch loop and we don't redo it (would
+    # be a full extra `getdensitymatrix!`); re-derive `ϵkin` so the
+    # variational identity `ϵkin = ϵband - 2(ϵH + ϵF)` holds exactly with
+    # the current `ϵH, ϵF` values. At convergence ρ_{n-1} = ρ_n so the
+    # returned `ϵ_GS` differs from `ϵband - ϵH - ϵF` only at SCF tolerance —
+    # we replace it with the consistent value so the returned tuple matches
+    # `mf` byte-for-byte.
     hartreefock(ρ1)
+    hartreefock.ϵkin = hartreefock.ϵband - 2 * (hartreefock.ϵH + hartreefock.ϵF)
+    ϵ_GS = hartreefock.ϵband - hartreefock.ϵH - hartreefock.ϵF
+
+    is_default_logger && _scf_log_print_footer(log_io, iter_ref[], residual, converged)
 
     ρ_out = Utils.densecopy(ρ1)
     sanitize!(ρ_out)
@@ -170,10 +362,14 @@ Keywords (all optional): `iterations`, `tol`, `T` (electronic temperature),
 faster due to communication overhead.
 """
 function _solveselfconsistent_impl!(ρ0::T1, ρ1::T1, hartreefock::MeanfieldGenerator, filling::Float64, ks;
-    multimode=:serial, T=0.0, hidebar::Bool=false, verbose::Bool=false, kwargs...) where {T1}
+    multimode=:serial, T=0.0, hidebar::Bool=true, verbose::Bool=false,
+    residual_norm::Symbol=:density, kwargs...) where {T1}
 
+    # `hidebar` defaults to `true` here (vs `false` in standalone calls):
+    # the inner progress bars from `chemicalpotential` and
+    # `getdensitymatrix!` fire once per SCF iteration, which makes the
+    # screen unreadable. Set `hidebar=false` to re-enable them.
     update_ρ!(ρ1, hf) = begin
-        verbose ? @info("Updating chemical potential for given filling...") : nothing
         hf.μ = Spectrum.chemicalpotential(hMF(hf), ks, filling; T=T, multimode=multimode, hidebar=hidebar)
         ϵ0 = Operators.getdensitymatrix!(ρ1, hMF(hf), ks, hf.μ; multimode=multimode, T=T, format=:dense, hidebar=hidebar)
         if HARTREEFOCK_DEBUG[]
@@ -182,5 +378,31 @@ function _solveselfconsistent_impl!(ρ0::T1, ρ1::T1, hartreefock::MeanfieldGene
         ϵ0
     end
 
-    _scf_driver!(ρ0, ρ1, hartreefock, update_ρ!; verbose=verbose, kwargs...)
+    # `residual_fn` closes over `hartreefock.hMF`, which has just been
+    # updated for ρ_0 inside `f!` — the closure fires before mixing.
+    #   * `:density` (default) — `‖Δρ‖ / ‖ρ‖`. Drops to machine precision
+    #     at a true SCF fixed point regardless of `keys(ρ)`.
+    #   * `:commutator` — `‖[H_MF, ρ]‖_F` over the full BZ, the canonical
+    #     chemistry-SCF DIIS metric. Self-consistency ⇔ `[H_MF, ρ] = 0`,
+    #     so the residual is in absolute energy units and basis-independent.
+    #     **Prerequisite:** `keys(ρ)` must cover the inverse-grid
+    #     Wigner-Seitz cell so that `bloch!(ρ, k)` reconstructs the full
+    #     `ρ(k) = U·Diag(fd)·U⁺` exactly at every grid k. Use
+    #     [`Meanfield.enrichkeys!(ρ_init, klin)`](@ref) (with **odd klin**)
+    #     to do this. Without it, the Bloch sum stays a low-rank
+    #     approximation and the commutator stalls at a non-zero truncation
+    #     floor (~10⁰ for Hubbard with sparse `keys(ρ) = {0}`). With odd
+    #     klin and rich keys, it converges to machine precision in ~10
+    #     iterations.
+    residual_fn = if residual_norm === :density
+        nothing
+    elseif residual_norm === :commutator
+        (ρ1_, ρ0_) -> commutator_kspace_norm(hMF(hartreefock), ρ0_, ks;
+                                              multimode=multimode)
+    else
+        throw(ArgumentError("residual_norm must be :density or :commutator, got $(residual_norm)"))
+    end
+
+    _scf_driver!(ρ0, ρ1, hartreefock, update_ρ!;
+                 verbose=verbose, residual_fn=residual_fn, kwargs...)
 end

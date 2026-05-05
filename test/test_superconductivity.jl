@@ -75,14 +75,17 @@ end
         @test_throws ErrorException addpairing!(H, Δ_oneside)
     end
 
-    @testset "non-Hermitian pairing is rejected" begin
+    @testset "Δ[+R] and Δ[-R] independent: BdG still Hermitian" begin
+        # The construction `[0 Δ[R]; Δ[-R]' 0]` produces a Hermitian BdG
+        # *regardless* of any Δ[+R] vs Δ[-R] relationship — they parametrise
+        # independent upper-right blocks. addpairing! must NOT reject this
+        # (the SCF's natural ΔMF lives here).
         H = BdGOperator(h)
-        Δ_bad = Hops()
-        # Δ[+R] and Δ[-R] don't satisfy Δ[-R] = Δ[R]† — the off-diagonal
-        # values disagree.
-        Δ_bad[[1, 0]]  = ComplexF64[0.1 0.2; 0.0 0.1]
-        Δ_bad[[-1, 0]] = ComplexF64[0.1 0.0; 0.0 0.1]   # should be Δ[+R]'
-        @test_throws ErrorException addpairing!(H, Δ_bad)
+        Δ_indep = Hops()
+        Δ_indep[[1, 0]]  = ComplexF64[0.1 0.2; 0.0 0.1]
+        Δ_indep[[-1, 0]] = ComplexF64[0.1 0.0; 0.0 0.1]   # NOT Δ[+R]'
+        addpairing!(H, Δ_indep)
+        @test TightBinding.ishermitian(H.h)
     end
 end
 

@@ -62,28 +62,31 @@ end
 """
     addpairing!(H::BdGOperator, Δ::Hops)
 
-Add or update the pairing block of a Nambu Hamiltonian. The user is
-responsible for providing a `Δ` that yields a Hermitian `H_BdG` — i.e. the
-dictionary must contain `−R` for every `R` it contains, and
-`Δ[−R] == Δ[R]^†` must hold. Both conditions are validated; mismatches raise
-an error rather than being silently symmetrised, since the symmetrisation
-choice depends on the physical model (s-wave / d-wave / spin-singlet vs
-triplet decomposition).
+Add or update the pairing block of a Nambu Hamiltonian. The user must
+supply a `Δ` whose key set is closed under negation — every `R` in
+`keys(Δ)` must have a partner `−R`. The block built at offset `R` is
+
+    [ 0       Δ[ R] ]
+    [ Δ[−R]† 0     ]
+
+Note that `Δ[ R]` and `Δ[−R]` parametrise the *independent* upper-right
+blocks at offsets `R` and `−R` (the lower-left at `R` is
+`Δ[−R]†`). The resulting BdG is Hermitian as a Hops *regardless* of any
+relationship between `Δ[ R]` and `Δ[−R]` — the only requirement is that
+both keys are present so the construction can run. This deliberately
+matches what the SCF produces: the mean-field pairing
+`ΔMF[L] = v[L] .* conj(ρΔ[L])` is generically *not* dict-Hermitian
+(`ρΔ` is the upper-right block of `ρ_BdG`, which does not equal the
+lower-left in general), but the BdG built from it is still Hermitian.
 """
 function addpairing!(H::BdGOperator{T}, Δ::T2) where {T<:Hops, T2<:Hops}
     @assert hopdim(H) == hopdim(Δ) "Mismatch between matrix sizes of BdG Operator and pairing matrices."
 
-    # Validate the pairing dictionary up front, with messages that name the
-    # offset(s) the user has to fix.
+    # Closure-under-negation check: addpairing! reads Δ[-R] when building
+    # the lower-left block at R, so a missing -R key would crash with a
+    # cryptic KeyError. Surface a clear message naming the offending offset.
     for R in keys(Δ)
-        haskey(Δ, -R) || error("addpairing!: pairing dict has key $R but no partner $(- R). For a Hermitian BdG, every R needs its −R counterpart with Δ[−R] = Δ[R]†. Add the missing offset (or use .−R = Δ[R]') before calling addpairing!.")
-    end
-    for R in keys(Δ)
-        # Δ[-R] == Δ[R]† is required for Hermiticity of H_BdG. Check via a
-        # max-abs threshold — strict isapprox would be too noisy at machine
-        # epsilon for matrices built by user code.
-        maxdev = maximum(abs, Δ[-R] .- Δ[R]')
-        maxdev > sqrt(eps()) && error("addpairing!: Δ[−R] is not Δ[R]† for R=$R (max abs deviation $(maxdev)). The user must make the pairing dict Hermitian-compatible before calling addpairing!.")
+        haskey(Δ, -R) || error("addpairing!: pairing dict has key $R but no partner $(- R). The construction reads Δ[-R] for the lower-left block at R — every R needs its −R counterpart present. Δ[ R] and Δ[−R] may take independent values; the BdG comes out Hermitian regardless.")
     end
 
     Δ1 = T2(Dict())
@@ -94,10 +97,11 @@ function addpairing!(H::BdGOperator{T}, Δ::T2) where {T<:Hops, T2<:Hops}
 
     addhops!(H,Δ1) # effectively mergewith!(+,)
 
-    # Final guard: assert that the resulting Nambu operator really is
-    # Hermitian, in case the user-supplied h or Δ had numerical drift not
-    # caught by ishermitian.
-    @assert TightBinding.ishermitian(H.h) "addpairing!: resulting BdG operator is not Hermitian. This usually indicates Δ[−R] ≠ Δ[R]† at some offset, or h that drifted from Hermitian."
+    # Final guard: the construction is mathematically Hermitian when the
+    # pre-existing h block is (asserted in BdGOperator(h)), so this only
+    # fires on numerical drift or if a caller mutated H.h directly between
+    # the BdGOperator(h) call and addpairing!.
+    @assert TightBinding.ishermitian(H.h) "addpairing!: resulting BdG operator is not Hermitian. This indicates h drifted from Hermitian or H.h was mutated externally — the addpairing! construction itself preserves Hermiticity."
 
     H
 end

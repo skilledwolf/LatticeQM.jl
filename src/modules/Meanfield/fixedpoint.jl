@@ -4,7 +4,7 @@ using ProgressMeter
     fixedpoint!(f!, x1, x0; iterations=500, tol=1e-7, β=1.0, p_norm::Real=2,
                 relative=true, acceleration=:linear, anderson_depth=5,
                 show_trace=false, clear_trace=false, verbose=true,
-                log_callback=nothing)
+                log_callback=nothing, residual_fn=nothing)
 
 Damped fixed-point iteration with optional Anderson (Type-II) acceleration.
 `f!(x1, x0)` should overwrite `x1` with the next iterate computed from `x0`
@@ -14,15 +14,25 @@ After each call to `f!`:
 
   * **Linear mixing** (`acceleration=:linear`, default): the new iterate is
     `β * f(x_k) + (1 - β) * x_k`. `β=1` is undamped.
-  * **Anderson acceleration** (`acceleration=:anderson`): keeps the last
-    `anderson_depth` (`x_i, f(x_i))` pairs and solves a small least-squares
-    problem to combine them. `β` acts as a damping parameter (`β=1` is
-    undamped Anderson). Falls back to plain mixing on the first step
-    (no history yet) and whenever the LS solve produces a non-finite update.
+  * **Anderson acceleration** (`acceleration=:anderson`, opt-in): keeps the
+    last `anderson_depth` `(x_i, f(x_i))` pairs and solves a small
+    least-squares problem to combine them. `β` acts as a damping parameter
+    (`β=1` is undamped Anderson). Falls back to plain mixing on the first
+    step (no history yet) and whenever the LS solve produces a non-finite
+    update. Typical SCF problems converge ~5–10× faster than linear mixing
+    on well-conditioned interacting systems. **Caveat:** at `U ≈ 0` and
+    `T = 0` the residuals between iterations are nearly collinear, the LS
+    becomes ill-conditioned, and γ blows up — Anderson is opt-in rather
+    than the default for that reason. A future version may add automatic
+    rank-revealing QR pruning to make it safe by default.
 
-The residual is `‖x1 - x0‖ / max(‖x1‖, eps())` if `relative=true`, else
-absolute. Set `log_callback=(iter, ϵ, residual) -> ...` to log every step
-without enabling the progress bar.
+The default residual is `‖x1 - x0‖ / max(‖x1‖, eps())` if `relative=true`,
+else absolute. Pass `residual_fn=(x1, x0) -> Real` to override it — the
+callback is evaluated immediately after `f!`, before mixing rewrites `x0`,
+so it sees the raw `(x_{k+1}^{f}, x_k)` pair. The Anderson least-squares
+math always uses the iterate-difference form internally regardless of
+`residual_fn`. Set `log_callback=(iter, ϵ, residual) -> ...` to log every
+step without enabling the progress bar.
 
 Sanity-checked against `f_a(x) = 1/2 * (a/x + x)`, fixed point `√a`.
 """
@@ -37,6 +47,7 @@ function fixedpoint!(f!, x1, x0;
     clear_trace=false,
     verbose=true,
     log_callback=nothing,
+    residual_fn=nothing,
     )
 
     use_anderson = acceleration === :anderson && anderson_depth > 0
@@ -72,6 +83,13 @@ function fixedpoint!(f!, x1, x0;
         end
 
         ϵ0 = f!(x1, x0)
+
+        # Custom residual must be evaluated before mixing overwrites x0 (and
+        # before the Anderson combination overwrites x1). It typically
+        # depends on auxiliary state populated by `f!` — e.g. the SCF driver
+        # caches `H_MF[ρ_0]` on the meanfield generator and computes the
+        # commutator `‖[H_MF, ρ_0]‖` here.
+        custom_residual = residual_fn === nothing ? nothing : residual_fn(x1, x0)
 
         if use_anderson
             _flatten!(flat_f, x1, key_order, key_sizes)
@@ -120,6 +138,10 @@ function fixedpoint!(f!, x1, x0;
             for δL in keys(x0)
                 @. x0[δL] = x1[δL]
             end
+        end
+
+        if custom_residual !== nothing
+            residual = custom_residual
         end
 
         if show_trace
