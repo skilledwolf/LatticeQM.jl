@@ -1,0 +1,16 @@
+**
+!Project.toml
+!src
+!src/**
+
+# Never include these even if a future COPY tries to pull them in
+.git
+.github
+.devcontainer
+.vscode
+.idea
+extra
+test
+docs
+*.log
+*.tmp

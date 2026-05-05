@@ -1,10 +1,11 @@
-version: "3"
-
 services:
   ijulia:
-    build: .
+    build:
+      context: .
+      args:
+        julia_channel: release
     ports:
-      - 8888:8888
+      - "8888:8888"
     volumes:
       - ./extra/tutorial:/home/jovyan/tutorial
       - ./extra/examples:/home/jovyan/examples
@@ -12,5 +13,4 @@ services:
 #      - ./src:/LatticeQM/src # use if you want modify LatticeQM "on-the-fly"
 #      - ./Project.toml:/LatticeQM/Project.toml # use if you want modify LatticeQM "on-the-fly"
     environment:
-      julia_channel: release
       JUPYTER_ENABLE_LAB: "yes"
