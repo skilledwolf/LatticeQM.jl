@@ -177,6 +177,26 @@ honeycomb_ABC(a::Float64=1.0, z::Float64=3.0) = Lattice(
 #     specialpoints=kdict_tri
 # )
 
+# Shared tail of every `*_twisted*` constructor: pin the standard moiré
+# special-point dict and (optionally) fold positions back into the primitive
+# cell with a sublattice-aware origin shift. Centralising this means the
+# special-points choice and the fold shift change in exactly one place.
+function _finalize_twisted!(slat; fold::Bool)
+    slat.specialpoints = kdict_tri_mini
+    fold && Lattices.foldPC!(slat; shift=[1/3, 1/3, 0])
+    return slat
+end
+
+# Build a Bernal-stack layer (AB or BA) and translate its z by `z/2` so the
+# centred-stack `twist(...; z=z)` call produces the right interlayer spacing.
+function _bernal_layer(stack::Symbol, a::Float64, z::Float64)
+    lat = stack === :AB ? honeycomb_AB(a, z) :
+          stack === :BA ? honeycomb_BA(a, z) :
+          error("Unknown Bernal stacking $stack — use :AB or :BA.")
+    Lattices.translate!(lat, 3, z/2)
+    lat
+end
+
 """
     triangular_twisted(N, a=1.0, z=3.0; fold=true)
 
@@ -187,10 +207,7 @@ cell. Sets a compact set of special k‑points.
 function triangular_twisted(N::Int, a::Float64=1.0, z::Float64=3.0;
                              fold=true, verbose::Bool=false)
     lat = triangular(a)
-    slat = Lattices.twist(lat, lat, N; z=z, m=1, verbose=verbose)
-    slat.specialpoints = kdict_tri_mini
-    fold && Lattices.foldPC!(slat; shift=[1/3,1/3,0])
-    return slat
+    _finalize_twisted!(Lattices.twist(lat, lat, N; z=z, m=1, verbose=verbose); fold=fold)
 end
 precompile(triangular_twisted, (Int, Float64, Float64))
 
@@ -205,10 +222,7 @@ why the smaller minimal cell is currently unsupported.
 function honeycomb_twisted(N::Int, a::Float64=1.0, z::Float64=3.0;
                             fold=true, verbose::Bool=false)
     lat = honeycomb(a)
-    slat = Lattices.twist(lat, lat, N; z=z, m=1, verbose=verbose)
-    slat.specialpoints = kdict_tri_mini
-    fold && Lattices.foldPC!(slat; shift=[1/3,1/3,0])
-    return slat
+    _finalize_twisted!(Lattices.twist(lat, lat, N; z=z, m=1, verbose=verbose); fold=fold)
 end
 precompile(honeycomb_twisted, (Int, Float64, Float64))
 
@@ -219,14 +233,9 @@ Four‑layer twisted stack with ABBA stacking within layers prior to twisting.
 """
 function honeycomb_twisted_ABBA(N::Int, a::Float64=1.0, z::Float64=3.0;
                                  fold=true, verbose::Bool=false)
-    lat1 = honeycomb_AB(a, z)
-    Lattices.translate!(lat1, 3, z/2)
-    lat2 = honeycomb_AB(a, z)
-    Lattices.translate!(lat2, 3, z/2)
-    slat = Lattices.twist(lat1, lat2, N; z=z, m=1, verbose=verbose)
-    slat.specialpoints = kdict_tri_mini
-    fold && Lattices.foldPC!(slat; shift=[1/3,1/3,0])
-    return slat
+    lat1 = _bernal_layer(:AB, a, z)
+    lat2 = _bernal_layer(:AB, a, z)
+    _finalize_twisted!(Lattices.twist(lat1, lat2, N; z=z, m=1, verbose=verbose); fold=fold)
 end
 precompile(honeycomb_twisted_ABBA, (Int, Float64, Float64))
 
@@ -237,14 +246,9 @@ Four‑layer twisted stack with ABAB stacking within layers prior to twisting.
 """
 function honeycomb_twisted_ABAB(N::Int, a::Float64=1.0, z::Float64=3.0;
                                  fold=true, verbose::Bool=false)
-    lat1 = honeycomb_AB(a, z)
-    Lattices.translate!(lat1, 3, z/2)
-    lat2 = honeycomb_BA(a, z)
-    Lattices.translate!(lat2, 3, z/2)
-    slat = Lattices.twist(lat1, lat2, N; z=z, m=1, verbose=verbose)
-    slat.specialpoints = kdict_tri_mini
-    fold && Lattices.foldPC!(slat; shift=[1/3,1/3,0])
-    return slat
+    lat1 = _bernal_layer(:AB, a, z)
+    lat2 = _bernal_layer(:BA, a, z)
+    _finalize_twisted!(Lattices.twist(lat1, lat2, N; z=z, m=1, verbose=verbose); fold=fold)
 end
 precompile(honeycomb_twisted_ABAB, (Int, Float64, Float64))
 

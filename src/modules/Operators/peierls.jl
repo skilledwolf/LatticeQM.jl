@@ -63,31 +63,6 @@ function peierlsinplane!(hops, lat::Lattice, B::AbstractVector)
     peierls!(hops, lat, phase)
 end
 
-
-# function peierlsoutplane!(hops, lat::Lattice, phase::Function)
-#     N = countorbitals(lat)
-#     D = hopdim(hops)
-#     d = div(D,N) # if spinhalf then d=2, if spinless d=1
-#     @assert d == 1 # only spinless (testing)
-#     @assert D == N*d #consistency check
-
-#     # phasebar(r1,r2)= -(phase(r1,r2)-phase(r2,r1))/2
-#     # phasebar(ri, rj, R) = phase(ri,rj)+(phase(ri+rj,R)-phase(R,ri+rj))/2
-
-#     A = getA(lat)
-#     X = positions(lat)
-
-#     for (R, h) = hops
-#         δa = A * R
-#         for i=1:N,j=1:N
-#             # hops[R][i,j] *= exp(1im*2π*phasebar(X[:,i]+δa, X[:,i]+X[:,j])) #hops[R][i,j] * exp(1im*2π*phasebar(X[:,i]+δa, X[:,i]+X[:,j]))
-#             hops[R][i,j] *= exp(1im*2π*phase(X[:,i], X[:,j], δa)) #hops[R][i,j] * exp(1im*2π*phasebar(X[:,i]+δa, X[:,i]+X[:,j]))
-#         end
-#     end
-
-#     hops
-# end
-
 function peierlsoutplane!(hops, lat::Lattice, phase::Function)
     N = Lattices.countorbitals(lat)
     D = TightBinding.hopdim(hops)
@@ -321,43 +296,3 @@ function uniformfieldphase_outplane(a1::T,a2::T, Φ::Number) where T<:AbstractVe
 
     return phase
 end
-
-
-
-
-# function peierlsoutplane2(hops, lat::Lattice, p::Int, q::Int; verbose=true)
-#     @assert gcd(p,q)<2 "Integers p,q for flux Φ=p/q should be coprime. (here p=$p, q=$q)"
-#     verbose ? print("Building magnetic supercell for Φ=p/q=$p/$q.") : nothing
-
-#     mlat  = Structure.Lattices.superlattice(lat, [1,q])
-#     mhops = TightBinding.superlattice(hops, [1,q])
-
-#     phasefunc(r1,r2) = uniformfieldphase(r1, r2; B=[0,0,p/q])
-
-#     peierls!(mhops, mlat, phasefunc)
-
-#     mhops, mlat
-# end
-
-# function hofstadter2(hops, lat::Lattice, Q::Int)
-
-#     lat0  = Structure.Lattices.superlattice(lat, [1,1])
-#     hops0 = TightBinding.superlattice(hops, [1,-1])
-
-#     fluxes = [(p,q) for q=1:Q for p=1:q-1 if gcd(p,q)<2]
-#     energies = Vector{Float64}[]
-
-#     k0 = zeros(Float64, Structure.latticedim(lat), 1)
-
-#     @showprogress 2 "Iterating through flux... " for (p,q)=fluxes
-#         mhops, mlat = Operators.peierlsoutplane2(hops0, lat0, p,q; verbose=false)
-#         append!(energies, [vec(bandmatrix(mhops, k0)[1])])
-#     end
-
-#     fluxes = map(x->x[1]//x[2], fluxes)
-#     p = sortperm(fluxes)
-#     fluxes = fluxes[p]
-#     energies = energies[p]
-
-#     fluxes, energies
-# end

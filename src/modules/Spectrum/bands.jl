@@ -226,21 +226,8 @@ function _band_kpoint!(scratch, j, k, bands, obs, H, projectors; kwargs...)
     return nothing
 end
 
-# Legacy thin wrapper: still useful for callers that already have bands/obs
-# and want a serial in-place fill (e.g. tests, small ad-hoc scripts).
-function bandmatrix_serial!(bands, obs, H, ks, projectors, progressbar=nothing;
-                            progress_channel=nothing, kwargs...)
-    scratch = bandmatrix_scratch(H, ks; kwargs...)
-    @inbounds for j in axes(ks, 2)
-        _band_kpoint!(scratch, j, view(ks, :, j), bands, obs, H, projectors; kwargs...)
-        progress_channel !== nothing && put!(progress_channel, true)
-        progressbar !== nothing && ProgressMeter.next!(progressbar)
-    end
-    bands, obs
-end
-
 ################################################################################
-# Main public user interface 
+# Main public user interface
 ################################################################################
 
 # import ..Structure.Paths: DiscretePath

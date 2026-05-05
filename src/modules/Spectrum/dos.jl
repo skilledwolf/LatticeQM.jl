@@ -174,30 +174,16 @@ import LatticeQM.Structure: Mesh, meshweights
 #
 # `dos!` adds δ(ω - ϵ_k) (broadened) for each k to the local accumulator.
 # Per-task accumulators are merged at the end by Parallel.kspace_reduce!.
+#
+# `kweights === nothing` is the unweighted path: per-k contributions are
+# summed and divided by L at the end. Otherwise the weights are applied
+# in-line and no post-normalisation is done (caller-supplied weights are
+# expected to encode the BZ measure).
 function dos_compute!(DOS, h, frequencies::AbstractVector,
                       ks::AbstractMatrix{<:Real}, exec::Parallel.Executor;
-                      Γ::Number, progress_label=PROGRESSBAR_DOS_DEFAULTLABEL,
-                      hidebar=!Spectrum.PROGRESSBAR_SHOWDEFAULT,
-                      format=:dense, kwargs...)
-    L = size(ks, 2)
-    Parallel.configure_blas!(exec; verbose=false)
-    progressbar = _make_dos_progress(L, progress_label, hidebar)
-    Parallel.kspace_reduce!(DOS, ks, exec;
-        scratch_factory = () -> (Hcache=Spectrum.bloch_buffer(h, ks; format=format),),
-        progress = progressbar) do local_dos, scratch, _j, k
-        Hk = Spectrum.bloch!(scratch.Hcache, h, k)
-        ϵs = Eigen.geteigvals!(Hk; format=format, kwargs...)
-        dos!(local_dos, ϵs, frequencies; broadening=Γ)
-    end
-    finish!(progressbar)
-    DOS ./= L
-    DOS
-end
-
-function dos_compute!(DOS, h, frequencies::AbstractVector,
-                      ks::AbstractMatrix, kweights::AbstractVector,
-                      exec::Parallel.Executor;
-                      Γ::Number, progress_label=PROGRESSBAR_DOS_DEFAULTLABEL,
+                      Γ::Number,
+                      kweights::Union{Nothing,AbstractVector}=nothing,
+                      progress_label=PROGRESSBAR_DOS_DEFAULTLABEL,
                       hidebar=!Spectrum.PROGRESSBAR_SHOWDEFAULT,
                       format=:dense, kwargs...)
     L = size(ks, 2)
@@ -208,15 +194,22 @@ function dos_compute!(DOS, h, frequencies::AbstractVector,
         progress = progressbar) do local_dos, scratch, j, k
         Hk = Spectrum.bloch!(scratch.Hcache, h, k)
         ϵs = Eigen.geteigvals!(Hk; format=format, kwargs...)
-        dos!(local_dos, ϵs, frequencies; broadening=Γ, weight=kweights[j])
+        w = kweights === nothing ? 1.0 : kweights[j]
+        dos!(local_dos, ϵs, frequencies; broadening=Γ, weight=w)
     end
     finish!(progressbar)
+    kweights === nothing && (DOS ./= L)
     DOS
 end
 
-function dos_compute!(DOS, h, frequencies::AbstractVector, kgrid::Mesh, exec::Parallel.Executor; kwargs...)
+dos_compute!(DOS, h, frequencies::AbstractVector,
+             ks::AbstractMatrix, kweights::AbstractVector,
+             exec::Parallel.Executor; kwargs...) =
+    dos_compute!(DOS, h, frequencies, ks, exec; kweights=kweights, kwargs...)
+
+dos_compute!(DOS, h, frequencies::AbstractVector, kgrid::Mesh,
+             exec::Parallel.Executor; kwargs...) =
     dos_compute!(DOS, h, frequencies, kgrid.points, meshweights(kgrid), exec; kwargs...)
-end
 
 # using HCubature
 #

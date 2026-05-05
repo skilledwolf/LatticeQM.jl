@@ -28,3 +28,36 @@ using .analyticbands: grapheneconductionband
 
     @test mae_lower + mae_upper < 1e-12
 end
+
+# Regression: graphene NN DOS over its [-3, 3] bandwidth must satisfy three
+# qualitative invariants that catch most kinds of breakage in `getdos`,
+# `dos_compute!`, the `Parallel.kspace_reduce!` accumulation pipeline, and
+# the eigenvalue-only `geteigvals!` shortcut they sit on top of:
+#   1. Particle-hole symmetric (DOS(ω) ≈ DOS(-ω) on a bipartite lattice).
+#   2. Total spectral weight = N_bands · π = 2π (the package's `dos!` accumulates
+#      `Im[1/(ω − iΓ − ϵ)]` without dividing by π, so the per-band integral is
+#      π rather than 1 — this is the existing normalisation convention; the
+#      test asserts it explicitly so a future divide-by-π change is caught).
+#   3. Van Hove peaks at ω = ±1 dominate the Dirac dip at ω = 0.
+@testset "Spectrum: graphene NN DOS shape" begin
+    lat = Geometries.honeycomb()
+    H = Hops()
+    Operators.nearestneighbor!(H, lat, -1.0)
+
+    ωs, dos = Spectrum.getdos(H, -3.05, 3.05, 401; klin=120, Γ=0.05)
+    dos_real = real.(dos)
+
+    # 1. Particle-hole symmetry to numerical precision (sublattice-symmetric H).
+    @test maximum(abs, dos_real .- reverse(dos_real)) / maximum(abs, dos_real) < 1e-10
+
+    # 2. Spectral weight (Riemann sum) ≈ 2π within ~5% — see header.
+    integral = sum(dos_real) * (ωs[2] - ωs[1])
+    @test isapprox(integral, 2π; rtol=0.05)
+
+    # 3. Van Hove peaks at |ω|=1 dominate the Dirac dip at ω=0.
+    i_dip = argmin(abs.(ωs .- 0.0))
+    i_vH⁺ = argmin(abs.(ωs .- 1.0))
+    i_vH⁻ = argmin(abs.(ωs .+ 1.0))
+    @test dos_real[i_vH⁺] > 3 * dos_real[i_dip]
+    @test dos_real[i_vH⁻] > 3 * dos_real[i_dip]
+end

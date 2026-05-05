@@ -11,7 +11,7 @@ import ..Structure
 import ..Structure.Lattices
 import ..Structure: regulargrid
 import ..TightBinding
-import ..TightBinding: Hops, DenseHops, SparseHops
+import ..TightBinding: Hops
 import ..Spectrum: chemicalpotential
 
 include("gethops.jl")

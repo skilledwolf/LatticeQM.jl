@@ -163,45 +163,64 @@ import ..Structure: rotation2D
 Calculate the abelian Berry curvature for each band along a path of discrete k points.
 It builds little plaquettes along the path between the kpoints[:,i] and kpoints[:,i+1].
 """
-function berryalongpath(H, kpoints)
+function berryalongpath(H, kpoints;
+                        multimode=:auto,
+                        executor::Union{Nothing,Parallel.Executor}=nothing,
+                        format::Symbol=:dense)
 
-    N = size(kpoints,2) # number of k points
-    M = size(_eigvecs_at(H, zero(first(eachcol(kpoints)))), 2) # number of bands
+    N = size(kpoints, 2)            # number of k-points along the path
+    M = dim(H, kpoints)             # Hilbert dimension
 
-    # add some "dummy" points to build the grid
-    k0 = kpoints[:,1] - (kpoints[:,2]-kpoints[:,1])
-    kNp1 = kpoints[:,N] + (kpoints[:,N]-kpoints[:,N-1])
-    kpoints = hcat(k0,kpoints[:,:],kNp1)
+    # Padding endpoints so each interior point has neighbours on both sides
+    # for plaquette construction.
+    k0 = kpoints[:, 1] - (kpoints[:, 2] - kpoints[:, 1])
+    kNp1 = kpoints[:, N] + (kpoints[:, N] - kpoints[:, N - 1])
+    kpoints = hcat(k0, kpoints[:, :], kNp1)
 
-    kpoints .+= 0.10*norm(kpoints[:,2]-kpoints[:,1])*rand(2)
+    # Random in-plane shift so the path doesn't sit on top of a band touching
+    # (Dirac point, etc.) where det(U' * U') has a phase singularity.
+    kpoints .+= 0.10 * norm(kpoints[:, 2] - kpoints[:, 1]) * rand(2)
 
-    # prepare the array for the results
-    berryc = convert(SharedArray, zeros(M, N))
+    centers = view(kpoints, :, 2:N+1)
 
-    # @sync @distributed for j_=2:N+1
-    pmap(2:N+1) do j_
+    exec = executor === nothing ? Parallel.to_executor(multimode) : executor
+    if exec isa Parallel.DistributedExec
+        H = sanatize_distributed_hamiltonian(H)
+    end
+    Parallel.configure_blas!(exec; verbose=false)
 
-        k0 = kpoints[:,j_]
+    berryc = exec isa Parallel.DistributedExec ?
+                 SharedArray{Float64}(M, N) :
+                 zeros(Float64, M, N)
 
-        δkR = (kpoints[:,j_+1]-k0)/2
-        δkL = (kpoints[:,j_-1]-k0)/2
-        δkU = (rotation2D(π/2)*δkR + rotation2D(-π/2)*δkL)/2
-        δkD = (rotation2D(-π/2)*δkR + rotation2D(π/2)*δkL)/2
+    Parallel.kspace_foreach!(centers, exec;
+        scratch_factory = () -> (Hcache = bloch_buffer(H, centers; format=format),)
+    ) do scratch, j, _kc_view
+        # `j` is the centre index 1..N; the corresponding column in `kpoints`
+        # (after padding) is `j+1`. We re-read `kpoints` here to keep the
+        # neighbour-aware plaquette geometry that the path-derivative needs.
+        kc = kpoints[:, j+1]
+        δkR = (kpoints[:, j+2] - kc) / 2
+        δkL = (kpoints[:, j]   - kc) / 2
+        δkU = (rotation2D( π/2) * δkR + rotation2D(-π/2) * δkL) / 2
+        δkD = (rotation2D(-π/2) * δkR + rotation2D( π/2) * δkL) / 2
 
-        plaquette = k0 .+  hcat(δkR, δkU, δkD, δkL)
-
-        States = [_eigvecs_at(H, k) for k in eachcol(plaquette)]
-
-        for i_=1:M
-            berryc[i_,j_-1] = plaquettephase(
-                (U[:,i_] for U in States)...
-            )
+        # Eigenvectors at the four plaquette corners. The shared `Hcache` is
+        # overwritten between corners; `Eigen.geteigen!` returns a fresh `U`
+        # matrix per call, so the four `Us` are independent of each other and
+        # of the Hcache state once collected.
+        Us = map((δkR, δkU, δkD, δkL)) do δk
+            Hk = bloch!(scratch.Hcache, H, kc .+ δk)
+            _, U = Eigen.geteigen!(Hk)
+            U
         end
 
-        nothing
+        for i_ in 1:M
+            berryc[i_, j] = plaquettephase((U[:, i_] for U in Us)...)
+        end
     end
 
-    berryc
+    exec isa Parallel.DistributedExec ? sdata(berryc) : berryc
 end
 
 

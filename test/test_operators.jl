@@ -84,3 +84,26 @@ end
     @test Operators.trace(H) ≈ 4
     @test Operators.expval(H) ≈ tr(Imat)   # sum of all entries — onsite only here
 end
+
+# Regression: Spectrum/Hops current operators J_α(k) = ∂H(k)/∂k_α must be
+# Hermitian for any Hermitian H. The Hops-input branch of getcurrentoperators
+# is the documented "preferred path" for tight-binding Hamiltonians, so this
+# is the right one to pin. Catches sign-flip / position-convention drift in
+# `currentoperators!` and the dense/sparse helpers it dispatches to.
+@testset "Operators: getcurrentoperators(Hops) is Hermitian" begin
+    lat = Geometries.honeycomb()
+    H = Hops()
+    Operators.nearestneighbor!(H, lat, -1.0)
+    Js = Operators.getcurrentoperators(lat, H)
+
+    # One operator per spatial direction; spacedim(honeycomb) = 3 even though
+    # latticedim = 2 (the embedding ambient space is 3D, with z trivial).
+    @test length(Js) == LatticeQM.Structure.Lattices.spacedim(lat)
+
+    for k in ([0.0, 0.0], [1/3, -1/3], [0.5, 0.5], [-0.2, 0.7])
+        for J in Js
+            Jk = Matrix(J(k))
+            @test maximum(abs, Jk .- Jk') < 1e-10
+        end
+    end
+end

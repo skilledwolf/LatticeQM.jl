@@ -67,8 +67,6 @@ import ..Structure: Mesh, meshweights
 ##########################################################################################
 import Statistics
 
-getfillings(bands::AbstractMatrix, μs::AbstractVector, args...; kwargs...) = [getfilling(bands, args...; μ = μ, kwargs...) for μ in μs]
-
 getfilling(bands::AbstractMatrix, kmesh::Mesh; kwargs...) = getfilling(bands, meshweights(kmesh); kwargs...)
 
 getfilling(bands::AbstractArray, kpoints::AbstractMatrix; kwargs...) = Statistics.mean(fermidirac(bands; kwargs...))
@@ -91,47 +89,3 @@ function filling(H, μ; multimode = :distributed, nk = 10, kwargs...)
     getfilling(bandmatrix(Utils.getelectronsector(H), ks; multimode = multimode)[1]; μ = μ, kwargs...)
 end
 
-function fillings(H, ks, μs; kwargs...)
-    bandmatrix = bandmatrix(Utils.getelectronsector(H), ks; multimode = multimode)[1]
-
-    getfillings(bandmatrix, μs, ks; kwargs...)
-end
-
-function fillings(H, μs; nk=10, kwargs...)
-    ks = regulargrid(nk = nk^2)
-    bandmatrix = bandmatrix(Utils.getelectronsector(H), ks; multimode = multimode)[1]
-
-    getfillings(bandmatrix, μs, ks; kwargs...)
-end
-
-
-##########################################################################################
-# Alternate all-julia implementation: (requires NLsolve, which loads slowly)
-##########################################################################################
-
-# function chemicalpotential_T(bands, kgrid, filling::T1; T::T1 = 0.01) where {T1<:Real}
-
-#     # Initial guess for T=0
-#     μ0 = chemicalpotential_0(bands, filling)
-
-#     ##########################################
-#     ###  Solve  n(μ*) = N_occ for μ*
-#     ##########################################
-
-#     n(μ::AbstractFloat) = getfilling(bands, kgrid; μ = μ)
-
-#     function δn!(δn::T, μ::T) where {T2<:AbstractFloat, T<:AbstractArray{T2}}
-#         δn[1] = n(μ[1]) - filling
-#         nothing
-#     end
-#     sol = NLsolve.nlsolve(δn!, [μ0])#; ftol=1e-6, iterations=1500)
-#     if !NLsolve.converged(sol)
-#         println("WARNING: Calculation of chemical potential for finite T did not converge.")
-#         println("         Using chemical potential for T=0 instead (=Fermi energy).")
-#         μ = μ0
-#     else
-#         μ = sol.zero[1]
-#     end
-
-#     μ
-# end
