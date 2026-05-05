@@ -178,7 +178,7 @@ end
 """
     solveselfconsistent_purification!(ρ0, ρ1, mf, filling, ks; kwargs...)
 
-Real-space canonical-purification analogue of [`solveselfconsistent!`](@ref).
+Real-space canonical-purification analogue of [`solveselfconsistent`](@ref).
 Each SCF step replaces k-space diagonalization with a fixed-step McWeeny-style
 purification of the current mean-field Hamiltonian. Useful for very large
 systems where per-k diagonalization is the bottleneck.

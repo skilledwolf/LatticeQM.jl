@@ -32,6 +32,7 @@ artefacts.
 | 5 | Hofstadter Butterfly | `Tutorial5_Hofstadter.ipynb` | Thread magnetic flux, generate Hofstadter spectra, analyse fractal band structures. | Heavy k-point sampling; expect longer runtimes. |
 | 6 | Mean-field Self-Consistency | `Tutorial6_Meanfield.ipynb` | Run Hartree–Fock loops, inspect convergence metrics, export density matrices. | Shares utilities with `extra/examples/graphene/hubbardmeanfield_*`. |
 | 7 | Floquet Dynamics | `Tutorial7_Floquet.ipynb` | Construct time-periodic drives, compute quasienergy spectra, monitor resonances. | Builds on modules co-authored with Tobias Kästli. |
+| 8 | Superconductivity (BdG) | `Tutorial8_Superconductivity.ipynb` | Build Bogoliubov–de Gennes Hamiltonians, solve mean-field pairing self-consistently, inspect Nambu spectra. | Reuses the Hartree–Fock infrastructure from Tutorial 6. |
 
 For background reading and additional implementation details, cross-reference
 the **Concept Guides** and the repository examples under `extra/examples/`.

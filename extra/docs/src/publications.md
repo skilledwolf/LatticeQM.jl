@@ -50,7 +50,7 @@ The LatticeQM package was used in the context of the following publications and 
 
 @Article{WolfZilberberg2019PRL,
   author       = {Wolf, Tobias M. R. and Lado, Jose L. and Blatter, Gianni and Zilberberg, Oded},
-  title        = {Electrically Tunable Flat Bands and Magnetism in Twisted Bilayer Graphrene},
+  title        = {Electrically Tunable Flat Bands and Magnetism in Twisted Bilayer Graphene},
   pages        = {096802},
   volume       = {123},
   date         = {2019-08},

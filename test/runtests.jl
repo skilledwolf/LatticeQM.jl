@@ -17,6 +17,7 @@ using Test
     @testset "Spectrum/triangular" include("test_spectrum_triangular.jl")
     @testset "Superconductivity"   include("test_superconductivity.jl")
     @testset "Floquet"             include("test_floquet.jl")
+    @testset "LinearResponse"      include("test_linearresponse.jl")
     @testset "Haldane"             include("test_haldane.jl")
     @testset "TBG"                 include("test_tbg.jl")
     @testset "Meanfield"           include("test_meanfield.jl")

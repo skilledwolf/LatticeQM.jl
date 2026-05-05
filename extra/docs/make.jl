@@ -24,7 +24,13 @@ makedocs(
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", nothing) == "true",
         edit_link = "master",
-        inventory_version = "dev"
+        inventory_version = "dev",
+        # api.md aggregates `@autodocs` from every submodule; the resulting
+        # page is naturally above the default 200 KiB cap. The submodule
+        # split is informative for users — keep them on one page rather than
+        # forcing artificial subdivision.
+        size_threshold = 400 * 1024,
+        size_threshold_warn = 250 * 1024,
     ),
     modules = [LatticeQM],
     checkdocs = :exports,

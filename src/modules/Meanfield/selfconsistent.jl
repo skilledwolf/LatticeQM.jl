@@ -22,7 +22,7 @@ solvehartree(h::T0, v, ρ_init, filling::Number, args...; kwargs...) where {T0} 
     solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling, ks; kwargs...)
     solveselfconsistent(ρ0, mf::MeanfieldGenerator, filling; klin, kwargs...)
 
-Non‑mutating convenience wrappers around [`solveselfconsistent!`] that copy the
+Non‑mutating convenience wrappers around `solveselfconsistent!` that copy the
 initial density matrix `ρ0`, iterate the mean‑field functional `mf` (e.g.,
 `HartreeFock`), and return the converged result together with energy and state.
 

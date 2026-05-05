@@ -2,117 +2,90 @@ import ..TightBinding
 import ..TightBinding: Hops
 import ..Structure.Lattices
 
-"""
-    Returns current operators [J_α,...] for each spatial coordinate α=1,...,D
-    given a generating function t for the hopping elements of the respective Hamiltonian.
-"""
-function getcurrentoperators(lat::Lattice, t::Function; mode=:nospin, kwargs...) # todo: test
-    D = Lattices.latticedim(lat)
-    ts = [(r1::AbstractVector,r2::AbstractVector -> (-1im)*(r1-r2)[i]* t(r1,r2; kwargs...)) for i=1:D]
-
-    [Hops(lat, ts[i]; kwargs...) for i=1:D]
-end
+# Current operators are J_α(k) = ∂H(k)/∂k_α, with α running over the lattice
+# directions only. We use `latticedim`, not `spacedim` — for a 2D lattice
+# embedded in 3D space `spacedim` would produce a third operator that is
+# identically zero (the Bloch phase has no k_z component to differentiate).
 
 """
-    Returns current operators [J_α,...] for each spatial coordinate α=1,...,D
-    given a Hamiltoinan of hopping elements `hops` and lattice structure `la`.
+    getcurrentoperators(lat, hops::Hops)
 
-    This should be the preferred way of generating a current operator for a given hopping Hamiltonian.
+Return the current operators `[J_1, ..., J_d]` (one per lattice direction)
+for the tight-binding Hamiltonian represented by `hops` on lattice `lat`.
+
+Each `J_α` is an `Hops` whose `(i,j)` element at offset `R` is
+`-i (r_i + A·R - r_j)_α · h_{ij}(R)`, i.e. ∂/∂k_α of the Bloch Hamiltonian
+with the standard position-included gauge.
 """
-function getcurrentoperators(lat::Lattice, hops::AbstractMatrix) # todo: test
+function getcurrentoperators(lat::Lattice, hops::Hops)
     N = Lattices.countorbitals(lat)
-    d = 2
-    D = size(hops,1)
-
-    @assert D>=N && mod(D,N) == 0
-    n = div(D,N) # for spin-1/2 we would have n=2
-
-    r = Lattices.allpositions(lat)[1:2,:]
-
-    currentoperators = [deepcopy(hops) for l_=1:d]
-    for l_=1:d
-        for i_=1:N, j_=1:N # todo: test!
-            currentoperators[l_][1+(i_-1)*n:n+(i_-1)*n,1+(j_-1)*n:n+(j_-1)*n] .*= -1im * (r[:,i_]-r[:,j_])[l_] * ones(n,n)
-        end
-    end
-
-    currentoperators
-end
-
-
-
-
-"""
-    Returns current operators [J_α,...] for each spatial coordinate α=1,...,D
-    given a Hamiltoinan of hopping elements `hops` and lattice structure `la`.
-
-    This should be the preferred way of generating a current operator for a given hopping Hamiltonian.
-"""
-function getcurrentoperators(lat::Lattice, hops::Hops) # todo: test
-    N = Lattices.countorbitals(lat)
-    # d = latticedim(lat)
-    d = Lattices.spacedim(lat)
+    d = Lattices.latticedim(lat)
     D = TightBinding.hopdim(hops)
 
-    @assert D>=N && mod(D,N) == 0
-    n = div(D,N) # for spin-1/2 we would have n=2
+    @assert D >= N && mod(D, N) == 0
+    n = div(D, N)   # spin or other internal multiplicity
 
     r = Lattices.positions(lat)
-
     Ls = Dict(L => Lattices.getA(lat) * L for L in keys(hops))
 
-    currentoperators = [deepcopy(hops) for l_=1:d]
-
-    for l_=1:d
-        for (L,A) in Ls
-            r0 = r.+A
-            currentoperators!(currentoperators[l_][L], r0[l_,:], r[l_,:])
-        end
+    Js = [deepcopy(hops) for _ in 1:d]
+    for α in 1:d, (L, A) in Ls
+        r0 = r .+ A
+        _apply_position_factor!(Js[α][L], r0[α, :], r[α, :])
     end
-
-    currentoperators
+    Js
 end
 
-function currentoperators!(M::AbstractMatrix, r1, r2)
+"""
+    getcurrentoperators(lat, t::Function; kwargs...)
 
-    if issparse(M)
-        # M[:] = sparse(M)[:]
-        return currentoperators_sparse!(M, r1, r2)
-    else 
-        return currentoperators_dense!(M, r1, r2)
-    end
+Build current operators directly from a hopping function `t(r1, r2; ...)`.
+Returns one `Hops` per lattice direction. `kwargs` are forwarded both to `t`
+and to the `Hops(lat, ...)` constructor (e.g. `cellrange`, `format`).
+"""
+function getcurrentoperators(lat::Lattice, t::Function; kwargs...)
+    d = Lattices.latticedim(lat)
+    [Hops(lat, (r1, r2) -> -1im * (r1 - r2)[α] * t(r1, r2; kwargs...);
+          kwargs...) for α in 1:d]
 end
 
-function currentoperators_dense!(M::AbstractMatrix, r1, r2)
+
+# ---------------------------------------------------------------------------
+# Internal: in-place position-factor application
+# ---------------------------------------------------------------------------
+# Multiplies each (i,j) block of `M` by `-i · (r1[i] - r2[j])`, the
+# k-derivative of the Bloch phase factor in the position-included gauge.
+# Block size is `n × n` per orbital pair, where `n = size(M, 1) ÷ length(r1)`
+# (1 for spinless, 2 for spin-1/2, etc.).
+
+_apply_position_factor!(M::AbstractMatrix, r1, r2) =
+    SparseArrays.issparse(M) ? _apply_position_factor_sparse!(M, r1, r2) :
+                               _apply_position_factor_dense!(M, r1, r2)
+
+function _apply_position_factor_dense!(M::AbstractMatrix, r1, r2)
     N = length(r1)
-    D = size(M,2)
-    n = div(D,N)
-
-    for j_=1:N 
-        δR = r1.-r2[j_]
-        for i_=1:N
-            M[1+(i_-1)*n:n+(i_-1)*n,1+(j_-1)*n:n+(j_-1)*n] .*= -1im * δR[i_]
+    n = div(size(M, 2), N)
+    @inbounds for j in 1:N
+        δR = r1 .- r2[j]
+        for i in 1:N
+            @views M[1+(i-1)*n : i*n, 1+(j-1)*n : j*n] .*= -1im * δR[i]
         end
     end
     M
 end
 
-function currentoperators_sparse!(M::SparseMatrixCSC, r1, r2)
+function _apply_position_factor_sparse!(M::SparseMatrixCSC, r1, r2)
     N = length(r1)
-    D = size(M,2)
-    n = div(D,N)
+    n = div(size(M, 2), N)
+    blockindex(i) = div(i - 1, n) + 1   # 1-based orbital index from row/col
 
     rows = rowvals(M)
-    # vals = nonzeros(M)
-
-    myind(i) = round(Int,1+(i-1-rem(i-1,n))/n)
-
-    for j_ in 1:size(M, 2)
-        δR = r1.-r2[myind(j_)]
-        for r in nzrange(M, j_)
-            i_= rows[r] 
-            M[i_,j_] *= -1im * δR[myind(i_)]
-            # v_ = vals[r]
+    @inbounds for col in 1:size(M, 2)
+        δR = r1 .- r2[blockindex(col)]
+        for r in nzrange(M, col)
+            i_block = blockindex(rows[r])
+            M[rows[r], col] *= -1im * δR[i_block]
         end
     end
+    M
 end

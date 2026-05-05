@@ -96,9 +96,10 @@ end
     Operators.nearestneighbor!(H, lat, -1.0)
     Js = Operators.getcurrentoperators(lat, H)
 
-    # One operator per spatial direction; spacedim(honeycomb) = 3 even though
-    # latticedim = 2 (the embedding ambient space is 3D, with z trivial).
-    @test length(Js) == LatticeQM.Structure.Lattices.spacedim(lat)
+    # One operator per lattice direction (graphene = 2). The function
+    # previously returned `spacedim(lat) = 3` operators with the third one
+    # identically zero; current.jl now returns only the meaningful ones.
+    @test length(Js) == LatticeQM.Structure.Lattices.latticedim(lat)
 
     for k in ([0.0, 0.0], [1/3, -1/3], [0.5, 0.5], [-0.2, 0.7])
         for J in Js

@@ -24,6 +24,7 @@ LatticeQM
 LatticeQM.Structure
 LatticeQM.Structure.Lattices
 LatticeQM.Structure.Geometries
+LatticeQM.Parallel
 ```
 
 ## TightBinding
@@ -71,6 +72,13 @@ Private = true
 ## Floquet
 ```@autodocs
 Modules = [LatticeQM.Floquet]
+Order = [:type, :function]
+Private = true
+```
+
+## Parallel
+```@autodocs
+Modules = [LatticeQM.Parallel]
 Order = [:type, :function]
 Private = true
 ```
