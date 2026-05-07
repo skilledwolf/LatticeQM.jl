@@ -6,6 +6,7 @@ using SparseArrays#: spzeros
 
 import LatticeQM.Spectrum
 import LatticeQM.Utils
+import LatticeQM.Structure
 
 
 Spectrum.dim(h::BdGOperator, args...) = Spectrum.dim(h.h, args...)
@@ -17,18 +18,30 @@ end
 
 import ..Structure: Lattices
 
-function Operators.addchemicalpotential!(H::BdGOperator, lat::Lattices.Lattice, μ; kwargs...)
+function _addchemicalpotential_lattice_bdg!(H::BdGOperator, lat::Lattices.Lattice, μ; kwargs...)
     d = hopdim(H)
     chemhops = Hops(zerokey(H)=>zeros(ComplexF64,d,d))
     Operators.addchemicalpotential!(chemhops, lat, μ; kwargs...)
 
     # addhops!(H, BdGOperator(chemhops))
-    addelectronsector!(H,BdGOperator(chemhops))
+    addelectronsector!(H, chemhops)
 end
+Operators.addchemicalpotential!(H::BdGOperator, lat::Lattices.Lattice, μ::Float64; kwargs...) =
+    _addchemicalpotential_lattice_bdg!(H, lat, μ; kwargs...)
+Operators.addchemicalpotential!(H::BdGOperator, lat::Lattices.Lattice, μ::AbstractVector{<:Float64}; kwargs...) =
+    _addchemicalpotential_lattice_bdg!(H, lat, μ; kwargs...)
+Operators.addchemicalpotential!(H::BdGOperator, lat::Lattices.Lattice, μ::Function; kwargs...) =
+    _addchemicalpotential_lattice_bdg!(H, lat, μ; kwargs...)
+Operators.addchemicalpotential!(H::BdGOperator, lat::Lattices.Lattice, μ; kwargs...) =
+    _addchemicalpotential_lattice_bdg!(H, lat, μ; kwargs...)
 
 function electron(H::BdGOperator)
     d = hopdim(H)
-    BdGOperator(Hops(Dict(zerokey(H) => zero(first(values(Utils.getelectronsector(H)))) + 1.0 * I)))
+    P = spzeros(ComplexF64, 2d, 2d)
+    for i in 1:d
+        P[i, i] = 1
+    end
+    Hops(Dict(zerokey(H) => P))
 end
 
 
@@ -49,12 +62,24 @@ end
 
 function Operators.expval(ρ::BdGOperator, args...; kwargs...)
     ρ0 = Utils.getelectronsector(ρ)
-    Δ= Superconductivity.getpairingsector(ρ) * (1im*Operators.getoperator(lat, "sy"))
+    Δ = Superconductivity.getpairingsector(ρ)
+    lat = _find_lattice(args)
+    if lat !== nothing
+        Δ = Δ * (1im * Operators.getoperator(lat, "sy"))
+    end
 
     M = Operators.expval(ρ0, args...; kwargs...)
     SC = Operators.expval(Δ, args...; kwargs...)
 
     M, SC
+end
+
+_find_lattice(args) = nothing
+function _find_lattice(args::Tuple)
+    for arg in args
+        arg isa Lattices.Lattice && return arg
+    end
+    nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -94,12 +119,17 @@ pairing block Δ). This is `Tr(ρ_el(k=0)) / N` averaged over `ks` weights.
    per-call eigen cost on small (e.g. 144-k) grids. Pass
    `multimode=:multithreaded` or `:distributed` for larger workloads.
 """
-function Spectrum.filling(H::BdGOperator, ks::AbstractMatrix, μ::Real=0.0;
+function Spectrum.filling(H::BdGOperator, ks, μ::Real=0.0;
                           T::Real=0.01, multimode::Symbol=:serial, kwargs...)
     d = hopdim(H)
     ρ = BdGOperator(zero(Utils.copyelectronsector(H)))
     Operators.getdensitymatrix!(ρ, H, ks, μ; T=T, multimode=multimode, kwargs...)
     real(tr(view(ρ.h[TightBinding.zerokey(ρ.h)], 1:d, 1:d))) / d
+end
+
+function Spectrum.filling(H::BdGOperator, μ::Real; nk=10, kwargs...)
+    ks = Structure.regulargrid(nk=nk^2)
+    Spectrum.filling(H, ks, μ; kwargs...)
 end
 
 """
@@ -113,7 +143,7 @@ fine for weak coupling but wrong for strong pairing — this method overrides
 that for `BdGOperator` so the SCF self-consistently solves μ even with a
 non-zero gap.
 """
-function Spectrum.chemicalpotential(H::BdGOperator, ks::AbstractMatrix, target::Real;
+function Spectrum.chemicalpotential(H::BdGOperator, ks, target::Real;
                                      T::Real=0.01,
                                      μ_lo::Real=-100.0, μ_hi::Real=100.0,
                                      kwargs...)
@@ -130,4 +160,3 @@ function Spectrum.chemicalpotential(H::BdGOperator, ks::AbstractMatrix, target::
     f(μ) = Spectrum.filling(H, ks, μ; T=T, kwargs...) - target
     Roots.find_zero(f, (lo, hi))
 end
-

@@ -18,6 +18,7 @@ research-style scratch space, kept runnable.
 | [`ribbons.jl`](graphene/ribbons.jl) | Armchair/zigzag ribbons via `reduceto1D` | sec | serial |
 | [`ribbon_haldane.jl`](graphene/ribbon_haldane.jl) | Haldane edge states on a ribbon | sec | serial |
 | [`valleybands.jl`](graphene/valleybands.jl) | Valley-resolved bands | sec | serial |
+| [`haldane_chiral_sc.jl`](graphene/haldane_chiral_sc.jl) | Haldane + on-site Δ valley-polarised bands → BdG SCF with attractive NN, check NN bond pairing for C3 phase winding | min | serial |
 | [`hubbardmeanfield_example1.jl`](graphene/hubbardmeanfield_example1.jl) | SCF Hubbard with Zeeman field | min | threaded |
 | [`hubbardmeanfield_example2.jl`](graphene/hubbardmeanfield_example2.jl) | SCF Hubbard with sublattice imbalance | min | threaded |
 | [`hubbardmeanfield_supercell.jl`](graphene/hubbardmeanfield_supercell.jl) | SCF on a holey supercell | many min | distributed |

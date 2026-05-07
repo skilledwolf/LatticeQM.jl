@@ -164,3 +164,85 @@ end
     # to within Δ²/W corrections (Δ=0.05, W≈3 → ~3×10⁻⁴).
     @test isapprox(f0, 0.5; atol=5e-3)
 end
+
+@testset "Superconductivity: electron projector is a true Nambu projector" begin
+    h = Hops([0, 0] => ComplexF64[1.0 0.0; 0.0 -1.0])
+    Hbdg = BdGOperator(h)
+    P = Matrix(Superconductivity.electron(Hbdg)([0.0, 0.0]))
+
+    @test size(P) == (4, 4)
+    @test P ≈ ComplexF64[1 0 0 0;
+                         0 1 0 0;
+                         0 0 0 0;
+                         0 0 0 0]
+    @test P * P ≈ P
+end
+
+@testset "Superconductivity: BdG chemical potential helpers keep full Nambu structure" begin
+    lat = Geometries.honeycomb()
+    h = Hops(); Operators.nearestneighbor!(h, lat, -1.0)
+    Hbdg = BdGOperator(h)
+
+    Operators.addchemicalpotential!(Hbdg, lat, 0.2)
+    Hk = Matrix(Hbdg.h([0.0, 0.0]))
+    d = hopdim(Hbdg)
+    @test Hk[1:d, 1:d] ≈ Matrix(h([0.0, 0.0])) + 0.2I
+    @test Hk[d+1:2d, d+1:2d] ≈ -conj.(Matrix(h([0.0, 0.0]))) - 0.2I
+    @test TightBinding.ishermitian(Hbdg.h)
+
+    Δ = Hops([0, 0] => ComplexF64[0.2 0.0; 0.0 0.2])
+    Hpaired = BdGOperator(h, Δ)
+    f_matrix = Spectrum.filling(Hpaired, LatticeQM.Structure.regulargrid(nk=8^2), 0.1; T=0.05)
+    f_nk = Spectrum.filling(Hpaired, 0.1; nk=8, T=0.05)
+    @test isapprox(f_nk, f_matrix; atol=1e-12)
+end
+
+@testset "Superconductivity: electron-sector updates preserve complex hole block" begin
+    h0 = Hops([0] => ComplexF64[0.0;;])
+    δh = Hops()
+    δh[[1]] = ComplexF64[1.0 + 0.3im;;]
+    δh[[-1]] = δh[[1]]'
+
+    H = BdGOperator(h0)
+    Superconductivity.addelectronsector!(H, δh)
+    expected = BdGOperator(h0 + δh)
+
+    for k in ([0.0], [0.17], [0.41])
+        @test Matrix(H.h(k)) ≈ Matrix(expected.h(k))
+    end
+end
+
+@testset "Superconductivity: BdG expval handles lattice observables" begin
+    lat = Geometries.honeycomb()
+    ρ0 = Hops([0, 0] => Matrix{ComplexF64}(I, 4, 4))
+    Δ0 = Hops([0, 0] => zeros(ComplexF64, 4, 4))
+    ρ = BdGOperator(ρ0, Δ0)
+
+    normal, pairing = Operators.expval(ρ, "sx", lat)
+    @test normal isa Number
+    @test pairing isa Number
+end
+
+@testset "Superconductivity: pairing Fock update is phase covariant" begin
+    h = Hops([0] => zeros(ComplexF64, 2, 2))
+    hbdg = BdGOperator(h)
+    v = Hops([0] => ComplexF64[0 -1; -1 0])
+    ρ_el = Hops([0] => zeros(ComplexF64, 2, 2))
+    F = ComplexF64[0 1; -1 0]
+
+    function pairing_update(θ)
+        ρΔ = Hops([0] => cis(θ) .* F)
+        ρ = BdGOperator(ρ_el, ρΔ)
+        hf = Meanfield.HartreeFock(hbdg, v; hartree=false, fock=true)
+        hf(ρ)
+        copy(hf.ΔMF[[0]])
+    end
+
+    θ = 0.37π
+    Δ0 = pairing_update(0.0)
+    Δθ = pairing_update(θ)
+
+    @test Δθ[1, 2] / Δ0[1, 2] ≈ cis(θ)
+    @test Δθ[2, 1] / Δ0[2, 1] ≈ cis(θ)
+    @test !(Δθ[1, 2] / Δ0[1, 2] ≈ cis(-θ))
+end

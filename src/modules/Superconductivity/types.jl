@@ -53,7 +53,7 @@ function BdGOperator(h0::T) where T<:Hops
     BdGOperator{T}(h1)
 end
 
-function BdGOperator(h0::T, Δ0::T) where {T<:Hops}
+function BdGOperator(h0::T, Δ0::T2) where {T<:Hops,T2<:Hops}
     H = BdGOperator(h0)
     addpairing!(H, Δ0)
     H
@@ -75,7 +75,7 @@ blocks at offsets `R` and `−R` (the lower-left at `R` is
 relationship between `Δ[ R]` and `Δ[−R]` — the only requirement is that
 both keys are present so the construction can run. This deliberately
 matches what the SCF produces: the mean-field pairing
-`ΔMF[L] = v[L] .* conj(ρΔ[L])` is generically *not* dict-Hermitian
+`ΔMF[L] = v[L] .* ρΔ[L]` is generically *not* dict-Hermitian
 (`ρΔ` is the upper-right block of `ρ_BdG`, which does not equal the
 lower-left in general), but the BdG built from it is still Hermitian.
 """
@@ -108,10 +108,11 @@ end
 
 function addelectronsector!(H::BdGOperator{T}, h::T2) where {T<:Hops,T2<:Hops}
     @assert hopdim(H) == hopdim(h) "Mismatch between matrix sizes of BdG Operator and pairing matrices."
+    @assert TightBinding.ishermitian(h) "addelectronsector!: the electron-sector hopping `h` must be Hermitian."
 
     H2 = T2(Dict())
     for R=keys(h)
-        H2[R] = [h[R] zero(h[R]); zero(h[R]) -h[R]]
+        H2[R] = [h[R] zero(h[R]); zero(h[R]) -conj.(h[R])]
     end
     # H2 = Hops(Dict(R=>[h[R] zero(h[R]); zero(h[R]) -h[R]] for R=keys(h)))
     addhops!(H,H2)

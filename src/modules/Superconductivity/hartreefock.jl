@@ -32,6 +32,31 @@ end
 
 Meanfield.sanitize!(ρ::BdGOperator{T}) where {T} = Meanfield.sanitize!(ρ.h)
 
+# Anderson acceleration for BdG SCF: the fixedpoint! driver projects the
+# post-Anderson iterate back onto the Hermitian subspace via
+# `_hermitianize_if_supported!`. The base Meanfield module knows how to do
+# this for plain `Hops` but not for `BdGOperator` (which lives downstream
+# here), so without this method the projection silently no-ops on Nambu
+# density matrices.
+#
+# Why the projection is needed (it's not paranoia): for Hermitian-symmetric
+# iterates the Anderson coefficients γ from `ΔG \ g_k` are mathematically
+# real, but Julia's complex `\` doesn't exploit that structure and returns γ
+# with O(ε_machine) imaginary part. That seeds an O(ε) non-Hermitian
+# component into x_{k+1}, the history then contains slightly non-Hermitian
+# iterates, and the next γ picks up a larger imaginary part from
+# `Re(ΔG^H ΔG)` no longer being purely real. Empirically the Hermiticity
+# residue grows by ~10× per iteration on the BdG SCF — after ~17 steps it
+# crosses `sqrt(eps()) ≈ 1.5e-8` and the next `BdGOperator(hMF, ΔMF)`
+# constructor's hermiticity assertion fires. Projecting onto the Hermitian
+# manifold each step holds the residue at machine precision indefinitely.
+#
+# A more principled alternative would be to enforce real γ at the LS-solve
+# level (split into real/imag and solve a 2× real system); the projection
+# achieves the same end state more cheaply.
+Meanfield._hermitianize_if_supported!(x::BdGOperator) =
+    (TightBinding.hermitianize!(x.h); x)
+
 function Meanfield.HartreeFock(h::BdGOperator{Th}, v::Tv, μ=0.0; hartree=true, fock=true) where {K,T2h,Th<:Hops{K,T2h},T2v,Tv<:Hops{K,T2v}}
     h_el = Utils.copyelectronsector(h)
     HartreeFockBDG(h_el, v, μ; hartree=hartree, fock=fock)
@@ -107,10 +132,10 @@ function meanfieldOperator_addfock_pairing!(hf::HartreeFockBDG, ρΔ)
             @inbounds for idx in eachindex(vals)
                 i = rows[idx]
                 j = cols[idx]
-                ΔMF_L[i, j] += vals[idx] * conj(ΔL[i, j])
+                ΔMF_L[i, j] += vals[idx] * ΔL[i, j]
             end
         else
-            @. ΔMF_L += vL * conj(ΔL)
+            @. ΔMF_L += vL * ΔL
         end
     end
     nothing

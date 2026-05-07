@@ -1,6 +1,7 @@
 
 import LatticeQM.Operators
 import LatticeQM.TightBinding
+import LatticeQM.Structure
 import LinearAlgebra: tr
 # using ..Operators: densitymatrix, densitymatrix!
 # using ..TightBinding: zerokey
@@ -25,11 +26,21 @@ matters whenever `ϵ_GS = ϵ_kin + ϵ_MF` is consumed (e.g. comparing total
 energies between SCF runs at different parameters).
 """
 function Operators.getdensitymatrix!(ρ::BdGOperator{T}, H::BdGOperator{T2}, ks::AbstractMatrix, μ::Real=0; kwargs...) where {T,T2}
+    L = size(ks, 2)
+    kweights = fill(1 / L, L)
+    Operators.getdensitymatrix!(ρ, H, ks, kweights, μ; kwargs...)
+end
+
+function Operators.getdensitymatrix!(ρ::BdGOperator{T}, H::BdGOperator{T2}, kgrid::Structure.Mesh, μ::Real=0; kwargs...) where {T,T2}
+    Operators.getdensitymatrix!(ρ, H, kgrid.points, Structure.meshweights(kgrid), μ; kwargs...)
+end
+
+function Operators.getdensitymatrix!(ρ::BdGOperator{T}, H::BdGOperator{T2}, ks::AbstractMatrix, kweights::AbstractVector, μ::Real=0; kwargs...) where {T,T2}
     d = hopdim(H)
 
     Operators.addchemicalpotential!(H, -μ)
     out = try
-        Operators.getdensitymatrix!(ρ.h, H.h, ks, 0.0; kwargs...)
+        Operators.getdensitymatrix!(ρ.h, H.h, ks, kweights, 0.0; kwargs...)
     finally
         # Restore even on exception so caller's H is preserved.
         Operators.addchemicalpotential!(H, μ)
