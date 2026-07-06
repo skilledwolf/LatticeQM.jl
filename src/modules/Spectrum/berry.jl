@@ -398,6 +398,15 @@ companion to [`gapcherns`](@ref).
 A gap below band `n` is recorded when the grid-minimum of band `n+1` exceeds the
 grid-maximum of band `n` by more than `gaptol` (in the energy units of `H`).
 
+!!! warning "Grid false gaps"
+    A band touching that falls *between* grid points is misreported as a
+    finite gap of width ~`v·Δk` (`v` the band velocity, `Δk = 2π/NX`). The
+    π-flux (Φ = 1/2) honeycomb Hofstadter Hamiltonian is a concrete case: its
+    Dirac touchings show up as ~0.2|t| "gaps" on a 15×15 grid. Such false gaps
+    shrink with `NX` and, in a Hofstadter context, typically violate the
+    Diophantine constraint (no admissible `(s, C)` exists) — both are useful
+    tells.
+
 Returns a `Vector` of `NamedTuple`s `(; n, elo, ehi)`, ordered by energy: `n`
 bands lie below a gap spanning `[elo, ehi]`.
 """

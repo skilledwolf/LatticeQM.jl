@@ -249,7 +249,7 @@ end
 
 
 """
-    diophantine_cherns(p, q, r; Nw) -> Vector{Tuple{Int,Int}}
+    diophantine_cherns(p, q, r; Nw, smargin=0) -> Vector{Tuple{Int,Int}}
 
 Candidate `(s, C)` labels of a Hofstadter gap from the TKNN / Středa–Wannier
 Diophantine equation
@@ -260,37 +260,47 @@ for flux Φ=p/q (coprime) with `r` magnetic subbands filled below the gap and
 `Nw` orbitals per primitive cell. `C ∈ ℤ` is the gap Chern number as reported
 by [`Spectrum.gapcherns`](@ref) / [`hofstadter_cherns`](@ref) (the sign
 convention those routines produce), and `s ∈ ℤ` the band-filling label; the
-integrated density per primitive cell is `n = r/q = s − C·Φ`.
+integrated density per primitive cell is `n = r/q = s − C·Φ` (in the
+conventional Wannier-diagram form `n = s + t·Φ` the Středa slope is `t = −C`).
 
 The equation fixes `C ≡ −p⁻¹ r (mod q)` only, so every branch inside the
-heuristic window `0 ≤ s ≤ Nw` is returned, ordered by `|C|`. The window bounds
-the ν-axis *intercept* of the gap's Středa line, not its filling: a gap family
-that exists only in a finite flux window can have a true intercept outside
-`[0, Nw]` (e.g. wide-Chern gaps of multi-orbital models), in which case the
-true branch is **not** among the candidates. A single candidate is an
-unambiguous label only up to that caveat; several means the branch must be
-pinned otherwise (a gap-family fit, or an exact [`Spectrum.gapcherns`](@ref)
-anchor) — do **not** blindly take the smallest `|C|` for a multi-orbital model.
+heuristic window `−smargin ≤ s ≤ Nw + smargin` is returned, ordered by `|C|`.
+
+!!! warning "The window and the |C| ordering are heuristics"
+    The window bounds the ν-axis *intercept* of the gap's Středa line, not its
+    filling: a gap family that exists only in a finite flux window can have a
+    true intercept outside `[0, Nw]`, in which case the true branch is **not**
+    among the `smargin = 0` candidates. This already happens for plain
+    NN honeycomb: the gap at Φ = 4/5, r = 3 has (s, C) = (3, 3), outside
+    `0 ≤ s ≤ Nw = 2` — `smargin ≥ 1` recovers it (pinned by a test).
+    Likewise the smallest-`|C|` candidate is systematically wrong for the
+    higher lines of a Dirac Landau fan (honeycomb near half filling has true
+    labels C = ∓1, ∓3, ∓5, … at Φ → 0⁺, and once `|C| > q/2` an in-window
+    alternative with smaller `|C|` exists in the same Diophantine class).
+    A single candidate is an unambiguous label only up to these caveats;
+    several means the branch must be pinned otherwise (a gap-family fit, or an
+    exact [`Spectrum.gapcherns`](@ref) anchor) — do **not** blindly take the
+    smallest `|C|` for a multi-orbital or Dirac-type model.
 """
-function diophantine_cherns(p::Int, q::Int, r::Int; Nw::Int)
+function diophantine_cherns(p::Int, q::Int, r::Int; Nw::Int, smargin::Int=0)
     q == 1 && return [(r, 0)]                 # integer flux: C undefined, n = r
     invp = invmod(mod(p, q), q)
     C0 = mod(-invp * r, q)                    # C ≡ −p⁻¹ r (mod q), in 0:q-1
     out = Tuple{Int,Int}[]
     # s = (r + p·C)/q increases by p as C increases by q; sweep enough branches
-    # to bracket 0 ≤ s ≤ Nw on either side.
-    lmax = cld(abs(r) + abs(p) * q + Nw + q, q) + 2
+    # to bracket the window on either side.
+    lmax = cld(abs(r) + abs(p) * q + Nw + 2 * smargin + q, q) + 2
     for l in -lmax:lmax
         C = C0 + l * q
         s, rem = divrem(r + p * C, q)
-        (rem == 0 && 0 <= s <= Nw) && push!(out, (s, C))
+        (rem == 0 && -smargin <= s <= Nw + smargin) && push!(out, (s, C))
     end
     sort!(out; by = sc -> (abs(sc[2]), sc[2]))
     out
 end
 
 """
-    hofstadter_gaplabels(hops, lat, Q::Int, NX::Int=18; gaptol=0.05, Nw=hopdim(hops))
+    hofstadter_gaplabels(hops, lat, Q::Int, NX::Int=18; gaptol=0.05, Nw=hopdim(hops), smargin=0)
 
 Cheap (energies-only) Hofstadter gap labelling: the Diophantine/Středa Chern
 label of every spectral gap as a function of rational flux Φ=p/q per unit cell
@@ -300,9 +310,16 @@ For each flux the magnetic supercell is built with [`peierlsoutplane`](@ref) and
 its gaps located by [`Spectrum.spectralgaps`](@ref) (no eigenvectors, no Berry —
 much cheaper than [`hofstadter_cherns`](@ref)). Each gap is then labelled with
 [`diophantine_cherns`](@ref): `chern` is the smallest-`|C|` candidate and `nsol`
-the number of `0 ≤ s ≤ Nw` branches, so `nsol > 1` flags a gap whose label needs
-disambiguation (a gap-family fit or a [`hofstadter_cherns`](@ref) anchor). `Nw`
-is the number of orbitals per primitive cell.
+the number of branches inside the `−smargin ≤ s ≤ Nw + smargin` window. `Nw` is
+the number of orbitals per primitive cell. Every gap is reported: `nsol == 0`
+means no in-window candidate exists (then `chern` is set to 0 and is
+meaningless — widen `smargin`), `nsol > 1` flags a gap whose label needs
+disambiguation (a gap-family fit or a [`hofstadter_cherns`](@ref) anchor).
+
+The labels are Level-1 *guesses*; see the [`diophantine_cherns`](@ref) warning
+for the systematic failure modes (out-of-window intercepts, Dirac Landau fans
+— both occur already for plain NN honeycomb). Treat `chern` as a candidate to
+be pinned by anchors, not as a result.
 
 Filling is reported per primitive cell, `ν = r/q`. Returns a `NamedTuple` of
 equal-length vectors `(; flux, filling, energy, width, q, r, chern, nsol)`.
@@ -311,7 +328,8 @@ This is the cheap Level-1 layer of the standard Hofstadter workflow; use
 [`hofstadter_cherns`](@ref) for the exact Berry-curvature anchors.
 """
 function hofstadter_gaplabels(hops, lat::Lattice, Q::Int, NX::Int=18;
-                              gaptol::Real=0.05, Nw::Int=TightBinding.hopdim(hops))
+                              gaptol::Real=0.05, Nw::Int=TightBinding.hopdim(hops),
+                              smargin::Int=0)
     fluxlist = [(p, q) for q = 1:Q for p = 1:q-1 if gcd(p, q) < 2]
 
     flux    = Rational{Int}[]
@@ -326,9 +344,8 @@ function hofstadter_gaplabels(hops, lat::Lattice, Q::Int, NX::Int=18;
     @showprogress 2 "Hofstadter gap labels... " for (p, q) in fluxlist
         mhops, _ = peierlsoutplane(hops, lat, p, q; verbose=false)
         for g in spectralgaps(mhops, NX; gaptol=gaptol)
-            cands = diophantine_cherns(p, q, g.n; Nw=Nw)
-            isempty(cands) && continue
-            _s, C = first(cands)                     # smallest |C| (Level-1 guess)
+            cands = diophantine_cherns(p, q, g.n; Nw=Nw, smargin=smargin)
+            C = isempty(cands) ? 0 : first(cands)[2]  # smallest |C| (Level-1 guess)
             push!(flux,    p // q)
             push!(filling, g.n / q)
             push!(energy,  (g.elo + g.ehi) / 2)

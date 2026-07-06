@@ -163,3 +163,31 @@ end
     end
     @test nchecked >= 15
 end
+
+# Known failure modes of the cheap Diophantine window, pinned as behavior.
+# For plain NN honeycomb the gap at Φ = 4/5 with r = 3 has the exact label
+# (s, C) = (3, 3) (r = q·s − p·C: 3 = 5·3 − 4·3): its Středa intercept s = 3
+# lies OUTSIDE the naive 0 ≤ s ≤ Nw = 2 window, so smargin = 0 returns no
+# admissible branch at all — the true branch only appears with smargin ≥ 1,
+# and even then it is not the smallest-|C| candidate. This is why Level-1
+# labels must be anchored (see hofstadter_gaplabels docstring).
+@testset "diophantine_cherns: honeycomb out-of-window branch" begin
+    @test isempty(Operators.diophantine_cherns(4, 5, 3; Nw=2))
+    cands = Operators.diophantine_cherns(4, 5, 3; Nw=2, smargin=1)
+    @test (3, 3) in cands
+    @test first(cands) != (3, 3)          # smallest-|C| heuristic still wrong
+
+    # all returned branches must actually solve r = q·s − p·C
+    for (s, C) in cands
+        @test 3 == 5 * s - 4 * C
+    end
+
+    # gaplabels must still REPORT such gaps (nsol == 0), not drop them
+    lat = Geometries.honeycomb()
+    H = Hops()
+    Operators.nearestneighbor!(H, lat, -1.0)
+    lab = Operators.hofstadter_gaplabels(H, lat, 5, 15; gaptol=1e-3, Nw=2)
+    idx = findall(i -> lab.flux[i] == 4 // 5 && lab.r[i] == 3, eachindex(lab.flux))
+    @test length(idx) == 1
+    @test lab.nsol[idx[1]] == 0
+end
