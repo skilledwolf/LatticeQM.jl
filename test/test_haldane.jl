@@ -94,3 +94,72 @@ end
     @test isapprox(cherns2[1], -1.0; atol=0.05)
     @test isapprox(cherns2[2],  1.0; atol=0.05)
 end
+
+# gapcherns(): the same Haldane phase has a single gap at half filling. Its
+# *cumulative* (non-abelian) Chern number — the manifold of the lower band —
+# equals the lower-band Chern: +1 at ϕ=π/2, −1 at ϕ=−π/2. Exercises gap
+# detection + Spectrum.berry over an occupied manifold end-to-end.
+@testset "Haldane: gap Chern via gapcherns()" begin
+    lat = Geometries.honeycomb()
+    H = Hops()
+    Operators.nearestneighbor!(H, lat, -1.0)
+    addhaldane_fast!(H, lat, x -> 0.1; ϕ=π/2)
+
+    gaps = LatticeQM.Spectrum.gapcherns(H, 30; gaptol=1e-3)
+    @test length(gaps) == 1
+    @test gaps[1].n == 1
+    @test gaps[1].chern == 1
+    @test gaps[1].elo < 0 < gaps[1].ehi          # gap straddles E=0 (half filling)
+
+    H2 = Hops()
+    Operators.nearestneighbor!(H2, lat, -1.0)
+    addhaldane_fast!(H2, lat, x -> 0.1; ϕ=-π/2)
+    gaps2 = LatticeQM.Spectrum.gapcherns(H2, 30; gaptol=1e-3)
+    @test length(gaps2) == 1
+    @test gaps2[1].chern == -1
+end
+
+# Hofstadter Diophantine convention: with LatticeQM's peierlsoutplane flux
+# sign and Spectrum.berry orientation, the exact gap Chern numbers obey
+#   r = q·s − p·C   (ν = s − C·Φ),
+# NOT r = q·s + p·C. This pins the relative sign of the Peierls and Berry
+# conventions — a sign flip in either one breaks this test. The Haldane mass
+# is essential: for plain NN honeycomb the π-flux (Φ=1/2) Dirac touchings
+# masquerade as finite gaps on a coarse k-grid and violate the constraint.
+@testset "Haldane: Hofstadter gap Cherns obey r = qs − pC" begin
+    lat = Geometries.honeycomb()
+    H = Hops()
+    Operators.nearestneighbor!(H, lat, -1.0)
+    addhaldane_fast!(H, lat, x -> 0.1; ϕ=π/2)
+
+    wd = Operators.hofstadter_cherns(H, lat, 5, 15; gaptol=1e-3)
+    robust = findall(wd.width .>= 0.1)     # skip sub-grid pseudo-gaps
+    @test length(robust) >= 40
+    for i in robust
+        p = numerator(wd.flux[i]); q = denominator(wd.flux[i])
+        r = round(Int, wd.filling[i] * q)
+        C = wd.chern[i]
+        @test mod(r + p * C, q) == 0                       # r = q·s − p·C
+        # the exact C must be a diophantine_cherns candidate whenever its
+        # Středa intercept s falls inside the heuristic 0 ≤ s ≤ Nw window
+        s = (r + p * C) ÷ q
+        if 0 <= s <= 2
+            @test C in last.(Operators.diophantine_cherns(p, q, r; Nw=2))
+        end
+    end
+
+    # energies-only labeller: where its Diophantine label is unambiguous
+    # (nsol == 1) it must equal the exact Berry-flux Chern, sign included.
+    lab = Operators.hofstadter_gaplabels(H, lat, 5, 15; gaptol=1e-3, Nw=2)
+    exact = Dict((wd.flux[i], round(Int, wd.filling[i] * denominator(wd.flux[i]))) => wd.chern[i]
+                 for i in robust)
+    nchecked = 0
+    for j in eachindex(lab.flux)
+        lab.nsol[j] == 1 || continue
+        key = (lab.flux[j], lab.r[j])
+        haskey(exact, key) || continue
+        @test lab.chern[j] == exact[key]
+        nchecked += 1
+    end
+    @test nchecked >= 15
+end

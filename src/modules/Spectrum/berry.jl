@@ -388,6 +388,88 @@ function getwindnum(H, NX::Int, NY::Int=0, bandnr::Integer=1)
 end
 
 
+"""
+    spectralgaps(H, NX::Int, NY::Int=NX; gaptol=1e-6, multimode=:auto, executor=nothing, format=:dense)
+
+Global spectral gaps of a two-dimensional Bloch Hamiltonian `H`, found on an
+`NX × NY` k-grid from **eigenvalues only** (no eigenvectors) — the cheap
+companion to [`gapcherns`](@ref).
+
+A gap below band `n` is recorded when the grid-minimum of band `n+1` exceeds the
+grid-maximum of band `n` by more than `gaptol` (in the energy units of `H`).
+
+Returns a `Vector` of `NamedTuple`s `(; n, elo, ehi)`, ordered by energy: `n`
+bands lie below a gap spanning `[elo, ehi]`.
+"""
+function spectralgaps(H, NX::Int, NY::Int=NX; gaptol::Real=1e-6,
+                      multimode=:auto,
+                      executor::Union{Nothing,Parallel.Executor}=nothing,
+                      format::Symbol=:dense)
+    # Same k-grid construction as `statesgrid`, so band indices here label the
+    # same energy-ordered states a subsequent `statesgrid`/Berry pass returns.
+    kgrid = [[x; y] for x in range(0; stop=1, length=NX), y in range(0; stop=1, length=NY)]
+    ks = reduce(hcat, vec(kgrid)) .+ 1.34e-8
+    D = dim(H, ks)
+    E = reshape(bandmatrix(H, ks; multimode=multimode, executor=executor,
+                           format=format, hidebar=true)[1], D, NX, NY)
+    emin = vec(minimum(E; dims=(2, 3)))     # per-band grid minimum
+    emax = vec(maximum(E; dims=(2, 3)))     # per-band grid maximum
+
+    gaps = @NamedTuple{n::Int, elo::Float64, ehi::Float64}[]
+    for n in 1:D-1
+        emin[n+1] - emax[n] > gaptol || continue
+        push!(gaps, (; n=n, elo=emax[n], ehi=emin[n+1]))
+    end
+    gaps
+end
+
+"""
+    gapcherns(H, NX::Int, NY::Int=NX; gaptol=1e-6, multimode=:auto, executor=nothing, format=:dense)
+
+Chern numbers of the spectral gaps of a two-dimensional Bloch Hamiltonian `H`.
+
+The gaps are located with [`spectralgaps`](@ref); for each gap the returned
+Chern number is the cumulative, **non-abelian** Berry flux of the occupied
+manifold (the lowest `n` bands),
+
+    C(n) = sum(berry(states[:, :, :, 1:n])),
+
+i.e. the Hall conductance σxy (in units of e²/h) when the chemical potential
+lies in the gap. This manifold quantity is gauge-robust even where individual
+bands touch — unlike the single-band Chern numbers from [`getcherns`](@ref),
+which are ill-defined for the touching subbands of e.g. a Hofstadter spectrum.
+
+Returns a `Vector` of `NamedTuple`s `(; n, elo, ehi, chern)`, ordered by
+energy: `n` bands lie below a gap spanning `[elo, ehi]` with Chern number
+`chern`.
+
+The grid must resolve the Berry curvature; for the densely packed magnetic
+subbands of a Hofstadter problem `NX ≳ 18` is a safe default (coarser grids can
+misreport wide-Chern narrow gaps).
+
+See also [`spectralgaps`](@ref), [`getcherns`](@ref), [`berry`](@ref),
+`Operators.hofstadter_cherns`.
+"""
+function gapcherns(H, NX::Int, NY::Int=NX; gaptol::Real=1e-6,
+                   multimode=:auto,
+                   executor::Union{Nothing,Parallel.Executor}=nothing,
+                   format::Symbol=:dense)
+    gaps = spectralgaps(H, NX, NY; gaptol=gaptol, multimode=multimode,
+                        executor=executor, format=format)
+    out = @NamedTuple{n::Int, elo::Float64, ehi::Float64, chern::Int}[]
+    isempty(gaps) && return out
+
+    # Eigenvectors (all bands) for the cumulative Berry flux of each manifold.
+    _, _, states = statesgrid(H, NX, NY;
+                              multimode=multimode, executor=executor, format=format)
+    for g in gaps
+        C = round(Int, sum(berry(@view states[:, :, :, 1:g.n])))
+        push!(out, (; g.n, g.elo, g.ehi, chern=C))
+    end
+    out
+end
+
+
 ##########################################################################
 # Some crude (but working) plotting routines:
 

@@ -66,12 +66,19 @@ superlattice(hops::Hops, M::Matrix{Int}; kwargs...) = superlattice(hops, M, (r,R
 function superlattice(hops::Hops, M::Matrix{Int}, phasefunc::Function) #where {T<:Number}
 
     coordinates = Lattices.supercellpoints(M)
-    
+
     count = size(coordinates, 2)
     D = count  * hopdim(hops) # size of superlattice hopping matrices
 
-    # sneighbors = hcat(Lattices.getneighborcells(slat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)...)
-    sneighbors = hcat([[i;j] for i=-1:1 for j=-1:1]...)
+    # Candidate supercell displacements must cover the longest hopping folded
+    # through M: long-range models (e.g. Wannier Hamiltonians spanning many
+    # cells) wrap a thin supercell like diag(1, q) several times, so the
+    # fixed {-1,0,1}² search of short-range models is not enough in general.
+    nmax = zeros(Int, size(M, 1))
+    for (δa, _) in hops
+        nmax = max.(nmax, ceil.(Int, abs.(M \ Vector{Float64}(δa)) .- 1e-9))
+    end
+    sneighbors = hcat([[i;j] for i=-nmax[1]-1:nmax[1]+1 for j=-nmax[2]-1:nmax[2]+1]...)
 
     shops = Hops(Vector(L) => spzeros(ComplexF64, D,D) for L=eachcol(sneighbors))
 
@@ -87,9 +94,11 @@ function superlattice(hops::Hops, M::Matrix{Int}, phasefunc::Function) #where {T
 
             z = phasefunc(a, a+δa)
 
-            blockmatrix!(shops[-L], i, j, t.*z) # write to the corresponding block of the corresponding superlattice hopping matrix 
+            blockmatrix!(shops[-L], i, j, t.*z) # write to the corresponding block of the corresponding superlattice hopping matrix
         end
     end
+
+    TightBinding.trim!(shops) # drop all-zero displacement blocks from the enlarged search
 
     shops
 end

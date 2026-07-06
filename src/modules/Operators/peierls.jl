@@ -120,7 +120,7 @@ function peierlsoutplane(hops, lat::Lattice, p::Int, q::Int; verbose=true)
 end
 
 
-using ..Spectrum: bandmatrix, getdos!
+using ..Spectrum: bandmatrix, getdos!, gapcherns, spectralgaps
 using ProgressMeter
 
 """
@@ -192,6 +192,155 @@ function hofstadter_dos(hops, lat::Lattice, Q::Int, frequencies::AbstractVector;
     p = sortperm(fluxes)
 
     fluxes[p], DOS[:,p]
+end
+
+
+"""
+    hofstadter_cherns(hops, lat, Q::Int, NX::Int=18; gaptol=1e-6, kwargs...)
+
+Topological Hofstadter (Wannier) diagram: the Chern number of every spectral
+gap as a function of rational magnetic flux \$\\Phi=p/q\$ per unit cell (coprime
+p, q with 1 ≤ q ≤ Q and 1 ≤ p < q).
+
+For each flux the magnetic supercell Hamiltonian is built with
+[`peierlsoutplane`](@ref) and its gaps are labelled by [`Spectrum.gapcherns`](@ref) —
+the cumulative non-abelian Chern number of the magnetic subbands below each gap
+(= Hall conductance σxy in e²/h). The magnetic BZ is sampled on an `NX × NX`
+grid; `NX ≳ 18` is recommended, as the densely packed subbands need a fine grid
+to converge.
+
+Filling is reported per *original* unit cell, `ν = n/q` for `n` subbands
+filled, so the gaps fall on Diophantine/Středa lines `ν = s − C·Φ` with integer
+Chern number `C` and band offset `s` — the sign is fixed by the flux sign of
+[`peierlsoutplane`](@ref) together with the Berry orientation of
+[`Spectrum.gapcherns`](@ref) and is pinned by a regression test
+(honeycomb, all gaps at q ≤ 5).
+
+Returns a `NamedTuple` of equal-length vectors `(; flux, filling, energy, width, chern)`,
+one entry per (flux, gap): `flux::Rational` is Φ=p//q, `filling` is ν per unit
+cell, `energy` is the gap-centre energy, `width` is the gap size, and `chern`
+is the gap Chern number. With the default near-zero `gaptol` the list includes
+numerically tiny pseudo-gaps; filter or weight by `width` for a clean diagram.
+
+`kwargs` are forwarded to the diagonalisation (`multimode`, `executor`, `format`).
+"""
+function hofstadter_cherns(hops, lat::Lattice, Q::Int, NX::Int=18; gaptol::Real=1e-6, kwargs...)
+    fluxlist = [(p, q) for q = 1:Q for p = 1:q-1 if gcd(p, q) < 2]
+
+    flux    = Rational{Int}[]
+    filling = Float64[]
+    energy  = Float64[]
+    width   = Float64[]
+    chern   = Int[]
+
+    @showprogress 2 "Hofstadter Chern numbers... " for (p, q) in fluxlist
+        mhops, _ = peierlsoutplane(hops, lat, p, q; verbose=false)
+        for g in gapcherns(mhops, NX; gaptol=gaptol, kwargs...)
+            push!(flux,    p // q)
+            push!(filling, g.n / q)
+            push!(energy,  (g.elo + g.ehi) / 2)
+            push!(width,   g.ehi - g.elo)
+            push!(chern,   g.chern)
+        end
+    end
+
+    (; flux, filling, energy, width, chern)
+end
+
+
+"""
+    diophantine_cherns(p, q, r; Nw) -> Vector{Tuple{Int,Int}}
+
+Candidate `(s, C)` labels of a Hofstadter gap from the TKNN / Středa–Wannier
+Diophantine equation
+
+    r = q·s − p·C,
+
+for flux Φ=p/q (coprime) with `r` magnetic subbands filled below the gap and
+`Nw` orbitals per primitive cell. `C ∈ ℤ` is the gap Chern number as reported
+by [`Spectrum.gapcherns`](@ref) / [`hofstadter_cherns`](@ref) (the sign
+convention those routines produce), and `s ∈ ℤ` the band-filling label; the
+integrated density per primitive cell is `n = r/q = s − C·Φ`.
+
+The equation fixes `C ≡ −p⁻¹ r (mod q)` only, so every branch inside the
+heuristic window `0 ≤ s ≤ Nw` is returned, ordered by `|C|`. The window bounds
+the ν-axis *intercept* of the gap's Středa line, not its filling: a gap family
+that exists only in a finite flux window can have a true intercept outside
+`[0, Nw]` (e.g. wide-Chern gaps of multi-orbital models), in which case the
+true branch is **not** among the candidates. A single candidate is an
+unambiguous label only up to that caveat; several means the branch must be
+pinned otherwise (a gap-family fit, or an exact [`Spectrum.gapcherns`](@ref)
+anchor) — do **not** blindly take the smallest `|C|` for a multi-orbital model.
+"""
+function diophantine_cherns(p::Int, q::Int, r::Int; Nw::Int)
+    q == 1 && return [(r, 0)]                 # integer flux: C undefined, n = r
+    invp = invmod(mod(p, q), q)
+    C0 = mod(-invp * r, q)                    # C ≡ −p⁻¹ r (mod q), in 0:q-1
+    out = Tuple{Int,Int}[]
+    # s = (r + p·C)/q increases by p as C increases by q; sweep enough branches
+    # to bracket 0 ≤ s ≤ Nw on either side.
+    lmax = cld(abs(r) + abs(p) * q + Nw + q, q) + 2
+    for l in -lmax:lmax
+        C = C0 + l * q
+        s, rem = divrem(r + p * C, q)
+        (rem == 0 && 0 <= s <= Nw) && push!(out, (s, C))
+    end
+    sort!(out; by = sc -> (abs(sc[2]), sc[2]))
+    out
+end
+
+"""
+    hofstadter_gaplabels(hops, lat, Q::Int, NX::Int=18; gaptol=0.05, Nw=hopdim(hops))
+
+Cheap (energies-only) Hofstadter gap labelling: the Diophantine/Středa Chern
+label of every spectral gap as a function of rational flux Φ=p/q per unit cell
+(coprime p, q with 1 ≤ q ≤ Q and 1 ≤ p < q).
+
+For each flux the magnetic supercell is built with [`peierlsoutplane`](@ref) and
+its gaps located by [`Spectrum.spectralgaps`](@ref) (no eigenvectors, no Berry —
+much cheaper than [`hofstadter_cherns`](@ref)). Each gap is then labelled with
+[`diophantine_cherns`](@ref): `chern` is the smallest-`|C|` candidate and `nsol`
+the number of `0 ≤ s ≤ Nw` branches, so `nsol > 1` flags a gap whose label needs
+disambiguation (a gap-family fit or a [`hofstadter_cherns`](@ref) anchor). `Nw`
+is the number of orbitals per primitive cell.
+
+Filling is reported per primitive cell, `ν = r/q`. Returns a `NamedTuple` of
+equal-length vectors `(; flux, filling, energy, width, q, r, chern, nsol)`.
+
+This is the cheap Level-1 layer of the standard Hofstadter workflow; use
+[`hofstadter_cherns`](@ref) for the exact Berry-curvature anchors.
+"""
+function hofstadter_gaplabels(hops, lat::Lattice, Q::Int, NX::Int=18;
+                              gaptol::Real=0.05, Nw::Int=TightBinding.hopdim(hops))
+    fluxlist = [(p, q) for q = 1:Q for p = 1:q-1 if gcd(p, q) < 2]
+
+    flux    = Rational{Int}[]
+    filling = Float64[]
+    energy  = Float64[]
+    width   = Float64[]
+    qs      = Int[]
+    rs      = Int[]
+    chern   = Int[]
+    nsol    = Int[]
+
+    @showprogress 2 "Hofstadter gap labels... " for (p, q) in fluxlist
+        mhops, _ = peierlsoutplane(hops, lat, p, q; verbose=false)
+        for g in spectralgaps(mhops, NX; gaptol=gaptol)
+            cands = diophantine_cherns(p, q, g.n; Nw=Nw)
+            isempty(cands) && continue
+            _s, C = first(cands)                     # smallest |C| (Level-1 guess)
+            push!(flux,    p // q)
+            push!(filling, g.n / q)
+            push!(energy,  (g.elo + g.ehi) / 2)
+            push!(width,   g.ehi - g.elo)
+            push!(qs,      q)
+            push!(rs,      g.n)
+            push!(chern,   C)
+            push!(nsol,    length(cands))
+        end
+    end
+
+    (; flux, filling, energy, width, q=qs, r=rs, chern, nsol)
 end
 
 
