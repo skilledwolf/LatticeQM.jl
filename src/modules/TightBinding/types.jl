@@ -172,12 +172,16 @@ function ishermitian(H::Hops; tol=sqrt(eps()))
 end
 
 function hermitianize!(H::Hops) # hermitian means H[R] = H[-R]'
-    Hkeys = keys(H)
+    # Snapshot the keys: the `else` branch inserts H[-R] while iterating,
+    # and mutating a Dict during iteration is undefined behavior (skipped or
+    # repeated keys after a rehash) — exactly in the unpaired-keys case this
+    # function exists to repair.
+    Hkeys = collect(keys(H))
     for R in Hkeys
         if haskey(H, -R)
             @. H[R] = (H[R] + H[-R]')/2
             @. H[-R] = H[R]'
-        else 
+        else
             H[-R] = H[R]'
         end
     end

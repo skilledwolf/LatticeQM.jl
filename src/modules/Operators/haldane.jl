@@ -21,13 +21,34 @@ function addhaldane!(hops, lat::Lattice, t2::Function; mode=:auto, kwargs...)
     end
 end
 
-function addhaldane_naive!(hops, lat::Lattice, t2::Function; ϕ=π/2, cellrange=1, mode=:none, zmode=:none)
+# Nearest-neighbor bond length of `lat`: smallest nonzero interatomic distance
+# over the origin + shell-1 cells. The Haldane/valley builders used to
+# hardcode NN=1 and NNN=√3, which silently produced an *empty* term on any
+# honeycomb whose bond length is not exactly 1 (e.g. a = 1.42 Å graphene).
+function _nnbondlength(lat::Lattice)
+    D = Lattices.spacedim(lat)
+    R = Lattices.positions(lat)
+    A = Lattices.getA(lat)
+    cells = Lattices.getneighborcells(lat, 1; halfspace=false, innerpoints=true, excludeorigin=false)
+    dmin = Inf
+    for c in cells
+        δ = A * c
+        for i in axes(R, 2), j in axes(R, 2)
+            dij = norm(R[:, i] .+ δ .- R[:, j])
+            dij > sqrt(eps()) && (dmin = min(dmin, dij))
+        end
+    end
+    @assert isfinite(dmin) "Could not determine a nearest-neighbor bond length for this lattice."
+    dmin
+end
 
-    d=1    
+function addhaldane_naive!(hops, lat::Lattice, t2::Function; ϕ=π/2, cellrange=1, a0=nothing, mode=:none, zmode=:none)
+
+    d=1
     cross2D(x, y) = x[1] * y[2] - x[2] * y[1] # needed later on in this scope
 
-    # NN  = find_neighbors(lat, 1.0)
-    NNN = Lattices.getneighbors(lat, √3; cellrange=cellrange)
+    a0 = a0 === nothing ? _nnbondlength(lat) : a0
+    NNN = Lattices.getneighbors(lat, √3*a0; cellrange=cellrange)
 
     N = Lattices.countorbitals(lat)
     D = Lattices.spacedim(lat)
@@ -58,7 +79,7 @@ function addhaldane_naive!(hops, lat::Lattice, t2::Function; ϕ=π/2, cellrange=
                 R0 = δAi .+ δri
                 
                 x = Ri[1:D]-R0[1:D]; y=Rj[1:D]-R0[1:D]
-                if isapprox(norm(x), 1; atol=sqrt(eps())) && isapprox(norm(y), 1; atol=sqrt(eps())) # we found the common
+                if isapprox(norm(x), a0; rtol=1e-6) && isapprox(norm(y), a0; rtol=1e-6) # we found the common
                     hops[δR][1+d*(i-1):d+d*(i-1), 1+d*(j-1):d+d*(j-1)] += t2((Ri+Rj)/2) * I * exp(1.0im * ϕ * sign( cross2D(-y, x) ) )#* 1im * sign( cross2D(R0.-Rj, Ri.-R0) ) #
                     break
                 end
@@ -90,10 +111,11 @@ function pairs_within_radius(treeA::KDTree, ptsA::AbstractMatrix,
     result
 end
 
-function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, cellrange=1, mode=:none, zmode=:none)
+function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, cellrange=1, a0=nothing, mode=:none, zmode=:none)
     cross2D(x, y) = x[1] * y[2] - x[2] * y[1]
 
-    NNN          = Lattices.getneighbors(lat, sqrt(3); cellrange=cellrange)
+    a0 = a0 === nothing ? _nnbondlength(lat) : a0
+    NNN          = Lattices.getneighbors(lat, sqrt(3)*a0; cellrange=cellrange)
     cellneighbors = Lattices.getneighborcells(lat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)
     D            = Lattices.spacedim(lat)
     N            = Lattices.countorbitals(lat)
@@ -119,10 +141,10 @@ function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, cellrange=1
             mid = (r1 .+ r2) / 2
 
             # On a hexagonal lattice the midpoint of any NNN pair coincides
-            # with their common nearest-neighbour atom. 0.53 > 0.5 to absorb
-            # numerical jitter; for non-hexagonal geometries the caller
-            # should fall back to addhaldane_naive!.
-            cands = inrange(largetree, mid, 0.53)
+            # with their common nearest-neighbour atom. 0.53·a0 > a0/2 to
+            # absorb numerical jitter; for non-hexagonal geometries the
+            # caller should fall back to addhaldane_naive!.
+            cands = inrange(largetree, mid, 0.53 * a0)
             isempty(cands) && continue
             r0 = allpoints[:, first(cands)]
 

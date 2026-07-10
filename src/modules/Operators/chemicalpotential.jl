@@ -46,8 +46,13 @@ function setfilling!(H, kgrid, filling; kwargs...)
 end
 
 function addchemicalpotential!(hops::Hops, μ::Real)
-    inds = diagind(hops[zerokey(hops)])
-    hops[zerokey(hops)][inds] .+= μ
+    zk = zerokey(hops)
+    if !haskey(hops, zk)   # pure inter-cell Hops: create the onsite block
+        D = hopdim(hops)
+        hops[zk] = TightBinding.zero_matrix(typeof(hops), D, D)
+    end
+    inds = diagind(hops[zk])
+    hops[zk][inds] .+= μ
     hops
 end
 

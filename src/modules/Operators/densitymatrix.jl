@@ -72,12 +72,14 @@ function _densitymatrix_local(ρs::AbstractHops)
 end
 
 # kspace_reduce! requires `output` to support `zero(output)` and accumulation.
-# `Base.zero` for Hops produces a same-shape Hops with fresh zero matrices.
+# TightBinding's type-preserving `Base.zero(::Hops)` covers the ComplexF64
+# accumulators that flow through here. (An earlier `Base.zero(h::Hops) =
+# _densitymatrix_local(h)` overload silently shadowed that method for
+# non-ComplexF64 Hops — type piracy on TightBinding's type; removed.)
 # The `_accumulate!` extension teaches `Parallel.kspace_reduce!` how to fold
 # per-task partials back into the master output (Hops opts out of
 # broadcasting via `Base.broadcastable(H::Hops) = Ref(H)`, so the default
 # `output .+= partial` won't work for Hops).
-Base.zero(h::Hops) = _densitymatrix_local(h)
 function Parallel._accumulate!(out::AbstractHops, partial::AbstractHops)
     for δL in keys(out)
         out[δL] .+= partial[δL]

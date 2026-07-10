@@ -39,13 +39,13 @@ function graphene_rhombohedral(lat; spin=false, a=1.0, d=3.0, γ0=-3.16, γ1=0.5
         
         if abs(norm(δr[1:2])-a)<0.01 && abs(δr[3]) < 0.01 # same layer, NN
             return γ0
-        elseif abs(norm(δr[1:2]))<0.01 && abs(abs(δr[3])-d) < 0.01  ## NN-layer, vertical
+        elseif abs(norm(δr[1:2]))<0.01 && abs(abs(δr[3])-d) < 0.01  ## NN-layer, vertical (dimer)
             return γ1
         elseif abs(norm(δr[1:2]))<0.01 && abs(abs(δr[3])-2*d) < 0.01 ## NNN-layer, vertical
             return γ2
-        elseif abs(norm(δr[1:2])-a)<0.01 && abs(abs(δr[3])-d) < 0.01 && abs(δr[4]) < 0.01 ## NN-layer, non-vertical, AA
+        elseif abs(norm(δr[1:2])-a)<0.01 && abs(abs(δr[3])-d) < 0.01 && abs(δr[4]) < 0.01 ## NN-layer, same sublattice (A1-A2 / B1-B2)
             return γ4
-        elseif abs(norm(δr[1:2])-2*a)<0.01 && abs(abs(δr[3])-d) < 0.01 && abs(δr[4]) > 0.01 ## NN-layer, non-vertical, AB
+        elseif abs(norm(δr[1:2])-a)<0.01 && abs(abs(δr[3])-d) < 0.01 && abs(δr[4]) > 0.01 ## NN-layer, non-dimer A1-B2: in-plane distance is a, like γ4 (the old 2a selector tagged a spurious far shell and missed every physical γ3 bond)
             return γ3
         end
         
@@ -67,7 +67,9 @@ import ..Structure.Lattices
     addsublatticeimbalance!(hops, lat, Δ; kwargs...)
 
 Add a sublattice‑staggered chemical potential (imbalance) of magnitude `Δ` to
-`hops` on lattice `lat`. Positive values raise A and lower B (by convention).
+`hops` on lattice `lat`. The on‑site energy is shifted by
+`Δ*(s - 1/2)` with sublattice coordinate `s` (A: `s=0`, B: `s=1`), so positive
+`Δ` lowers sublattice A by `Δ/2` and raises sublattice B by `Δ/2`.
 
 No‑op for `Δ≈0`.
 """

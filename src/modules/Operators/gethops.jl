@@ -82,6 +82,11 @@ function vectorizedhops!(hops::Hops, R::Matrix{Float64}, neighbors::Dict{Vector{
     for (δL,δa) in neighbors
         R2 .= R .+ δa
         hops[δL] = t(R2, R)
+        # For δL == 0 the "conjugate partner" IS the same block: writing
+        # hops[-0] = hops[0]' would overwrite the freshly computed onsite
+        # block with its adjoint, silently replacing any non-Hermitian
+        # content instead of surfacing it.
+        all(iszero, δL) && continue
         hops[-δL] = deepcopy(hops[δL]') # create the Hermitian conjugates
     end
     hops
@@ -98,6 +103,8 @@ function hops!(hops::Hops{K,T}, R::Matrix{Float64}, neighbors::Dict{Vector{Int},
         # Initialize a zero matrix of type T
         hops[δL] = zero_matrix(typeof(hops), d*N, d*N)
         hoppingmatrix!(hops[δL], V, R .+ δa, R, t; kwargs...) # heavy lifting
+        # See vectorizedhops!: never overwrite the onsite block with its adjoint.
+        all(iszero, δL) && continue
         hops[-δL] = deepcopy(hops[δL]') # create the Hermitian conjugates
     end
     hops

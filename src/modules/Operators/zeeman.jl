@@ -47,7 +47,7 @@ If the norm of `M` is (numerically) zero, this is a no‑op. Returns `hops`.
 function addzeeman!(hops, lat::Lattice, Mv::Vector{Float64}; format=:dense)
     # Only go through the trouble of constructing this matrix for finite Mv
     if isapprox(norm(Mv), 0; atol=sqrt(eps()))
-        return 0.0
+        return hops   # no-op, but keep the documented return type
     end
 
     zero0 = zeros(Int, latticedim(lat))
