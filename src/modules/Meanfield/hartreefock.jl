@@ -115,6 +115,14 @@ function initialize_hMF!(hf, ρ)
     for k in keys(hf.hMF)
         hf.hMF[k] .= 0
     end
+    # The Fock loop runs over keys(v); when the interaction reaches further
+    # than the hopping (e.g. NN Hubbard V on an onsite-hopping model), hMF —
+    # allocated with keys(h) — must be extended or the update KeyErrors.
+    # (The BdG ΔMF channel already did this; the electron channel was missed.)
+    for k in keys(hf.v)
+        haskey(hf.hMF, k) && continue
+        hf.hMF[k] = zero(hf.h[TightBinding.zerokey(hf.h)])
+    end
     TightBinding.addhops!(hf.hMF, hf.h)
     nothing
 end
@@ -138,6 +146,17 @@ function meanfieldScalar!(hf::HartreeFock, ρs)
     nothing
 end
 
+"""
+    doublecounting(hf) → Float64
+
+Total interaction double-counting correction of the mean-field band energy:
+`E_GS = ϵband − doublecounting(hf)` and `⟨T⟩ = ϵband − 2·doublecounting(hf)`.
+For plain Hartree-Fock this is `ϵH + ϵF`; BdG generators add the pairing
+channel `ϵP` (the quasiparticle band energy contains `⟨½(c†Δc† + h.c.)⟩ =
+2ϵP` while the physical pairing interaction energy is `ϵP`).
+"""
+doublecounting(hf::MeanfieldGenerator) = hf.ϵH + hf.ϵF
+
 
 ####################################################################
 # Low-level functions to construct Hartree and Fock contributions
@@ -145,6 +164,9 @@ end
 
 function meanfieldOperator_addfock!(hf, ρ)
     for L in keys(hf.v)
+        # ρ blocks the density matrix doesn't carry are identically zero, so
+        # their exchange contribution vanishes — skip instead of KeyError.
+        haskey(ρ, L) || continue
         vL = hf.v[L]
         ρL = ρ[L]
         hL = hf.hMF[L]
@@ -152,15 +174,20 @@ function meanfieldOperator_addfock!(hf, ρ)
         axes(vL) == axes(ρL) || throw(DimensionMismatch("Fock block axis mismatch for key $(L): axes(v)=$(axes(vL)) vs axes(ρ)=$(axes(ρL))"))
         axes(vL) == axes(hL) || throw(DimensionMismatch("Fock block axis mismatch for key $(L): axes(v)=$(axes(vL)) vs axes(hMF)=$(axes(hL))"))
 
+        # Exchange field conjugate to E_F = -½ Σ v|ρ|²: Σ_F[L] = -v_L .* ρ_L
+        # (NOT conj(ρ_L) — both are Hermitian as Hops, but only the
+        # un-conjugated form satisfies Tr[Σ_F·ρ] = 2ϵF; the conjugated one
+        # iterates the time-reversed exchange field, so complex-ρ states
+        # (spiral/XY order, loop currents) are not fixed points.)
         if vL isa SparseMatrixCSC
             rows, cols, vals = findnz(vL)
             @inbounds for idx in eachindex(vals)
                 i = rows[idx]
                 j = cols[idx]
-                hL[i, j] += -vals[idx] * conj(ρL[i, j])
+                hL[i, j] += -vals[idx] * ρL[i, j]
             end
         else
-            @. hL -= vL * conj(ρL)
+            @. hL -= vL * ρL
         end
     end
     nothing
@@ -203,7 +230,8 @@ Physical Fock (exchange) energy `-½ Σ_L Σ_{ij} v_L[i,j] |ρ_L[i,j]|²`
 (negative for repulsive `v`).
 """
 function fock_energy(hf, ρs)
-    energy = -1/2 * sum(sum(ρs[L] .* conj.(ρs[L]) .* vL for (L, vL) in hf.v))
+    energy = -1/2 * sum(haskey(ρs, L) ? sum(ρs[L] .* conj.(ρs[L]) .* vL) : 0.0
+                        for (L, vL) in hf.v)
     @assert isapprox(imag(energy), 0; atol=_imag_tol(ρs))
     real(energy)
 end

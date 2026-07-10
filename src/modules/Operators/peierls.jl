@@ -12,11 +12,14 @@ The phase function `phase` must be a function with the signature
     phase(r1::AbstractVector, r2::AbstractVector)
 
 Note:
-- this should be the last step when constructing a tight-binding 
+- this should be the last step when constructing a tight-binding
   Hamiltonian
 - You need to make sure that the phases that you add do not break
   translational symmetries. This is not a trivial matter and may
-  lead to unexpected/undetected mistakes.
+  lead to unexpected/undetected mistakes. If the phases of a bond and its
+  conjugate partner do not pair up, the result is a non-Hermitian operator;
+  this function warns (once) when that happens, because the dense
+  diagonalization path silently projects onto the Hermitian part.
 """
 function peierls!(hops, lat::Lattice, phase::Function)
     N = Lattices.countorbitals(lat)
@@ -36,17 +39,43 @@ function peierls!(hops, lat::Lattice, phase::Function)
         end
     end
 
+    if !TightBinding.ishermitian(hops)
+        @warn "peierls!: the phase function broke Hermiticity (phases of conjugate " *
+              "bond partners do not pair up). Spectra computed from this operator " *
+              "are unreliable — the dense solver will silently symmetrize it. " *
+              "For a uniform out-of-plane field on a periodic lattice use " *
+              "`peierlsoutplane(hops, lat, p, q)`." maxlog=1
+    end
+
     hops
 end
 
 """
     peierls!(hops, lat, B)
 
-Add Peierls phases to operator `hops` on lattice geometry `lat` for the uniform
-magnetic field `B=(B1,B2,B3)`. Uses Coulomb gauge, see uniformfieldphase(...).
+Add Peierls phases to operator `hops` on a **finite (0-dimensional)** lattice
+`lat` for the uniform magnetic field `B=(B1,B2,B3)` (in flux quanta per unit
+area), using the symmetric gauge; see [`uniformfieldphase`](@ref) for the
+sign convention.
 
+A uniform field in a fixed gauge is **not** lattice-translation invariant, so
+this entry point refuses periodic lattices: the resulting Bloch Hamiltonian
+would be non-Hermitian and physically meaningless. For periodic systems use
+
+  * [`peierlsoutplane`](@ref)`(hops, lat, p, q)` — out-of-plane flux Φ=p/q
+    with the correct magnetic supercell;
+  * [`peierlsinplane!`](@ref)`(hops, lat, B)` — in-plane fields (that gauge
+    is translation covariant).
 """
 function peierls!(hops, lat::Lattice, B::AbstractVector)
+    if Lattices.latticedim(lat) != 0
+        throw(ArgumentError(
+            "peierls!(hops, lat, B) with a uniform field is only defined for finite " *
+            "(0D) lattices: the symmetric gauge breaks lattice translation invariance, " *
+            "so on a periodic lattice the result would be a non-Hermitian Bloch " *
+            "Hamiltonian. Use peierlsoutplane(hops, lat, p, q) for out-of-plane flux " *
+            "or peierlsinplane!(hops, lat, B) for in-plane fields."))
+    end
     phase(args...) = uniformfieldphase(args...; B=B)
     peierls!(hops, lat, phase)
 end
@@ -288,8 +317,12 @@ function diophantine_cherns(p::Int, q::Int, r::Int; Nw::Int, smargin::Int=0)
     C0 = mod(-invp * r, q)                    # C ≡ −p⁻¹ r (mod q), in 0:q-1
     out = Tuple{Int,Int}[]
     # s = (r + p·C)/q increases by p as C increases by q; sweep enough branches
-    # to bracket the window on either side.
-    lmax = cld(abs(r) + abs(p) * q + Nw + 2 * smargin + q, q) + 2
+    # to bracket the window on either side. The divisor must be p (the step of
+    # s per branch), NOT q: |s at l=0| ≤ |r|/q + p, so l must reach
+    # (Nw + 2smargin + |s0|)/p. Dividing by q undercounts whenever Nw ≳ q and
+    # silently drops in-window branches (e.g. p=1,q=3,r=0,Nw=10 lost (9,27),
+    # (10,30)), corrupting the `nsol` ambiguity flag.
+    lmax = cld(abs(r) + abs(p) * q + Nw + 2 * smargin + q, abs(p)) + 2
     for l in -lmax:lmax
         C = C0 + l * q
         s, rem = divrem(r + p * C, q)
@@ -364,32 +397,49 @@ end
 """
     uniformfieldphase(r1,r2; B)
 
-The proper relative phase between lattice positions r1 and r2 in presence
-of magnetic field B=(B_1,B_2,...). Calculated in Coulomb gauge!
+The Peierls phase (in units of 2π) acquired by a hop from `r2` to `r1` in a
+uniform magnetic field `B=(B1,B2,B3)`, computed in the symmetric gauge
+`A = ½ B × r`.
 
-The magnetic field should be in units of flux quanta \$\\phi_0=h/e\$.
+# Convention
+
+All Peierls routines in this module share the convention
+
+    t_ij → t_ij · exp(+i 2π/φ0 ∫_{r_j}^{r_i} A·dl),
+
+i.e. this function returns `+(1/φ0) ∫_{r2}^{r1} A·dl = ½ B·(r2 × r1)`. This
+matches [`uniformfieldphase_outplane`](@ref) (pinned by the Hofstadter/Chern
+tests), so the same nominal `B` produces the same field direction in every
+entry point. `B` is measured in flux quanta φ0=h/e per unit area and must be
+a 3-vector; 2D positions are treated as lying in the z=0 plane.
 """
 function uniformfieldphase(r1::T,r2::T; B::AbstractVector) where T<:AbstractVector
-    @assert size(r1)==size(r2)==size(B) "Vectors must have same length"
+    @assert size(r1)==size(r2) "Vectors must have same length"
     D = size(r1,1)
     @assert 1 < D < 4 "So far only 2D and 3D vectors are supported"
+    @assert length(B) == 3 "B must be a 3-vector (Bx, By, Bz)"
 
-    cross2D(x, y) = [0, 0, x[1] * y[2] - x[2] * y[1]]
-    f = (D==2) ? cross2D : cross
+    to3(v) = D == 3 ? v : [v[1], v[2], 0.0]
 
-    dot(f(r1, r2), B/2)
+    # +(1/φ0)∫_{r2→r1} A·dl with A = ½ B×r  ⇒  ½ B·(r2×r1)
+    dot(cross(to3(r2), to3(r1)), B/2)
 end
 
 
 """
     uniformfieldphase_inplane(r1,r2; B)
 
-The proper relative phase between lattice positions r1 and r2 in presence
-of magnetic field B=(B_1,B_2,0). 
+The Peierls phase (in units of 2π) acquired by a hop from `r2` to `r1` in a
+uniform in-plane magnetic field `B=(B1,B2,0)`, in the gauge
+`A = (B2 z, −B1 z, 0)`.
 
-Here we use the gauge A = (B2 z, - B1 z, 0)
+Returns `+(1/φ0) ∫_{r2}^{r1} A·dl` — the same sign convention as
+[`uniformfieldphase`](@ref) and [`uniformfieldphase_outplane`](@ref); see the
+convention note in [`uniformfieldphase`](@ref). This gauge depends only on
+the hop vector and the mean height `z̄`, so it is lattice-translation
+covariant and safe for periodic 2D lattices.
 
-The magnetic field should be in units of flux quanta \$\\phi_0=h/e\$.
+The magnetic field should be in units of flux quanta \$\\phi_0=h/e\$ per unit area.
 """
 function uniformfieldphase_inplane(r1::T,r2::T; B::AbstractVector) where T<:AbstractVector
     @assert size(r1)==size(r2) "Vectors must have same length"
@@ -401,14 +451,12 @@ function uniformfieldphase_inplane(r1::T,r2::T; B::AbstractVector) where T<:Abst
 
     if D<3
         z1=0;  z2=0
-    # end
     else
-        ### z1=r1[3]+1.5;  z2=r2[3]+1.5
         z1=r1[3];  z2=r2[3]
     end
-    # z1=r1[3]; z2=r2[3]
 
-    return cross2D(r2-r1, B) * (z1+z2)/2
+    # ∫_{r2→r1} A·dl = z̄ [(r1−r2)_x B2 − (r1−r2)_y B1] = z̄ · cross2D(r1−r2, B)
+    return cross2D(r1-r2, B) * (z1+z2)/2
 end
 
 import ..Structure.Lattices

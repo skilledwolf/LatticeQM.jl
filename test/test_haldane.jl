@@ -191,3 +191,28 @@ end
     @test length(idx) == 1
     @test lab.nsol[idx[1]] == 0
 end
+
+# Regression: the branch sweep must be bounded by the step of s per branch
+# (which is p), not by q. The old bound `cld(..., q)` silently dropped
+# in-window branches whenever Nw ≳ q — e.g. p=1, q=3, r=0, Nw=10 lost
+# (s,C) = (9,27) and (10,30) — undercounting `nsol` and mislabelling gaps
+# as unambiguous for multi-orbital (moiré-scale) models.
+@testset "diophantine_cherns: window is complete for Nw ≫ q" begin
+    cands = Operators.diophantine_cherns(1, 3, 0; Nw=10)
+    # C ≡ 0 (mod 3), s = C/3 ∈ 0:10 → exactly the 11 branches (m, 3m), m=0:10
+    @test length(cands) == 11
+    @test (9, 27) in cands
+    @test (10, 30) in cands
+    for (s, C) in cands
+        @test 0 == 3 * s - 1 * C
+        @test 0 <= s <= 10
+    end
+
+    cands2 = Operators.diophantine_cherns(2, 7, 0; Nw=20)
+    @test (18, 63) in cands2
+    @test (20, 70) in cands2
+    for (s, C) in cands2
+        @test 0 == 7 * s - 2 * C
+        @test 0 <= s <= 20
+    end
+end

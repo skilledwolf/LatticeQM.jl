@@ -44,6 +44,17 @@ using LinearAlgebra: I, det, tr
         @test σUP * σUP ≈ σUP                 # idempotent
         @test σDOWN * σDOWN ≈ σDOWN
     end
+
+    @testset "ladder operators: σ± raise/lower and σ⁺ ≠ σ⁻" begin
+        @test σPLUS ≈ [0.0 1.0; 0.0 0.0]      # σ⁺|↓⟩ = |↑⟩
+        @test σMINUS ≈ [0.0 0.0; 1.0 0.0]     # σ⁻|↑⟩ = |↓⟩
+        @test σMINUS == σPLUS'                # adjoint pair
+        @test σPLUS * σMINUS ≈ σUP            # σ⁺σ⁻ projects on |↑⟩
+        @test σMINUS * σPLUS ≈ σDOWN
+        @test σPLUS + σMINUS ≈ σ1
+        @test σPLUS - σMINUS ≈ 1im * σ2
+        @test σs["plus"] === σPLUS && σs["minus"] === σMINUS
+    end
 end
 
 # spinorrotation must be unitary for any θ, n.

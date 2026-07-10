@@ -1,6 +1,6 @@
 using Test
 using LatticeQM
-using LinearAlgebra: dot, norm, diag
+using LinearAlgebra: dot, norm, diag, tr
 
 # analyticbands.jl is also included by test_spectrum_graphene.jl; redefining
 # the module is harmless but using-imports must avoid Main-level conflicts.
@@ -216,6 +216,65 @@ function hubbardmodelantiferro()
     # (legacy code asked for 1e-12 which is tighter than the SCF residual).
     return isapprox(dot(subamag, subbmag) / norm(subamag) / norm(subbmag),
                     -1.0; atol=1e-8)
+end
+
+# Regression (fast, always on): the mean-field operator must be the true
+# variational conjugate of the energy functional, Tr[hMF·ρ] = Tr[h·ρ] + 2(ϵH+ϵF),
+# for COMPLEX ρ. The old Fock update used conj(ρL); that satisfies the identity
+# for real (collinear) ρ but iterates the time-reversed exchange field for
+# complex ρ (spiral/XY order, loop currents), which is exactly what the
+# collinear SCF tests above cannot see. The identity is convention-independent,
+# so machine-precision agreement is required.
+@testset "Meanfield: Fock field is variationally consistent for complex ρ" begin
+    lat = Geometries.honeycomb()
+    hops = Operators.graphene(lat; mode=:spinhalf)
+    v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=4.0)
+
+    N = LatticeQM.TightBinding.hopdim(v)
+    zk = LatticeQM.TightBinding.zerokey(v)
+
+    # Deterministic, fully complex Hermitian ρ (no rand: reproducibility).
+    M = [exp(1im * (3i + j)) / (1 + abs(i - j)) for i in 1:N, j in 1:N]
+    M = (M + M') / 2
+    ρ = Hops(Dict(L => zeros(ComplexF64, size(v[L])) for L in keys(v)))
+    ρ[zk] .= M
+    @test maximum(abs.(imag.(ρ[zk]))) > 0.1   # genuinely complex input
+
+    hf = Meanfield.HartreeFock(hops, v)
+    hf(ρ)
+
+    # Any k-set works; the identity is per-k exact.
+    ks = hcat([[i / 3, j / 3] for i in 0:2, j in 0:2][:]...)
+    trprod(A, B) = sum(real(tr(Matrix(A(k)) * Matrix(B(k)))) for k in eachcol(ks)) / size(ks, 2)
+
+    Eband = trprod(Meanfield.hMF(hf), ρ)
+    Ekin = trprod(hf.h, ρ)
+    @test Eband - Ekin ≈ 2 * (hf.ϵH + hf.ϵF) atol=1e-10
+    # And the mean-field operator stays Hermitian.
+    @test LatticeQM.TightBinding.ishermitian(hf.hMF)
+end
+
+# Regression: interactions reaching farther than the hopping (extended
+# Hubbard/Yukawa on an NN model) used to KeyError on the first Fock update —
+# hMF was allocated with keys(h) only while the Fock loop runs over keys(v).
+@testset "Meanfield: interaction range beyond hopping range" begin
+    lat = Geometries.honeycomb()
+    # onsite-only hopping: staggered potential, no inter-cell keys at all
+    hops = Hops([0, 0] => ComplexF64[0.3 0 0 0; 0 0.3 0 0; 0 0 -0.3 0; 0 0 0 -0.3])
+    nbrs = [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]
+    v = Operators.gethubbard(lat, nbrs; mode=:σx, a=1.8, U=2.0)
+    @test !issubset(collect(keys(v)), collect(keys(hops)))  # premise: v reaches farther
+
+    ρ = Meanfield.initialguess(v, :antiferro; lat=lat)
+    hf = Meanfield.HartreeFock(hops, v)
+    hf(ρ)                                    # used to KeyError here
+    @test isfinite(hf.ϵH) && isfinite(hf.ϵF)
+    @test LatticeQM.TightBinding.ishermitian(hf.hMF)
+
+    # variational identity holds for the extended operator too
+    ks = hcat([[i / 3, j / 3] for i in 0:2, j in 0:2][:]...)
+    trprod(A, B) = sum(real(tr(Matrix(A(k)) * Matrix(B(k)))) for k in eachcol(ks)) / size(ks, 2)
+    @test trprod(Meanfield.hMF(hf), ρ) - trprod(hf.h, ρ) ≈ 2 * (hf.ϵH + hf.ϵF) atol=1e-10
 end
 
 @testset "Meanfield: Hubbard graphene (slow, opt-in)" begin
