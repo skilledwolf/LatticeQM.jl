@@ -32,12 +32,12 @@ function periodicDrive(omega::Number=1)
 end
 
 """
-    periodicDrive(omega::Number, funcFourier::AbstractArray{Number, 1}, operator::AbstractMatrix{Number})
+    periodicDrive(omega::Number, funcFourier::AbstractArray{<:Number, 1}, operator::AbstractMatrix{<:Number})
 
 Allows for initializing a periodicDrive using only one operator and Fourier components of a periodic function
 denoting the amplitude (over time) with which the operator is applied.
 """
-function periodicDrive(omega::Number, funcFourier::AbstractArray{Number, 1}, operator::AbstractMatrix{Number})
+function periodicDrive(omega::Number, funcFourier::AbstractArray{<:Number, 1}, operator::AbstractMatrix{<:Number})
     M = convert(Integer, (length(funcFourier)-1)/2)
     ns = collect(-M:M)
     operators = [A.*operator for A in funcFourier]
