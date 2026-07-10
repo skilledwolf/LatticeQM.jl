@@ -8,8 +8,12 @@ chemicalpotential(bands::AbstractArray, kgrid, filling::Real; T::Real = 0.0, kwa
 chemicalpotential_0(energies, args...; kwargs...) = (en = energies[:]; chemicalpotential_0!(en, args...; kwargs...))
 function chemicalpotential_0!(energies::AbstractVector{<:Real}, filling::Real)
 
-    if filling == 1.0
+    if filling >= 1.0        # exact `== 1.0` float compare missed e.g. 1 - eps() rounding
         en = maximum(energies)
+    elseif filling <= 0.0
+        # μ strictly below the spectrum: the old midpoint formula returned
+        # (E₁+E₂)/2, which *occupies* the lowest state at nominal zero filling.
+        en = minimum(energies) - one(eltype(energies))
     else
         i = 1 + floor(Int, filling * (length(energies) - 1)) # fill a fraction of states according to ,,filling''
         en = sum(partialsort!(energies, i:i+1)) / 2 # oldversion: sort!(energies); e1, e2 = energies[i:i+1]

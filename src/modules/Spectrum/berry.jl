@@ -56,7 +56,11 @@ function statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[];
     # 2 × (NX*NY) matrix for `kspace_foreach!`; linear index `j` maps back to
     # `(mod1(j, NX), cld(j, NX))`.
     kgrid = [[x;y] for x=range(0; stop=1, length=NX), y=range(0; stop=1, length=NY)]
-    midkgrid = [[1/(2*NX)+x;1/(2*NY)+y] for x=range(0; stop=1-1.0/NX, length=NX-1), y=range(0; stop=1-1.0/NY, length=NY-1)]
+    # Plaquette centers: grid spacing is 1/(N−1) (`range(0,1,length=N)`), so
+    # the (N−1) centers sit at (i+½)/(N−1). The old offset 1/(2N) with
+    # spacing (1−1/N)/(N−2) drifted off the true centers (for NX=3 it gave
+    # {1/6, 5/6} instead of {1/4, 3/4}), skewing Berry-curvature heatmap axes.
+    midkgrid = [[x;y] for x=range(0.5/(NX-1); stop=1-0.5/(NX-1), length=NX-1), y=range(0.5/(NY-1); stop=1-0.5/(NY-1), length=NY-1)]
 
     ks = reduce(hcat, vec(kgrid)) .+ 1.34e-8
 
@@ -177,9 +181,13 @@ function berryalongpath(H, kpoints;
     kNp1 = kpoints[:, N] + (kpoints[:, N] - kpoints[:, N - 1])
     kpoints = hcat(k0, kpoints[:, :], kNp1)
 
-    # Random in-plane shift so the path doesn't sit on top of a band touching
-    # (Dirac point, etc.) where det(U' * U') has a phase singularity.
-    kpoints .+= 0.10 * norm(kpoints[:, 2] - kpoints[:, 1]) * rand(2)
+    # Tiny fixed in-plane shift so the path doesn't sit exactly on a band
+    # touching (Dirac point at a high-symmetry k, etc.) where det(U'*U) has a
+    # phase singularity. Deterministic (results must be reproducible) and
+    # ~1e-6 of a path step (the old 10%-of-a-step *random* shift evaluated
+    # the curvature visibly off the requested path — systematically wrong
+    # wherever the curvature is peaked, which is exactly where it matters).
+    kpoints .+= 1.34e-6 * norm(kpoints[:, 2] - kpoints[:, 1]) .* [1.0, 0.7071067811865476]
 
     centers = view(kpoints, :, 2:N+1)
 

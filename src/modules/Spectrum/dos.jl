@@ -29,7 +29,7 @@ end
 
 function density(H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; format=:dense, kwargs...)
     spectrum(k) = Eigen.geteigen(H(k); format=format)
-    n = zeros(Float64, size(hamiltonian(ks[:, 1]), 1))
+    n = zeros(Float64, size(H(ks[:, 1]), 1))
     density!(n, spectrum, ks, μ; kwargs...)
 end
 
@@ -89,6 +89,18 @@ function ldos!(n::AbstractVector, H, ks::AbstractMatrix, ωs::AbstractVector;
     n
 end
 
+"""
+    ldos(H, ks, frequencies; Γ=0.1, format=:sparse, kwargs...)
+
+Site-resolved local density of states, k-averaged over `ks` and summed over
+the frequency window `frequencies`.
+
+!!! note "Normalization"
+    Includes the spectral-function 1/π: each state carries total weight 1
+    summed over sites, so `sum(ldos over sites) ≈ getdos/π` (see the
+    normalization note in [`getdos`](@ref) — the two conventions differ by
+    exactly π).
+"""
 ldos(H, ks, frequency::Real; kwargs...) = ldos(H, ks, [frequency]; kwargs...)
 function ldos(H, ks, frequencies::AbstractVector; format=:sparse, kwargs...)
     n = zeros(Float64, dim(H, ks))
@@ -118,10 +130,18 @@ getdos(h, emin::Float64, emax::Float64, num::Int=500; kwargs...) = (Ωs=LinRange
     getdos(h, ωs; klin, Γ, kwargs...)
 
 Computes the density of states of operator h(k) on the entire Brillouine zone,
-discretized on a grid with \$ k_{lin} \\times k_{lin} \$ points. 
+discretized on a grid with \$ k_{lin} \\times k_{lin} \$ points.
 and for the frequencies ωs=(ω1, ω2, ...). The paremter \$\\Gamma\$ is the energy broadening.
 
 Accepts the same kwargs as dos(h, ks, ω).
+
+!!! note "Normalization"
+    The Lorentzian broadening kernel carries **no** 1/π: each band
+    contributes total weight π, i.e. `∫ getdos dω = π × (#bands)`. The
+    site-resolved [`ldos`](@ref) *does* include the 1/π (each state carries
+    total weight 1 summed over sites), so `getdos ≈ π × sum(ldos over
+    sites)`. This convention is pinned by the graphene DOS regression test;
+    rescale by 1/π if you need a state-counting DOS.
 
 Note: the current implementation only works for a two-dimensional Brillouine zone.
 Might change in the future, but for now use dos(h, ks, ω; Γ) syntax if needed.

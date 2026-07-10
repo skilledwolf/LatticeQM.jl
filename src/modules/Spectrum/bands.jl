@@ -100,7 +100,7 @@ function bandmatrix_Ucache(H, ks; kwargs...)
 end
 
 function assert_realeigvals(ϵs)
-    imag_check = imag.(ϵs) .< IMAG_THRESHOLD
+    imag_check = abs.(imag.(ϵs)) .< IMAG_THRESHOLD   # one-sided check let large negative imag parts through
     @assert all(imag_check) "Imaginary eigenvalues encountered!: $(ϵs[.!imag_check])"
 end
 

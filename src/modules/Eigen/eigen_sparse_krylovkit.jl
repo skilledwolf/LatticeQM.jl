@@ -1,11 +1,12 @@
 import KrylovKit
+import Random
 import LinearAlgebra: I, lu, Hermitian
 import SparseArrays: SparseMatrixCSC
 
-# Drop-in replacement for the Arpack-based sparse eigensolver. Pure Julia,
-# thread-safe, and (verified empirically on TBG-N=7/N=11) gives 5-orders-tighter
-# residuals and machine-precision eigenvector orthonormality vs the Arpack
-# fallback in eigen_sparse_arpack.jl.
+# Sparse Hermitian eigensolver via KrylovKit. Pure Julia, thread-safe, and
+# (verified empirically on TBG-N=7/N=11) gives 5-orders-tighter residuals and
+# machine-precision eigenvector orthonormality than the legacy Arpack backend
+# (removed; see git history for eigen_sparse_arpack.jl).
 
 const KRYK_TOL = 1e-12
 const KRYK_MAXITER = 200
@@ -48,11 +49,11 @@ function eigen_sparse(M::AbstractMatrix; num_bands::Int,
     krylovdim = min(_kryk_dim(num_bands), n)
     alg = KrylovKit.Lanczos(; krylovdim=krylovdim, tol=tol, maxiter=maxiter)
 
-    # Always seed Krylov from a deterministic-but-unbiased vector so callers
-    # get reproducible results across processes/threads. (KrylovKit's default
-    # behaviour also accepts a vector, but using `randn` here matches what
-    # Arpack does internally.)
-    x0 = randn(eltype(M), n)
+    # Seed Krylov from a genuinely deterministic, unbiased vector: a local
+    # seeded RNG, so results are reproducible across runs/processes/threads
+    # without touching the global RNG. (The old `randn(eltype(M), n)` used
+    # the unseeded global RNG despite a comment claiming determinism.)
+    x0 = randn(Random.Xoshiro(0x1a771ce9), eltype(M), n)
 
     if which === :LM
         # Shift-invert: target eigenvalues of M closest to `sigma`.
@@ -60,17 +61,30 @@ function eigen_sparse(M::AbstractMatrix; num_bands::Int,
         op = x -> F \ x
         vals, vecs, info = KrylovKit.eigsolve(op, x0, num_bands, :LM, alg)
         info.converged < num_bands && @warn "eigen_sparse(KrylovKit): only $(info.converged)/$num_bands converged (sigma=$sigma, krylovdim=$krylovdim)"
+        nk = min(num_bands, length(vals))
+        nk < num_bands && @warn "eigen_sparse(KrylovKit): Krylov space terminated early — returning $nk < $num_bands eigenpairs"
         # Back-transform: eigval λ̃ of (M - σI)^{-1} → λ = σ + 1/λ̃
-        realvals = sigma .+ 1 ./ vals[1:num_bands]
-        U = reduce(hcat, vecs[1:num_bands])
-        return realvals, U
+        realvals = sigma .+ 1 ./ real.(vals[1:nk])
+        U = reduce(hcat, vecs[1:nk])
     elseif which === :SR || which === :LR
         vals, vecs, info = KrylovKit.eigsolve(M, x0, num_bands, which, alg)
         info.converged < num_bands && @warn "eigen_sparse(KrylovKit): only $(info.converged)/$num_bands converged (which=$which)"
-        return vals[1:num_bands], reduce(hcat, vecs[1:num_bands])
+        nk = min(num_bands, length(vals))
+        nk < num_bands && @warn "eigen_sparse(KrylovKit): Krylov space terminated early — returning $nk < $num_bands eigenpairs"
+        realvals = real.(vals[1:nk])
+        U = reduce(hcat, vecs[1:nk])
     else
         error("eigen_sparse(KrylovKit): unsupported `which=$which` (use :LM, :SR, or :LR)")
     end
+
+    # KrylovKit orders :LM results by distance from sigma (after the
+    # shift-invert back-transform they are NOT energy-ordered) and :LR
+    # descending. The dense LAPACK path returns ascending energies, and band
+    # bookkeeping downstream (insertbands!, bandgap_energy, statesgrid band
+    # indices) assumes that order — unsorted output scrambled band identity
+    # for every `format=:sparse` band structure. Sort ascending always.
+    p = sortperm(realvals)
+    return realvals[p], U[:, p]
 end
 
 eigmax_sparse(H::AbstractMatrix; kwargs...) = eigen_sparse(H; num_bands=1, which=:LR, kwargs...)[1][1]

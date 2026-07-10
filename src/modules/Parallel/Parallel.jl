@@ -108,13 +108,23 @@ function to_executor(s::Symbol)
     end
 end
 
-const _BLAS_CONFIGURED = Ref(false)
+# -1 = never configured. Tracks the pinned target on the master and per
+# worker id (worker ids are never recycled, so a Dict keyed on id is safe).
+# A single boolean flag here was a real bug: after any threaded call set it,
+# a later DistributedExec call skipped the per-worker pinning loop entirely,
+# recreating the N×M BLAS oversubscription this function exists to prevent —
+# and workers added after the first distributed call were never pinned.
+const _BLAS_MASTER_TARGET = Ref{Int}(-1)
+const _BLAS_WORKER_TARGETS = Dict{Int,Int}()
+const _BLAS_CONFIG_LOCK = ReentrantLock()
 
 """
     configure_blas!(exec; threads=nothing, verbose=true) -> Int
 
-Pin BLAS threads for `exec`. Idempotent — subsequent calls are no-ops
-unless `_BLAS_CONFIGURED[]` is reset.
+Pin BLAS threads for `exec`. Idempotent per target: the first explicit
+choice sticks (internal calls pass `threads=nothing`, which reuses the
+already-pinned value), workers are (re)pinned whenever their recorded
+target is missing or stale — including workers added after earlier calls.
 
 - `SerialExec` → no change.
 - `DistributedExec` → BLAS = `threads` (default 1) on master and every
@@ -138,30 +148,46 @@ function configure_blas!(exec::Executor; threads::Union{Nothing,Int}=nothing,
     if exec isa SerialExec
         return BLAS.get_num_threads()
     end
-    _BLAS_CONFIGURED[] && return BLAS.get_num_threads()
 
-    target = threads === nothing ? 1 : threads
-    BLAS.set_num_threads(target)
-    if exec isa DistributedExec && nworkers() > 1
-        # Push BLAS=`target` to every worker. `LinearAlgebra` may not be in
-        # `Main` on the worker process, so import there first. Julia 1.12
-        # world-age semantics require `invokelatest` to use the freshly-
-        # imported binding in the same expression — without it we get a
-        # noisy warning per worker on every BLAS pinning. The local `t`
-        # binding is captured by the closure that gets serialised to each
-        # worker.
-        for w in workers()
-            let t = target
-                remotecall_wait(w) do
-                    Core.eval(Main, :(import LinearAlgebra))
-                    Base.invokelatest(() -> Main.LinearAlgebra.BLAS.set_num_threads(t))
+    lock(_BLAS_CONFIG_LOCK) do
+        # `threads=nothing` means "default policy": keep whatever was pinned
+        # before, or pin to 1 on first contact. An explicit `threads=k`
+        # always wins and re-pins.
+        target = threads === nothing ?
+            (_BLAS_MASTER_TARGET[] == -1 ? 1 : _BLAS_MASTER_TARGET[]) : threads
+
+        changed = false
+        if _BLAS_MASTER_TARGET[] != target
+            BLAS.set_num_threads(target)
+            _BLAS_MASTER_TARGET[] = target
+            changed = true
+        end
+
+        if exec isa DistributedExec && nworkers() > 1
+            # Push BLAS=`target` to every worker whose recorded target is
+            # missing or different. `LinearAlgebra` may not be in `Main` on
+            # the worker process, so import there first. Julia 1.12
+            # world-age semantics require `invokelatest` to use the freshly-
+            # imported binding in the same expression — without it we get a
+            # noisy warning per worker on every BLAS pinning. The local `t`
+            # binding is captured by the closure that gets serialised to
+            # each worker.
+            for w in workers()
+                get(_BLAS_WORKER_TARGETS, w, -1) == target && continue
+                let t = target
+                    remotecall_wait(w) do
+                        Core.eval(Main, :(import LinearAlgebra))
+                        Base.invokelatest(() -> Main.LinearAlgebra.BLAS.set_num_threads(t))
+                    end
                 end
+                _BLAS_WORKER_TARGETS[w] = target
+                changed = true
             end
         end
+
+        changed && verbose && @info "Parallel: BLAS pinned to $target thread(s) per worker (executor=$(typeof(exec)))"
+        return target
     end
-    _BLAS_CONFIGURED[] = true
-    verbose && @info "Parallel: BLAS pinned to $target thread(s) per worker (executor=$(typeof(exec)))"
-    return target
 end
 
 # ---------------------------------------------------------------------------
@@ -398,33 +424,46 @@ function kspace_reduce!(body!::F, output, ks::AbstractMatrix, exec::Executor;
             scalar_total = Ref{Any}(scalar_init)
 
             folder = @async begin
-                for _ in 1:n_chunks
-                    item = take!(partial_ch)
-                    if scalar_init === nothing
-                        _accumulate!(output, item)
-                    else
-                        partial, s = item::Tuple
-                        _accumulate!(output, partial)
-                        scalar_total[] += s
+                try
+                    for _ in 1:n_chunks
+                        item = take!(partial_ch)
+                        if scalar_init === nothing
+                            _accumulate!(output, item)
+                        else
+                            partial, s = item::Tuple
+                            _accumulate!(output, partial)
+                            scalar_total[] += s
+                        end
                     end
+                catch e
+                    # Channel closed after a pmap failure: exit quietly
+                    # instead of blocking on take! forever.
+                    e isa InvalidStateException || rethrow()
                 end
             end
 
-            @sync pmap(chunks) do chunk
-                local_out = zero(output)
-                scratch = scratch_factory()
-                local s = scalar_init
-                for j in chunk
-                    v = body!(local_out, scratch, j, view(ks, :, j))
-                    if scalar_init !== nothing
-                        s += v
+            try
+                @sync pmap(chunks) do chunk
+                    local_out = zero(output)
+                    scratch = scratch_factory()
+                    local s = scalar_init
+                    for j in chunk
+                        v = body!(local_out, scratch, j, view(ks, :, j))
+                        if scalar_init !== nothing
+                            s += v
+                        end
+                        publish()
                     end
-                    publish()
+                    put!(partial_ch, scalar_init === nothing ? local_out : (local_out, s))
+                    return nothing
                 end
-                put!(partial_ch, scalar_init === nothing ? local_out : (local_out, s))
-                return nothing
+                wait(folder)
+            finally
+                # If pmap threw, `wait(folder)` was never reached; closing the
+                # channel unblocks the folder task so it cannot leak (holding
+                # the RemoteChannel alive) across repeated failing sweeps.
+                close(partial_ch)
             end
-            wait(folder)
             return scalar_init === nothing ? output : scalar_total[]
         else
             error("Unsupported executor $(typeof(exec))")
