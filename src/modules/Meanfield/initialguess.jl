@@ -194,7 +194,11 @@ function initialguess(v::Hops, mode=:random, args...; lat=:nothing, kwargs...)
     N = hopdim(v); @assert mod(N,2)==0 "The hopping matrix must have even dimension (i.e. spinful)."
     n = div(N,2)
 
-    ρs = zero(v)
+    # Density matrices are dense and complex regardless of v's backing
+    # (v is often real/sparse). Build the accumulator explicitly instead of
+    # relying on `zero(v)` — the dense-complex `Base.zero(::Hops)` overload
+    # that used to provide this pirated the type-preserving TightBinding one.
+    ρs = Hops(Dict(δL => zeros(ComplexF64, size(v[δL])) for δL in keys(v)))
 
     if mode==:random
         setrandom!(ρs, args...; kwargs...)

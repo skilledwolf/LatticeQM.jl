@@ -91,7 +91,26 @@ function fixedpoint!(f!, x1, x0;
         # commutator `‖[H_MF, ρ_0]‖` here.
         custom_residual = residual_fn === nothing ? nothing : residual_fn(x1, x0)
 
+        # `f!` may grow the block key set (the purification path extends ρ to
+        # the sparsity pattern of H). Mixing, residual, and copy-back must see
+        # the union with same-key pairing — the old code paired `values(x1)`
+        # with `values(x0)` by Dict iteration order, which broadcasts a
+        # singleton or mispairs blocks the moment the key sets diverge.
+        _sync_keysets!(x1, x0)
+
         if use_anderson
+            if sort!(collect(keys(x0))) != key_order
+                # Layout changed: stale flat history has the wrong length and
+                # would mispair blocks. Rebuild buffers and restart the
+                # acceleration history from this iterate.
+                key_order = sort!(collect(keys(x0)))
+                key_sizes = Int[length(x0[k]) for k in key_order]
+                n_var = sum(key_sizes)
+                flat_x = Vector{T_el}(undef, n_var)
+                flat_f = Vector{T_el}(undef, n_var)
+                empty!(hist_x); empty!(hist_f)
+                _flatten!(flat_x, x0, key_order, key_sizes)
+            end
             _flatten!(flat_f, x1, key_order, key_sizes)
 
             push!(hist_x, copy(flat_x))
@@ -122,14 +141,15 @@ function fixedpoint!(f!, x1, x0;
                 residual = diff_norm
             end
         else
-            # Linear damped mixing
+            # Linear damped mixing (key sets are synced above, so same-key
+            # pairing over keys(x0) covers everything)
             for δL in keys(x0)
                 @. x1[δL] = β * x1[δL] + (1 - β) * x0[δL]
             end
 
-            diff_norm = norm(values(x1) .- values(x0), p_norm)
+            diff_norm = norm([norm(x1[δL] .- x0[δL], p_norm) for δL in keys(x0)], p_norm)
             if relative
-                x1_norm = norm(values(x1), p_norm)
+                x1_norm = norm([norm(x1[δL], p_norm) for δL in keys(x0)], p_norm)
                 residual = x1_norm > eps() ? diff_norm / x1_norm : diff_norm
             else
                 residual = diff_norm
@@ -229,6 +249,26 @@ end
 # ----------------------------------------------------------------------------
 # Flatten / unflatten helpers for Hops-like containers (Dict-of-matrix).
 # ----------------------------------------------------------------------------
+
+# Extend both iterates to the union of their block key sets, filling missing
+# blocks with zeros of the partner's shape/backing. Returns true if either
+# container gained a key. Keeps mixing/residual/copy-back well-defined when
+# `f!` grows the sparsity pattern (purification SCF).
+function _sync_keysets!(x1, x0)
+    changed = false
+    for δL in keys(x0)
+        haskey(x1, δL) && continue
+        x1[δL] = 0 .* x0[δL]
+        changed = true
+    end
+    for δL in keys(x1)
+        haskey(x0, δL) && continue
+        x0[δL] = 0 .* x1[δL]
+        changed = true
+    end
+    changed
+end
+
 function _flatten!(out::AbstractVector, x, key_order, key_sizes)
     offset = 0
     @inbounds for (k, sz) in zip(key_order, key_sizes)

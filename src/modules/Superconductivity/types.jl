@@ -168,6 +168,7 @@ end
 # Indexing interface
 Base.values(H::BdGOperator) = Base.values(H.h)
 Base.keys(H::BdGOperator) = Base.keys(H.h)
+Base.haskey(H::BdGOperator, args...) = Base.haskey(H.h, args...)
 Base.getindex(H::BdGOperator,i) = Base.getindex(H.h,i)
 Base.setindex!(H::BdGOperator,v,i) = Base.setindex!(H.h,v,i)
 Base.firstindex(H::BdGOperator) = Base.firstindex(H.h)

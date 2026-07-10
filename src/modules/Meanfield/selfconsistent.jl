@@ -279,16 +279,18 @@ function _scf_driver!(ρ0, ρ1, hartreefock, update_ρ!::F;
         hartreefock(ρ0)
         ϵband = real(update_ρ!(ρ1, hartreefock))
         hartreefock.ϵband = ϵband
-        # Variational identity: `Tr[hMF·ρ] = ⟨T⟩ + 2(E_H + E_F)`. Derive
-        # `ϵkin` rather than running a second Bloch loop just for `Tr[h·ρ]`.
+        # Variational identity: `Tr[hMF·ρ] = ⟨T⟩ + 2·DC`. Derive `ϵkin`
+        # rather than running a second Bloch loop just for `Tr[h·ρ]`.
         # Exact at the SCF fixed point; during iteration, picks up the same
-        # ρ_old/ρ_new mismatch the band energy itself carries.
-        hartreefock.ϵkin = ϵband - 2 * (hartreefock.ϵH + hartreefock.ϵF)
+        # ρ_old/ρ_new mismatch the band energy itself carries. DC is
+        # ϵH + ϵF for plain HF and ϵH + ϵF + ϵP for BdG — omitting ϵP
+        # overstated superconducting condensation energies by ½Σv|ρΔ|².
+        hartreefock.ϵkin = ϵband - 2 * doublecounting(hartreefock)
 
         callback(ρ1)
-        # E_HF = ϵband - ϵH - ϵF (DC form)
-        #      = ϵkin + ϵH + ϵF (additive physical form, equivalent)
-        ϵband - hartreefock.ϵH - hartreefock.ϵF
+        # E_GS = ϵband - DC (double-counting form)
+        #      = ϵkin + DC  (additive physical form, equivalent)
+        ϵband - doublecounting(hartreefock)
     end
 
     info_provider = () -> (
@@ -322,8 +324,8 @@ function _scf_driver!(ρ0, ρ1, hartreefock, update_ρ!::F;
     # we replace it with the consistent value so the returned tuple matches
     # `mf` byte-for-byte.
     hartreefock(ρ1)
-    hartreefock.ϵkin = hartreefock.ϵband - 2 * (hartreefock.ϵH + hartreefock.ϵF)
-    ϵ_GS = hartreefock.ϵband - hartreefock.ϵH - hartreefock.ϵF
+    hartreefock.ϵkin = hartreefock.ϵband - 2 * doublecounting(hartreefock)
+    ϵ_GS = hartreefock.ϵband - doublecounting(hartreefock)
 
     is_default_logger && _scf_log_print_footer(log_io, iter_ref[], residual, converged)
 

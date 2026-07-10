@@ -150,29 +150,37 @@ end
 
 import LatticeQM.Eigen
 import LatticeQM.Parallel
+import SharedArrays
 
 # Find spectral bounds by visiting each k once and computing both extremes —
 # the original did two separate `pmap`s, doubling the work. kspace_foreach!
 # distributes the loop across the chosen executor (auto-picks distributed
 # if workers exist, else threaded, else serial).
+#
+# Per-k results go into per-index array slots (SharedArray under the
+# distributed executor, following the bandmatrix pattern) and the extremes
+# are reduced on the master. Do NOT accumulate via closure-captured `Ref`s:
+# under `pmap` the closure (Refs included) is serialized to each worker, the
+# workers mutate their own copies, and the master's stay Inf/-Inf — the
+# exact silent-loss mode the `kspace_reduce!` docstring warns about.
 function gridspectrumbound(H, ks)
     exec = Parallel.to_executor(:auto)
     Parallel.configure_blas!(exec; verbose=false)
 
-    emin = Ref(Inf)
-    emax = Ref(-Inf)
-    bounds_lock = Threads.SpinLock()
-
-    Parallel.kspace_foreach!(ks, exec) do _scratch, _j, k
-        Hk = H(k)
-        a = real(Eigen.eigmin_sparse(Hk))
-        b = real(Eigen.eigmax_sparse(Hk))
-        Base.@lock bounds_lock begin
-            emin[] = min(emin[], a)
-            emax[] = max(emax[], b)
-        end
+    n = size(ks, 2)
+    emins, emaxs = if exec isa Parallel.DistributedExec
+        SharedArrays.SharedArray{Float64}(n), SharedArrays.SharedArray{Float64}(n)
+    else
+        Vector{Float64}(undef, n), Vector{Float64}(undef, n)
     end
-    emin[], emax[]
+
+    Parallel.kspace_foreach!(ks, exec) do _scratch, j, k
+        Hk = H(k)
+        emins[j] = real(Eigen.eigmin_sparse(Hk))
+        emaxs[j] = real(Eigen.eigmax_sparse(Hk))
+        nothing
+    end
+    minimum(emins), maximum(emaxs)
 end
 
 ##############################################################################

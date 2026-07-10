@@ -118,8 +118,18 @@ function meanfieldScalar!(hf::HartreeFockBDG, ρ_el, ρΔ)
     nothing
 end
 
+# The BdG quasiparticle band energy contains the pairing mean-field term
+# ⟨½(c†Δ_MF c† + h.c.)⟩ = 2ϵP while the physical pairing interaction energy
+# is ϵP, so the pairing channel double-counts exactly like Hartree/Fock do.
+# The SCF driver computes E_GS = ϵband − doublecounting(hf); without this
+# override the returned BdG ground-state energies overstated the condensation
+# energy by |ϵP| = ½Σv|ρΔ|².
+Meanfield.doublecounting(hf::HartreeFockBDG) = hf.ϵH + hf.ϵF + hf.ϵP
+
 function meanfieldOperator_addfock_pairing!(hf::HartreeFockBDG, ρΔ)
     for L in keys(hf.v)
+        # missing ρΔ blocks are identically zero → no contribution
+        haskey(ρΔ, L) || continue
         vL = hf.v[L]
         ΔL = ρΔ[L]
         ΔMF_L = hf.ΔMF[L]
@@ -142,7 +152,8 @@ function meanfieldOperator_addfock_pairing!(hf::HartreeFockBDG, ρΔ)
 end
 
 function meanfieldScalar_fock_pairing(hf::HartreeFockBDG, ρΔ)
-    energy = -1/2 * sum(sum(ρΔ[L] .* conj.(ρΔ[L]) .* vL for (L, vL) in hf.v))
+    energy = -1/2 * sum(haskey(ρΔ, L) ? sum(ρΔ[L] .* conj.(ρΔ[L]) .* vL) : 0.0
+                        for (L, vL) in hf.v)
     @assert isapprox(imag(energy), 0; atol=Meanfield._imag_tol(ρΔ))
     real(energy)
 end

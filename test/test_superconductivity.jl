@@ -246,3 +246,30 @@ end
     @test Δθ[2, 1] / Δ0[2, 1] ≈ cis(θ)
     @test !(Δθ[1, 2] / Δ0[1, 2] ≈ cis(-θ))
 end
+
+# Regression: the BdG quasiparticle band energy contains the pairing
+# mean-field term twice-counted (⟨½(c†Δc†+h.c.)⟩ = 2ϵP, physical E_P = ϵP),
+# so the SCF driver's double-counting correction must include ϵP. It used to
+# subtract only ϵH + ϵF, overstating condensation energies by ½Σv|ρΔ|².
+@testset "Superconductivity: pairing double-counting enters E_GS" begin
+    h = Hops([0] => zeros(ComplexF64, 2, 2))
+    hbdg = Superconductivity.BdGOperator(h)
+    v = Hops([0] => ComplexF64[0 -1; -1 0])
+
+    ρ_el = Hops([0] => zeros(ComplexF64, 2, 2))
+    ρΔ = Hops([0] => ComplexF64[0 0.3; -0.3 0])
+    ρ = Superconductivity.BdGOperator(ρ_el, ρΔ)
+
+    hf = Meanfield.HartreeFock(hbdg, v; hartree=false, fock=true)
+    hf(ρ)
+
+    # ϵP = ½ Σ_L Σ_ij v_L[ij] |ρΔ_L[ij]|² = ½ · 2 · (−1) · 0.09 = −0.09
+    @test hf.ϵP ≈ -0.09 atol=1e-12
+    @test Meanfield.doublecounting(hf) ≈ hf.ϵH + hf.ϵF + hf.ϵP atol=1e-14
+    # plain HF stays unchanged
+    lat = Geometries.honeycomb()
+    hops = Operators.graphene(lat; mode=:spinhalf)
+    vhub = Operators.gethubbard(lat; mode=:σx, a=0.5, U=4.0)
+    hfn = Meanfield.HartreeFock(hops, vhub)
+    @test Meanfield.doublecounting(hfn) == hfn.ϵH + hfn.ϵF
+end
