@@ -16,11 +16,13 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Tell Julia where conda libraries live so PyCall etc. can find them
-RUN mkdir -p /etc/julia && \
-    echo "push!(Libdl.DL_LOAD_PATH, \"${CONDA_DIR}/lib\")" >> /etc/julia/juliarc.jl && \
-    mkdir -p "${JULIA_PKGDIR}" && \
-    chown "${NB_USER}" "${JULIA_PKGDIR}" && \
+# Tell Julia where conda libraries live so PyCall etc. can find them. Julia
+# reads $(DEPOT_PATH[1])/config/startup.jl at startup; with
+# JULIA_DEPOT_PATH=/opt/julia that is /opt/julia/config/startup.jl.
+RUN mkdir -p "${JULIA_PKGDIR}/config" && \
+    printf 'import Libdl\npush!(Libdl.DL_LOAD_PATH, "%s/lib")\n' "${CONDA_DIR}" \
+        > "${JULIA_PKGDIR}/config/startup.jl" && \
+    chown -R "${NB_USER}" "${JULIA_PKGDIR}" && \
     fix-permissions "${JULIA_PKGDIR}"
 
 # Stage the package itself; src/ is intentionally the only payload from the repo

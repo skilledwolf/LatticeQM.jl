@@ -42,12 +42,12 @@ geteigvals!(args...; format=:dense, kwargs...) = (format == :sparse) ? eigvals_s
 # Sparse eigensolver
 ###################################################################################################
 
-# Sparse Hermitian eigensolver. KrylovKit (default) is pure-Julia, thread-safe,
-# and gives tighter residuals than Arpack — see test_eigen.jl for the regression.
-# To temporarily revert to Arpack (e.g. to debug a numerical regression), swap
-# the include to "eigen_sparse_arpack.jl"; both files implement the same API.
+# Sparse Hermitian eigensolver. KrylovKit is pure-Julia, thread-safe, and gives
+# tighter residuals than the Arpack solver it replaced — see test_eigen.jl for
+# the regression. The legacy implementations (eigen_sparse_arpack.jl, Arpack,
+# NOT thread-safe; eigen_sparse_julia.jl, ArnoldiMethod, incomplete) were
+# removed together with their dependencies; recover them from git history if a
+# fallback is ever needed for debugging. Both implemented the same API.
 include("eigen_sparse_krylovkit.jl")
-# include("eigen_sparse_arpack.jl")  # legacy fallback, NOT thread-safe
-# include("eigen_sparse_julia.jl")   # ArnoldiMethod fallback (incomplete)
 
 end # module Eigen

@@ -9,7 +9,7 @@ LatticeQM's parallel routines all go through one primitive — `Parallel.kspace_
 | Executor | Activated by | When to use |
 |----------|--------------|-------------|
 | `SerialExec()` | always available | small problems, debugging, baseline measurements |
-| `ThreadedExec(n; schedule=:dynamic)` | `julia -t N` or `JULIA_NUM_THREADS=N` | dense problems on a single machine; sparse moiré once you've moved off Arpack |
+| `ThreadedExec(n; schedule=:dynamic)` | `julia -t N` or `JULIA_NUM_THREADS=N` | dense problems on a single machine; sparse moiré (KrylovKit solver is thread-safe) |
 | `DistributedExec(n)` | `julia -p N` or `addprocs(N)` | multi-machine, very large k-grids, or sparse problems where threading isn't enough |
 
 Pick one of three ways to specify the executor on any user-facing routine:
@@ -155,6 +155,6 @@ bandmatrix(H, ks; multimode=:distributed)
 ## Common pitfalls
 
 - **Forgetting BLAS pinning**: Running `addprocs(4)` and `using LatticeQM` without touching BLAS gives the slowest possible configuration on a multi-core machine — measured at 100× slowdown vs single-threaded BLAS. The auto-pinning in `Parallel.configure_blas!` fires on first use of a parallel executor; if you have your own k-loops outside of `Parallel.kspace_*`, call it manually.
-- **Sparse + threading without KrylovKit**: Arpack is not thread-safe. If you `include("eigen_sparse_arpack.jl")` (the legacy revert option in `Eigen.jl`), you must keep `multimode=:serial` or `:distributed` for sparse problems. The default KrylovKit-based solver is thread-safe.
+- **Sparse + threading**: the KrylovKit-based sparse solver is thread-safe, so `multimode=:multithreaded` works for sparse problems. (The legacy Arpack backend was removed — see git history — because it was not thread-safe.)
 - **Per-k allocations in custom k-loops**: If you write your own loop and allocate a 1000×1000 matrix per k, threading won't scale — Julia's GC is global and 8 threads producing garbage simultaneously contend on the same collector. Always preallocate via `scratch_factory`.
 - **`multimode=:global`**: deprecated alias for `:auto`. The old `:global` resolved at module-load time; `:auto` re-evaluates each call so it sees workers added later.
