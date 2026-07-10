@@ -55,15 +55,25 @@ precompile(foldcell_fromneighbors!, (Matrix{Float64}, Matrix{Float64}, Matrix{Fl
 """
     foldcell!(points::AbstractMatrix{Float64}, basis::Matrix{Float64})
 
-Fold columns of `points` into the first primitive unit cell defined by the
-column vectors of `basis` (direct-lattice basis). Internally constructs
-neighbor-cell vectors via `getneighborcells` and calls
+Fold columns of `points` into the first Wigner–Seitz cell defined by the
+column vectors of `basis` (direct-lattice basis), then calls
 `foldcell_fromneighbors!` with the metric `basis' * basis`.
+
+The half-plane set is built from all `{-1,0,1}` combinations of the
+**Lagrange-reduced** basis (mapped back to integer coefficients of `basis`),
+which contains every Voronoi-relevant vector of a 2D lattice. Using only the
+single shortest neighbor shell (the old behavior) never folds along
+directions longer than the shortest lattice vector — e.g. on a rectangular
+`diag(1,2)` cell, points were left unfolded along the long axis.
 """
 function foldcell!(points::AbstractMatrix{Float64}, basis::Matrix{Float64})
 
-    vectors = getneighborcells(basis, 1; halfspace=false, innerpoints=true, excludeorigin=true)
-    vectors = float(hcat(vectors...))
+    d = size(basis, 2)
+    d == 0 && return points
+
+    _, U = _lattice_reduce(basis)
+    combos = [U * [x...] for x in Iterators.product(Iterators.repeated(-1:1, d)...) if any(!=(0), x)]
+    vectors = float(hcat(combos...))
 
     foldcell_fromneighbors!(points, vectors, transpose(basis)*basis)
 end

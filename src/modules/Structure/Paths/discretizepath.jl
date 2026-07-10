@@ -11,7 +11,12 @@ function getpath(points::AbstractVector; num::Int=100, B=I)
     
     differences = [points[i]-points[i-1] for i=2:num_points]
     differences_len = [norm(diff) for diff in differences]
-    differences = differences ./ differences_len
+    # Zero-length segments (repeated consecutive path points) would divide by
+    # zero below and poison the direction vector with NaNs; give them a
+    # harmless direction (they carry no arc length, so they are never selected
+    # for interpolation anyway).
+    differences = [len > 0 ? diff ./ len : zero(diff)
+                   for (diff, len) in zip(differences, differences_len)]
     cumtotal = cumsum(differences_len)
     pushfirst!(cumtotal, 0.0)
 
@@ -23,7 +28,11 @@ function getpath(points::AbstractVector; num::Int=100, B=I)
         for i=2:num_points
             if del_s[i-1] >= 0 && del_s[i] <= 0
                 push!(path_array, points[i-1] + (del_s[i-1] .* differences[i-1]))
-                continue
+                # `break`, not `continue`: a sample landing exactly on an
+                # interior tick matches both adjacent segments and used to be
+                # pushed twice, leaving more columns than `num` and
+                # misaligning the returned path against `parametric_path`.
+                break
             end
         end
     end

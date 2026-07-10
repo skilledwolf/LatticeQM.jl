@@ -27,8 +27,9 @@ function cropcircle(lat::Lattice)
 	return Lattice(Matrix(1.0*I, D, D),
 		0,
 	    points[1:D,:],
-	    points[D+1:end,:], 
-	    extralabels=collect(keys(lat.extralabels)), 
+	    points[D+1:end,:],
+	    # row-index order — Dict key order would permute labels against rows
+	    extralabels=extralabelsinorder(lat),
 	    specialpoints=Paths.LabeledPoints(
 	        ["γ"],
 	        [zeros(0)],
@@ -85,7 +86,7 @@ function fillregion(lat::Lattice, f::Function)
 		while length(candidates) > 0
 			for p in candidates
 
-				if f(A * p) # the candidate is confirmed
+				if f((A * p)[1:d]) # the candidate is confirmed; f sees d in-plane cartesian coords (same contract as the orbital filter below)
 					found = true
 					append!(confirmed, [p]) # ... added to the list
 
@@ -130,17 +131,15 @@ function fillregion(lat::Lattice, f::Function)
 	N = length(points)
 	points = hcat(points...)
 
-	# points = vcat(points, hcat(fill(extracoordinates(lat), N)...))
-	# extralabels = [["x$i" for i=1:d]; collect(keys(lat.extralabels))[sortperm(collect(values(lat.extralabels)))]]
-
 	# Return a zero-dimensional lattice object. The unitcell contains the positions of orbitals in the region
 	# Original orbital labels (such as sublattice or layer-index) are preserved.
 	return Lattice(Matrix(1.0*I, D, D),
 		0,
 	    points[1:D,:],
-	    points[D+1:end,:], 
-	    extralabels=collect(keys(lat.extralabels)), 
-	    specialpoints=LabeledPoints(
+	    points[D+1:end,:],
+	    # row-index order — Dict key order would permute labels against rows
+	    extralabels=extralabelsinorder(lat),
+	    specialpoints=Paths.LabeledPoints(
 	        ["γ"],
 	        [zeros(0)],
 	        ["\$\\gamma\$"],

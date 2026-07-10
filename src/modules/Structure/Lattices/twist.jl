@@ -1,4 +1,4 @@
-import LinearAlgebra: dot, norm, gcd
+import LinearAlgebra: dot, norm, gcd, det
 
 # ============================================================================
 # Twisted bilayer lattices.
@@ -161,5 +161,13 @@ function _build_rotated_layer(lat::Lattice, S::AbstractMatrix{Int},
     repeat!(sup, [-1:1, -1:1])
     rotatecoordinates!(sup, α)
     crop2unitcell!(sup)
+    # A boundary-atom misclassification in `inunitrange` (fp offset) would
+    # silently drop or duplicate atoms in the moiré cell; the count is exactly
+    # fixed by the supercell determinant, so pin it.
+    n_expected = countorbitals(lat) * round(Int, abs(det(float(S))))
+    @assert countorbitals(sup) == n_expected string(
+        "Twisted-layer construction lost/duplicated atoms at the cell boundary: got ",
+        countorbitals(sup), ", expected ", n_expected,
+        " (= orbitals × |det S|). This is an fp boundary-classification issue in crop2unitcell!.")
     return sup
 end

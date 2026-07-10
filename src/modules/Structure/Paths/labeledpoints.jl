@@ -40,15 +40,15 @@ LabeledPoints(d::Int=0) = LabeledPoints(Vector{String}(), zeros(d,d), Vector{Str
 
 # Modification
 function Base.:append!(kDict0::LabeledPoints, name::String, coord::AbstractVector{Float64}, label::String)
-    kDict0.coord[name] = coord
-    kDict0.label[name] = label
+    kDict0.points[name] = coord
+    kDict0.labels[name] = label
 
     return nothing
 end
 
 # Display
 function Base.:display(kDict0::LabeledPoints)
-    display(kDict0.coord)
-    display(kDict0.label)
+    display(kDict0.points)
+    display(kDict0.labels)
     display(kDict0.defaultpath)
 end

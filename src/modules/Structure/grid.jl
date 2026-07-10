@@ -40,7 +40,10 @@ points(ks::Paths.DiscretePath) = ks.points
 ################################################################################
 
 function regulargrid(; nk::Int = 100, dim::Int = 2)
-    nk = floor(Int, nk^(1 / dim))
+    # Tolerance-padded floor: plain floor turned exact powers into
+    # (n-1)^dim-point grids via fp error (nk=1000, dim=3 gave 9³=729 points);
+    # plain round could exceed the requested budget for non-exact powers.
+    nk = floor(Int, nk^(1 / dim) + 1e-9)
 
     it1d = range(0.0, 1.0; length = nk + 1)[1:end-1]
     itNd = Iterators.product(Iterators.repeated(it1d, dim)...)

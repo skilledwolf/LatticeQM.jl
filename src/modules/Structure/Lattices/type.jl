@@ -67,6 +67,13 @@ mutable struct Lattice
     specialpoints::Paths.LabeledPoints
 end
 
+# Field-wise copy with fresh mutable containers: the non-mutating variants
+# (`mirrorZ`, `mergelattices`) rely on this — no `copy(::Lattice)` method
+# existed at all, so both threw MethodError on every call.
+Base.copy(lat::Lattice) = Lattice(copy(lat.basis), lat.latticedim,
+                                  copy(lat.spacecoordinates), copy(lat.extracoordinates),
+                                  copy(lat.extralabels), deepcopy(lat.specialpoints))
+
 
 function Lattice(basis::Matrix{Float64}, spacecoordinates::Matrix{Float64}; extralabels::Vector{String}=Vector{String}(), specialpoints=Paths.LabeledPoints())
     # @assert size(spacecoordinates,1) == size(basis,2)
@@ -184,6 +191,17 @@ allspacedim(lat::Lattice) = spacedim(lat) + extraspacedim(lat)
 
 hasdimension(lat::Lattice, name::String) = haskey(lat.extralabels, name)
 assertdimension(lat::Lattice, name::String) = !hasdimension(lat, name) ? error("No $name coordinates specified.") : nothing
+
+"""
+    extralabelsinorder(lat) → Vector{String}
+
+Extra-coordinate labels ordered by their row index in `extracoordinates(lat)`.
+Use this (never `collect(keys(lat.extralabels))`, which is Dict hash order)
+whenever labels are paired with extracoordinate rows — e.g. when rebuilding a
+`Lattice` from an existing one.
+"""
+extralabelsinorder(lat::Lattice) =
+    collect(keys(lat.extralabels))[sortperm(collect(Int, values(lat.extralabels)))]
 
 basis(lat::Lattice, rselector=(:), cselector=(:)) = lat.basis[rselector, cselector]
 getA(lat::Lattice, rselector=(:), cselector=(:)) = basis(lat)[:, 1:latticedim(lat)][rselector, cselector]
@@ -322,7 +340,12 @@ function translate!(lat::Lattice, name::String, δ::Float64)
 end
 
 function translate!(lat::Lattice, i::Integer, δ::Float64)
-    lat.spacecoordinates[:, :] .+= basis(lat, i) * δ
+    # Shift fractional coordinate i by δ, i.e. translate by δ·(basis column i)
+    # in Cartesian space. The old `basis(lat, i) * δ` selected the i-th ROW of
+    # the basis — it only worked because standard planar lattices carry an
+    # identity-padded third row; on a genuinely 3D basis it corrupted every
+    # coordinate row.
+    lat.spacecoordinates[i, :] .+= δ
     lat
 end
 

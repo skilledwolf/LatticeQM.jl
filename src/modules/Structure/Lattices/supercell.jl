@@ -4,6 +4,18 @@ import LinearAlgebra: Diagonal
 
 # Interface to Supercell module
 superlattice(lat::Lattice, superperiods::Vector{Int}, args...) = superlattice(lat, Matrix(Diagonal(superperiods)), args...)
+
+# Transform special k-points to the supercell BZ: with A_new = A·S and the
+# AᵀB = I dual convention, fractional coordinates map as k_new = Sᵀ k_old
+# (the same Cartesian k-point). Containers are copied — the returned lattice
+# must never alias the input's mutable state (a later `newdimension!` on the
+# supercell used to corrupt the input lattice).
+function _transform_specialpoints(sp, S::Matrix{Int})
+    newpoints = Dict{String,Vector{Float64}}(
+        name => (length(p) == size(S, 1) ? transpose(S) * p : copy(p))
+        for (name, p) in sp.points)
+    typeof(sp)(newpoints, copy(sp.labels), copy(sp.defaultpath))
+end
 """
     superlattice(lat::Lattice, superperiods; kwargs...)
 
@@ -19,7 +31,7 @@ layer, z) are replicated.
 """
 function superlattice(lat::Lattice, superperiods::Matrix{Int}; kwargs...)
 
-    if superperiods==[[1,0],[0,1]] # nothing to do!
+    if isone(superperiods) # nothing to do!  (`== [[1,0],[0,1]]` was always false)
         return deepcopy(lat)
     end
 
@@ -35,7 +47,8 @@ function superlattice(lat::Lattice, superperiods::Matrix{Int}; kwargs...)
     spacecoordinates_super[1:d,:] = inv(superperiods) * spacecoordinates_super[1:d,:]
     extracoordinates_super = hcat([lat.extracoordinates for vec in eachcol(supercellints)]...) # this will copy info's such as z-coordinate or sublattice
 
-    return Lattice(Λ, d, spacecoordinates_super, extracoordinates_super, lat.extralabels, lat.specialpoints)
+    return Lattice(Λ, d, spacecoordinates_super, extracoordinates_super,
+                   copy(lat.extralabels), _transform_specialpoints(lat.specialpoints, superperiods))
 end
 
 """
@@ -59,7 +72,8 @@ function superlattice(lat::Lattice, superperiods::Matrix{Int}, supercellints::Ma
     spacecoordinates_super[1:d,:] = inv(superperiods) * spacecoordinates_super[1:d,:]
     extracoordinates_super = hcat([lat.extracoordinates for vec in eachcol(supercellints)]...) # this will copy info's such as z-coordinate or sublattice
 
-    return Lattice(Λ, d, spacecoordinates_super, extracoordinates_super, lat.extralabels, lat.specialpoints)
+    return Lattice(Λ, d, spacecoordinates_super, extracoordinates_super,
+                   copy(lat.extralabels), _transform_specialpoints(lat.specialpoints, superperiods))
 end
 
 repeat!(lat::Lattice, n::Int) = repeat!(lat, 0:n)
@@ -169,9 +183,12 @@ positions.
 """
 crop2unitcell(positions::AbstractMatrix, Λ::AbstractMatrix) = crop2unitcell(inv(Λ)*positions)
 function crop2unitcell(coordinates::Matrix{<:AbstractFloat})
-    offset = 1e-5 * (1+0.3*rand())
-    crop_iterator = filter(x->inunitrange(x; offset=offset), eachcol(coordinates))
-    convert(Array, VectorOfArray(collect(crop_iterator)))
+    # Fixed offset: the old `1e-5*(1+0.3*rand())` made boundary-atom selection
+    # nondeterministic run-to-run (and `VectorOfArray` was never imported, so
+    # this method threw UndefVarError on every call).
+    offset = 1.37e-5
+    kept = [Vector(x) for x in eachcol(coordinates) if inunitrange(x; offset=offset)]
+    isempty(kept) ? zeros(eltype(coordinates), size(coordinates, 1), 0) : reduce(hcat, kept)
 end
 
 """

@@ -18,13 +18,18 @@ function getneighbors(lat, d=1.0; cellrange::Int=1)
         pairs[δR] = Vector{Tuple{Int,Int}}() #spzeros(Int,N,N)
     end
 
+    # Relative window: an absolute ±1e-10 was fragile both for large
+    # coordinates (moiré cells — fp error grows with position magnitude) and
+    # for target distances derived from the geometry rather than typed as
+    # exact literals.
+    tol = max(1e-10, 1e-8 * d)
     for (δR, δA) in zip(neighbors, δAs)
         for i=1:N
             Ri = R[:,i] .+ δA
             for j=1:N
                 Rj = R[:,j]
 
-                if d-1e-10 < norm(Ri-Rj) < d+1e-10 #&& abs2(Z[i]-Z[j]) < 0.01
+                if d-tol < norm(Ri-Rj) < d+tol #&& abs2(Z[i]-Z[j]) < 0.01
                     # pairs[δR][i,j] = 1
                     append!(pairs[δR], [(i,j)])
                 end
@@ -38,11 +43,47 @@ end
 import LinearAlgebra
 
 """
+    _lattice_reduce(A) → (A_red, U)
+
+Lagrange (Gauss) reduction of the lattice basis `A` (columns are lattice
+vectors): returns a reduced basis `A_red = A * U` spanning the same lattice,
+with `U` unimodular (integer, |det U| = 1). For a reduced 2D basis
+`‖b1‖ ≤ ‖b2‖` and `|b1·b2| ≤ ½‖b1‖²` (angle in [60°,120°]), so fixed-size
+integer search boxes are sufficient to enumerate near-origin lattice points —
+which is false for sheared inputs like `[1 6; 0 1]`. Only `size(A,2) == 2`
+is reduced; other dimensions return `U = I` unchanged.
+"""
+function _lattice_reduce(A::AbstractMatrix)
+    ldim = size(A, 2)
+    U = Matrix{Int}(LinearAlgebra.I, ldim, ldim)
+    ldim == 2 || return float(A), U
+
+    b1 = float(A[:, 1]); b2 = float(A[:, 2])
+    for _ in 1:1000   # Lagrange reduction terminates fast; bound is a safety net
+        if LinearAlgebra.norm(b1) > LinearAlgebra.norm(b2)
+            b1, b2 = b2, b1
+            U[:, 1], U[:, 2] = U[:, 2], U[:, 1]
+        end
+        m = round(Int, LinearAlgebra.dot(b1, b2) / LinearAlgebra.dot(b1, b1))
+        m == 0 && break
+        b2 = b2 .- m .* b1
+        U[:, 2] .-= m .* U[:, 1]
+    end
+    hcat(b1, b2), U
+end
+
+"""
     getneighborcells(A, k=1; halfspace=true, innerpoints=false, excludeorigin=true)
 
-A naive implementation to find a list of `k`-th-nearest neighboring unit cells given lattice vectors `A[:,i]`.
+Find the `k`-th-nearest neighboring unit cells given lattice vectors `A[:,i]`,
+returned as integer coefficient vectors in the basis `A`.
 If `halfspace=true`, the list only contain `[I,J]` without its partner `[-I,-J]`.
 If `innerpoints=true`, returns all neighboring cells up to and including the `k`-th ones.
+
+The enumeration runs over a fixed box in the **Lagrange-reduced** basis (see
+[`_lattice_reduce`](@ref)) and maps the results back, so skewed/non-reduced
+bases (e.g. sheared supercells) find their true nearest cells; a fixed box in
+the raw basis silently missed them.
 """
 function getneighborcells(A::AbstractMatrix, k::Int=1; halfspace=true, innerpoints=false, excludeorigin=true)
 
@@ -52,29 +93,35 @@ function getneighborcells(A::AbstractMatrix, k::Int=1; halfspace=true, innerpoin
         return excludeorigin ? Vector{Int64}[] : Vector{Int64}[Int64[]]
     end
 
+    A_red, U = _lattice_reduce(A)
+
     n = ceil(Int,sqrt(3)*(k+1))
     IJ  = hcat([[x...] for x = Iterators.product(Iterators.repeated(-n:n, ldim)...)]...)
 
-    D = map(x->round(LinearAlgebra.norm(x); digits=9), eachcol(A*IJ))
+    D = map(x->round(LinearAlgebra.norm(x); digits=9), eachcol(A_red*IJ))
     d = sort(unique(D)) # unique distances from origin unit cell
 
     IJ = innerpoints ? IJ[:, D .<= d[k+1]] : IJ[:, D .== d[k+1]]
 
-    # naive iteration to make sure [I,J] and [-I,-J] do not both appear
-    IJ = [Vector(v) for v=eachcol(IJ)]
+    # map reduced-basis coefficients back to original-basis coefficients
+    IJ = [U * Vector(v) for v=eachcol(IJ)]
+
     if halfspace
-        if excludeorigin
-            for el=IJ
-                filter!(x->x != -1 .* el, IJ)
-            end
-        else
-            for el=IJ
-                filter!(x->(x==zero(el)) || (x != -1 .* el), IJ)
+        # keep the first representative of each ±pair (don't mutate while iterating)
+        seen = Set{Vector{Int}}()
+        keep = Vector{Vector{Int}}()
+        for v in IJ
+            if all(iszero, v)
+                excludeorigin || push!(keep, v)
+            elseif !(v in seen) && !(-v in seen)
+                push!(keep, v)
+                push!(seen, v)
             end
         end
-    else 
+        IJ = keep
+    else
         if excludeorigin
-            filter!(x->x != -1 .* x, IJ) # remove the origin
+            filter!(x->!all(iszero, x), IJ) # remove the origin
         end
     end
 

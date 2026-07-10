@@ -19,19 +19,19 @@ function rotation3D(θ, n::Vector=[0,0,1])
 
     u1, u2, u3 = n / norm(n) # normalize n
 
-    # just taken from wikipedia https://en.wikipedia.org/wiki/Rotation_matrix
+    # Rodrigues form, https://en.wikipedia.org/wiki/Rotation_matrix
+    # NOTE: a rotation matrix is NOT symmetric — the off-diagonal partners
+    # differ by ±2uᵢs. The old code mirrored r12/r13/r23 across the diagonal,
+    # producing a non-orthogonal matrix (det = cos2θ for n = ẑ) that shrank
+    # generic vectors and broke the spiral initial guess.
     c = cos(θ); s = sin(θ)
     d1 = c + u1^2 * (1-c)
     d2 = c + u2^2 * (1-c)
     d3 = c + u3^2 * (1-c)
 
-    r12 = u1 * u2 * (1-c) - u3 * s
-    r13 = u1 * u3 * (1-c) + u2 * s
-    r23 = u2 * u3 * (1-c) + u1 * s
-
-    [ d1  r12 r13; 
-      r12 d2  r23;
-      r13 r23 d3 ]
+    [ d1                    u1*u2*(1-c) - u3*s    u1*u3*(1-c) + u2*s;
+      u2*u1*(1-c) + u3*s    d2                    u2*u3*(1-c) - u1*s;
+      u3*u1*(1-c) - u2*s    u3*u2*(1-c) + u1*s    d3 ]
 end
 
 
@@ -46,7 +46,7 @@ function signedangle(e1::T,e2::T; z=[0.0,0,1]) where T<:AbstractVector
     @assert length(e1)==length(e2)==3 "Vectors must have length 3."
     e1 = e1/norm(e1)
     e2 = e2/norm(e2)
-    z /= norm(z)
+    z = z/norm(z)
 
-    atan(dot(cross(e1,e2),normalv), dot(e1,e2))
+    atan(dot(cross(e1,e2),z), dot(e1,e2))
 end
