@@ -29,7 +29,56 @@ work and `hMF(::HartreeFock)` is called multiple times per SCF step).
 const HARTREEFOCK_DEBUG = Ref(false)
 
 """
-    HartreeFock(h, v, μ=0.0; hartree=true, fock=true)
+    ExchangeKernel(j, siteof, flavorof)
+
+Inter-site exchange integrals for J-augmented Hartree-Fock. `j` is a
+`Hops`-shaped kernel over **site** indices (dimension = number of sites per
+cell, NOT the full orbital⊗flavor dimension), with `j[L][a,b]` the exchange
+integral `J_ab(L) = ⟨a,0; b,L|V|b,L; a,0⟩ ≥ 0` between site `a` in the home
+cell and site `b` in cell `L`. The self term `j[0][a,a]` must be zero (it is
+part of the direct interaction). `siteof[I]`/`flavorof[I]` map each internal
+orbital index `I` of the Hamiltonian basis to its site and flavor; every
+(site, flavor) combination must occur exactly once, and flavor labels must be
+consistent across sites (the interaction is flavor-independent, so exchange
+pairs equal flavor labels on the two sites).
+
+The corresponding interaction term is
+`H_J = ½ Σ_L Σ_ab J_ab(L) Σ_αβ c†_{aα,0} c†_{bβ,L} c_{aβ,0} c_{bα,L}`,
+i.e. `-Σ J (2 S_a·S_b + n_a n_b/2)` for spin-1/2 flavors — the standard
+ferromagnetic direct exchange between orthogonal orbitals.
+"""
+struct ExchangeKernel{K,T2j,Tj<:Hops{K,T2j}}
+    j::Tj
+    sf2idx::Matrix{Int}   # (site, flavor) -> internal orbital index
+    Jtot::T2j             # Σ_L j[L]
+end
+
+function ExchangeKernel(j::Hops, siteof::AbstractVector{<:Integer},
+                        flavorof::AbstractVector{<:Integer})
+    length(siteof) == length(flavorof) ||
+        throw(ArgumentError("siteof and flavorof must have equal length"))
+    ns, nf = maximum(siteof), maximum(flavorof)
+    zk = zerokey(j)
+    size(j[zk], 1) == ns ||
+        throw(ArgumentError("exchange kernel dimension $(size(j[zk],1)) " *
+                            "does not match number of sites $ns"))
+    all(iszero, diag(j[zk])) ||
+        throw(ArgumentError("onsite self-exchange j[0][a,a] must be zero " *
+                            "(it is part of the direct interaction)"))
+    sf2idx = zeros(Int, ns, nf)
+    for I in eachindex(siteof)
+        sf2idx[siteof[I], flavorof[I]] == 0 ||
+            throw(ArgumentError("duplicate (site,flavor) = " *
+                                "($(siteof[I]),$(flavorof[I]))"))
+        sf2idx[siteof[I], flavorof[I]] = I
+    end
+    all(>(0), sf2idx) ||
+        throw(ArgumentError("every (site,flavor) pair must appear once"))
+    ExchangeKernel(j, sf2idx, sum(j[L] for L in keys(j)))
+end
+
+"""
+    HartreeFock(h, v, μ=0.0; hartree=true, fock=true, exchange=nothing)
 
 Mean-field functional for density (Hartree) and exchange (Fock) channels built
 from a base Hamiltonian `h` and interaction kernels `v`. Calling the struct on
@@ -71,8 +120,27 @@ self-consistency checks at convergence:
   * `E_HF = ϵkin + ϵH + ϵF`            (physical, additive)
   * `E_HF = ϵband - ϵH - ϵF`           (band − double-counting)
   * `E_HF = ½ (ϵkin + ϵband)`          (`½ Tr[ρ (h₀ + hMF)]`)
+
+# Exchange augmentation (J-augmented HF)
+
+Passing `exchange = ExchangeKernel(j, siteof, flavorof)` adds the inter-site
+exchange interaction (see `ExchangeKernel`) at the same mean-field level.
+Two fields are added to `hMF`, exact conjugates of the energy
+
+  * `ϵJ = ½ Σ_L Σ_ab J_ab(L) ( |τ_L[a,b]|² − Tr_f[m_a m_b] )`
+
+with `m_a` the onsite flavor matrix `ρ[0]` at site `a` and
+`τ_L[a,b] = Σ_α ρ[L][(aα),(bα)]` the flavor-traced bond:
+
+  * local flavor field  `Σ_loc(a) = −Σ_b (Σ_L J_ab(L)) m_b`  (matrix-valued
+    Hartree; ferromagnetic — favors equal flavor polarization on all sites)
+  * bond field  `Σ_bond[L][(aα),(bα)] = +J_ab(L) τ_L[a,b]`
+
+The variational identity `Tr[Σ_J·ρ] = 2ϵJ` holds, all three total-energy
+expressions above remain valid with `ϵH + ϵF → ϵH + ϵF + ϵJ`
+(see `doublecounting`).
 """
-mutable struct HartreeFock{K, T2h, Th<:Hops{K,T2h}, T2v, Tv<:Hops{K,T2v}} <: MeanfieldGenerator{Th}
+mutable struct HartreeFock{K, T2h, Th<:Hops{K,T2h}, T2v, Tv<:Hops{K,T2v}, TJ<:Union{Nothing,ExchangeKernel}} <: MeanfieldGenerator{Th}
     const h::Th
     const v::Tv
     μ::Float64
@@ -80,20 +148,29 @@ mutable struct HartreeFock{K, T2h, Th<:Hops{K,T2h}, T2v, Tv<:Hops{K,T2v}} <: Mea
     const hMF::Th
     ϵH::Float64
     ϵF::Float64
+    ϵJ::Float64
     ϵband::Float64
     ϵkin::Float64
     const fock::Bool
     const hartree::Bool
+    const exchange::TJ
 
-    function HartreeFock(h::Th, v::Tv, μ=0.0; hartree=true, fock=true) where {K,T2h,Th<:Hops{K,T2h},T2v,Tv<:Hops{K,T2v}}
+    function HartreeFock(h::Th, v::Tv, μ=0.0; hartree=true, fock=true, exchange=nothing) where {K,T2h,Th<:Hops{K,T2h},T2v,Tv<:Hops{K,T2v}}
         V0 = sum(v[L] for L in keys(v))
+        if exchange !== nothing
+            length(exchange.sf2idx) == size(h[zerokey(h)], 1) ||
+                throw(ArgumentError("exchange site×flavor count " *
+                    "$(length(exchange.sf2idx)) does not match Hamiltonian " *
+                    "dimension $(size(h[zerokey(h)], 1))"))
+        end
         # Pre-allocate hMF preserving h's matrix type — `Base.zero(::Hops)` is
         # overridden in Operators/densitymatrix.jl to always return dense
         # (because density-matrix partials must be dense), so we go through
         # the underlying matrix's `zero` instead to keep sparse Hamiltonians
         # sparse.
         hMF = Th(Dict{K,T2h}(L => zero(h[L]) for L in keys(h)))
-        new{K,T2h,Th,T2v,Tv}(h, v, μ, V0, hMF, 0.0, 0.0, 0.0, 0.0, fock, hartree)
+        new{K,T2h,Th,T2v,Tv,typeof(exchange)}(h, v, μ, V0, hMF, 0.0, 0.0, 0.0,
+                                              0.0, 0.0, fock, hartree, exchange)
     end
 end
 
@@ -136,6 +213,9 @@ function meanfieldOperator!(hf::HartreeFock, ρ)
     if hf.hartree
         meanfieldOperator_addhartree!(hf, ρ)
     end
+    if hf.exchange !== nothing
+        meanfieldOperator_addexchange!(hf, ρ)
+    end
 
     nothing
 end
@@ -143,6 +223,7 @@ end
 function meanfieldScalar!(hf::HartreeFock, ρs)
     hf.ϵH = hf.hartree ? hartree_energy(hf, ρs) : 0.0
     hf.ϵF = hf.fock    ? fock_energy(hf, ρs)    : 0.0
+    hf.ϵJ = hf.exchange !== nothing ? exchange_energy(hf, ρs) : 0.0
     nothing
 end
 
@@ -156,6 +237,7 @@ channel `ϵP` (the quasiparticle band energy contains `⟨½(c†Δc† + h.c.)�
 2ϵP` while the physical pairing interaction energy is `ϵP`).
 """
 doublecounting(hf::MeanfieldGenerator) = hf.ϵH + hf.ϵF
+doublecounting(hf::HartreeFock) = hf.ϵH + hf.ϵF + hf.ϵJ
 
 
 ####################################################################
@@ -204,6 +286,97 @@ function meanfieldOperator_addhartree!(hf, ρ)
         H0[i, i] += d[i]
     end
     nothing
+end
+
+"""
+    meanfieldOperator_addexchange!(hf, ρ)
+
+Add the two exchange fields of the J-augmented functional (see the
+`HartreeFock` docstring): the local flavor-matrix field
+`Σ_loc(a) = −Σ_b Jtot[a,b] m_b` on the zero-key block and the flavor-traced
+bond field `Σ_bond[L][(aα),(bα)] = +J[L][a,b] τ_L[a,b]`.
+"""
+function meanfieldOperator_addexchange!(hf, ρ)
+    ek = hf.exchange
+    ns, nf = size(ek.sf2idx)
+    ix = ek.sf2idx
+    zk = zerokey(ρ)
+    ρ0 = ρ[zk]
+    H0 = hf.hMF[zk]
+
+    # local flavor-matrix field (ferromagnetic, matrix-valued Hartree)
+    @inbounds for a in 1:ns, b in 1:ns
+        Jab = ek.Jtot[a, b]
+        iszero(Jab) && continue
+        for α in 1:nf, β in 1:nf
+            H0[ix[a, α], ix[a, β]] -= Jab * ρ0[ix[b, α], ix[b, β]]
+        end
+    end
+
+    # flavor-traced bond field
+    for L in keys(ek.j)
+        haskey(ρ, L) || continue
+        ρL = ρ[L]
+        if !haskey(hf.hMF, L)
+            hf.hMF[L] = zero(hf.h[zerokey(hf.h)])
+        end
+        hL = hf.hMF[L]
+        jL = ek.j[L]
+        @inbounds for a in 1:ns, b in 1:ns
+            Jab = jL[a, b]
+            iszero(Jab) && continue
+            τ = zero(eltype(ρL))
+            for α in 1:nf
+                τ += ρL[ix[a, α], ix[b, α]]
+            end
+            for α in 1:nf
+                hL[ix[a, α], ix[b, α]] += Jab * τ
+            end
+        end
+    end
+    nothing
+end
+
+"""
+    exchange_energy(hf, ρ) → Real
+
+Physical exchange energy of the J-augmented functional,
+`ϵJ = ½ Σ_L Σ_ab J_ab(L) ( |τ_L[a,b]|² − Tr_f[m_a m_b] )`
+(negative for polarized states; the local term wins for repulsive `J`).
+"""
+function exchange_energy(hf, ρs)
+    ek = hf.exchange
+    ns, nf = size(ek.sf2idx)
+    ix = ek.sf2idx
+    zk = zerokey(ρs)
+    ρ0 = ρs[zk]
+
+    energy = zero(ComplexF64)
+    @inbounds for a in 1:ns, b in 1:ns
+        Jab = ek.Jtot[a, b]
+        iszero(Jab) && continue
+        s = zero(ComplexF64)
+        for α in 1:nf, β in 1:nf
+            s += ρ0[ix[a, α], ix[a, β]] * ρ0[ix[b, β], ix[b, α]]
+        end
+        energy -= Jab * s / 2                       # −½ J Tr_f[m_a m_b]
+    end
+    for L in keys(ek.j)
+        haskey(ρs, L) || continue
+        ρL = ρs[L]
+        jL = ek.j[L]
+        @inbounds for a in 1:ns, b in 1:ns
+            Jab = jL[a, b]
+            iszero(Jab) && continue
+            τ = zero(ComplexF64)
+            for α in 1:nf
+                τ += ρL[ix[a, α], ix[b, α]]
+            end
+            energy += Jab * abs2(τ) / 2             # +½ J |τ_L[a,b]|²
+        end
+    end
+    @assert isapprox(imag(energy), 0; atol=_imag_tol(ρs))
+    real(energy)
 end
 
 # Tolerance for "imag(energy) ≈ 0" assertions: the imaginary part is the

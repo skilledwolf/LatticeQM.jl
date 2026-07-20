@@ -16,7 +16,7 @@ Convenience wrapper around `solveselfconsistent` that constructs a `HartreeFock`
 functional from base Hamiltonian `h` and interaction kernel `v`. Returns the
 converged mean‑field solution and metadata.
 """
-solvehartreefock(h::T0, v, ρ_init, filling::Number, args...; kwargs...) where {T0} = solveselfconsistent(ρ_init, HartreeFock(h, v), filling, args...; kwargs...)
+solvehartreefock(h::T0, v, ρ_init, filling::Number, args...; exchange=nothing, kwargs...) where {T0} = solveselfconsistent(ρ_init, HartreeFock(h, v; exchange=exchange), filling, args...; kwargs...)
 solvefock(h::T0, v, ρ_init, filling::Number, args...; kwargs...) where {T0} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=false, fock=true), filling, args...; kwargs...)
 solvehartree(h::T0, v, ρ_init, filling::Number, args...; kwargs...) where {T0} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=true, fock=false), filling, args...; kwargs...)
 

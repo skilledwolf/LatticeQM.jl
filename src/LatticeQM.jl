@@ -72,9 +72,9 @@ export LinearResponse
 
 include("modules/Meanfield/Meanfield.jl")
 import .Meanfield
-import .Meanfield: solveselfconsistent, solvehartreefock, HartreeFock, initialguess
+import .Meanfield: solveselfconsistent, solvehartreefock, HartreeFock, ExchangeKernel, initialguess
 export Meanfield
-export solveselfconsistent, solvehartreefock, HartreeFock, initialguess
+export solveselfconsistent, solvehartreefock, HartreeFock, ExchangeKernel, initialguess
 
 include("modules/Superconductivity/Superconductivity.jl")
 using .Superconductivity
