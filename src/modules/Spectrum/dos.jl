@@ -28,7 +28,7 @@ function density_at_k!(n::AbstractVector{Float64}, spectrum_k, μ::Float64)
 end
 
 function density(H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; format=:dense, kwargs...)
-    spectrum(k) = Eigen.geteigen(H(k); format=format)
+    spectrum(k) = Eigen.geteigen(Eigen.checked_hermitian(H(k)); format=format)
     n = zeros(Float64, size(H(ks[:, 1]), 1))
     density!(n, spectrum, ks, μ; kwargs...)
 end
@@ -81,7 +81,7 @@ function ldos!(n::AbstractVector, H, ks::AbstractMatrix, ωs::AbstractVector;
         scratch_factory = () -> (Hcache=Spectrum.bloch_buffer(H, ks; format=format),),
         progress = progressbar) do local_n, scratch, _j, k
         Hk = Spectrum.bloch!(scratch.Hcache, H, k)
-        ϵs, U = Eigen.geteigen!(Hk; format=format, kwargs...)
+        ϵs, U = Eigen.geteigen!(Eigen.checked_hermitian(Hk); format=format, kwargs...)
         ldos!(local_n, ϵs, U, ωs; Γ=Γ)
     end
     finish!(progressbar)
@@ -213,7 +213,7 @@ function dos_compute!(DOS, h, frequencies::AbstractVector,
         scratch_factory = () -> (Hcache=Spectrum.bloch_buffer(h, ks; format=format),),
         progress = progressbar) do local_dos, scratch, j, k
         Hk = Spectrum.bloch!(scratch.Hcache, h, k)
-        ϵs = Eigen.geteigvals!(Hk; format=format, kwargs...)
+        ϵs = Eigen.geteigvals!(Eigen.checked_hermitian(Hk); format=format, kwargs...)
         w = kweights === nothing ? 1.0 : kweights[j]
         dos!(local_dos, ϵs, frequencies; broadening=Γ, weight=w)
     end

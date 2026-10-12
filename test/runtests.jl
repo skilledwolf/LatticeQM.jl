@@ -11,6 +11,7 @@ using Test
     @testset "Structure"           include("test_structure.jl")
     @testset "TightBinding"        include("test_tightbinding.jl")
     @testset "Eigen"               include("test_eigen.jl")
+    @testset "Spectrum/Berry"      include("test_spectrum_berry.jl")
     @testset "Operators"           include("test_operators.jl")
     @testset "Spectrum/graphene"   include("test_spectrum_graphene.jl")
     @testset "Spectrum/square"     include("test_spectrum_square.jl")

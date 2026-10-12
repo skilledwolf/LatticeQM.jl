@@ -217,10 +217,10 @@ function _band_kpoint!(scratch, j, k, bands, obs, H, projectors; kwargs...)
         # the dense Hermitian path (LAPACK `heevr` only does the
         # eigenvalue half). The chempot solve hits this branch on every
         # call.
-        energies_k = Eigen.geteigvals!(Hk; kwargs...)
+        energies_k = Eigen.geteigvals!(Eigen.checked_hermitian(Hk); kwargs...)
         @views insertbands!(bands[:, j], energies_k)
     else
-        energies_k, U = Eigen.geteigen!(Hk; kwargs...)
+        energies_k, U = Eigen.geteigen!(Eigen.checked_hermitian(Hk); kwargs...)
         @views insertbands_bandexpvals_k!(bands[:, j], obs[:, j, :], energies_k, U, k, projectors)
     end
     return nothing

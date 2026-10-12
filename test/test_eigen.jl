@@ -4,6 +4,93 @@ using LinearAlgebra
 using Random: Xoshiro
 import SparseArrays: SparseMatrixCSC, sparse
 
+@testset "Eigen: dense solves preserve the supplied operator" begin
+    E = LatticeQM.Eigen
+    # Include a non-normal matrix with real eigenvalues and a unitary matrix
+    # close enough to I that an approximate-Hermitian heuristic would erase it.
+    for A in (ComplexF64[im 0; 0 -im], [1.0 0.7; 0.0 2.0],
+              Matrix(Diagonal(exp.(im .* [1e-12, -2e-12]))))
+        expected = eigvals(A)
+        for storage in (copy(A), sparse(A), view(copy(A), :, :))
+            original = copy(storage)
+            for solve in (E.geteigvals, E.geteigvals!)
+                @test solve(copy(storage)) ≈ expected atol=1e-15 rtol=1e-15
+            end
+            for solve in (E.geteigen, E.geteigen!)
+                vals, U = solve(copy(storage))
+                @test vals ≈ expected atol=1e-15 rtol=1e-15
+                @test A * U ≈ U * Diagonal(vals) atol=1e-15 rtol=1e-15
+            end
+            U = E.geteigvecs(storage)
+            @test A * U ≈ U * Diagonal(expected) atol=1e-15 rtol=1e-15
+            E.geteigen(storage)
+            E.geteigvals(storage)
+            @test storage == original
+        end
+    end
+    # An explicit wrapper specifies the authoritative triangle, even if the
+    # unused entries disagree. Conversion to dense must preserve that choice.
+    A = ComplexF64[1 99; 0.3+0.2im 2]
+    for storage in (A, sparse(A), view(A, :, :))
+        H = Hermitian(storage, :L)
+        vals, U = E.geteigen(H)
+        @test H * U ≈ U * Diagonal(vals)
+        @test U' * U ≈ I
+    end
+end
+
+@testset "Eigen: sparse Lanczos rejects non-Hermitian operators" begin
+    for A in (ComplexF64[im 0; 0 -im], [1.0 0.7; 0.0 2.0]), which in (:LM, :SR, :LR)
+        @test_throws ArgumentError LatticeQM.Eigen.geteigen(sparse(A);
+            format=:sparse, num_bands=1, which=which)
+    end
+end
+
+@testset "Hamiltonian callers: validate before diagonalizing" begin
+    E = LatticeQM.Eigen
+    # A tiny absolute scale must not hide a large relative asymmetry.
+    for scale in (1.0, 1e-20), A in ([1.0 0.7; 0.0 2.0], ComplexF64[im 0; 0 -im])
+        H = k -> scale .* A
+        ks = [0.0 0.1; 0.0 0.2]
+        options = (; multimode=:serial, hidebar=true)
+        @test_throws ArgumentError Spectrum.getbands(H, ks; options...)
+        @test_throws ArgumentError Spectrum.getbands(H, ks, [k -> Matrix{Float64}(I, 2, 2)]; options...)
+        @test_throws ArgumentError Spectrum.statesgrid1D(H, 3; multimode=:serial)
+        @test_throws ArgumentError Spectrum.statesgrid(H, 3, 3; multimode=:serial)
+        @test_throws ArgumentError Spectrum.berryalongpath(H, ks; multimode=:serial)
+        @test_throws ArgumentError Spectrum.density(H, ks; options...)
+        @test_throws ArgumentError Spectrum.ldos(H, ks, [0.0]; format=:dense, options...)
+        @test_throws ArgumentError Spectrum.getdos(H, [0.0], ks; Γ=0.1, options...)
+        ρ = TightBinding.Hops(Dict([0, 0] => zeros(ComplexF64, 2, 2)))
+        @test_throws ArgumentError Operators.getdensitymatrix!(ρ, H, ks; options...)
+        J = k -> Matrix{ComplexF64}(I, 2, 2)
+        @test_throws ArgumentError LinearResponse.opticalconductivity([0.0], H, J, J, ks; options...)
+    end
+
+    # Fourier assembly can leave roundoff in either triangle or on the diagonal.
+    # Keep the Hermitian solver in this case, including for sparse Lanczos.
+    for T in (Float32, Float64), scale in T.((1.0, 1e-20))
+        A = scale .* Complex{T}[1 0.3+0.2im; 0.3-0.2im 2]
+        A[1, 1] += scale * eps(T) * im
+        A[2, 1] += scale * eps(T)
+        original = copy(A)
+        for storage in (A, sparse(A), view(A, :, :))
+            H = E.checked_hermitian(storage)
+            @test H isa Hermitian
+            @test parent(H) === storage
+            vals, U = E.geteigen(H)
+            @test norm(A * U - U * Diagonal(vals)) / norm(A) < 20eps(T)
+            @test U' * U ≈ I
+        end
+        @test A == original
+    end
+    A = ComplexF64[1+eps()*im 0.3+0.2im; 0.3-0.2im+eps() 2]
+    vals, U = E.geteigen(sparse(A); format=:sparse, num_bands=1, which=:SR)
+    @test norm(A * U - U * Diagonal(vals)) < 1e-12
+    bands = Spectrum.getbands(k -> A, zeros(2, 1); multimode=:serial, hidebar=true)
+    @test bands.bands[:, 1] ≈ eigvals(Hermitian(A))
+end
+
 # Sparse eigensolver regression. The package switched from Arpack to KrylovKit;
 # these tests are the safety net that catches a numerical regression on either
 # direction (e.g. if the legacy Arpack solver is ever restored from git
