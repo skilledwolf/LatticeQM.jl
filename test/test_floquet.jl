@@ -38,9 +38,9 @@ end
 end
 
 # V(t) = V·cos(ωt) has Fourier components V_{±1} = V/2. The Floquet matrix must
-# be exactly Hermitian (the dense eigensolver path wraps it in Hermitian(...),
-# which reads only the upper triangle), and storing only one member of a ±n
-# pair must be completed automatically via V_{-n} = V_n†.
+# be Hermitian in both triangles, and storing only one member of a ±n pair
+# must be completed automatically via V_{-n} = V_n†. Hamiltonian observables
+# now validate this before selecting a Hermitian eigensolver.
 @testset "Floquet: Hermitian completion of drive harmonics" begin
     ω = 1.9
     M = 2

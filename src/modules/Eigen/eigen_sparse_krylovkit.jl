@@ -32,7 +32,8 @@ end
 """
     eigen_sparse(M; num_bands, sigma=1e-8, which=:LM, tol=$KRYK_TOL, kwargs...)
 
-Hermitian sparse eigensolver via KrylovKit Lanczos.
+Hermitian sparse eigensolver via KrylovKit Lanczos. Non-Hermitian matrices
+are rejected; only roundoff-level asymmetry is accepted.
 
 - `which=:LM` (default): eigenvalues closest to `sigma` via shift-invert.
   This is the moiré workflow — `sigma` defaults to ~0 to find low-energy bands.
@@ -44,7 +45,7 @@ interface so callers don't need to change.
 function eigen_sparse(M::AbstractMatrix; num_bands::Int,
                      sigma::Float64=1e-8, which::Symbol=:LM,
                      tol::Float64=KRYK_TOL, maxiter::Int=KRYK_MAXITER, kwargs...)
-    M = sanitize_hermitian_sparse(M)
+    M = sanitize_hermitian_sparse(checked_hermitian(M))
     n = size(M, 1)
     krylovdim = min(_kryk_dim(num_bands), n)
     alg = KrylovKit.Lanczos(; krylovdim=krylovdim, tol=tol, maxiter=maxiter)

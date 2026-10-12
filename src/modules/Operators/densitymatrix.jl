@@ -130,7 +130,7 @@ end
 function densitymatrix_kpoint!(ρs::AbstractHops, scratch, H, k, w::Float64;
                                 μ::Float64=0.0, T::Real=0.01, format=:dense, kwargs...)
     Hk = Spectrum.bloch!(scratch.Hcache, H, k)
-    ϵs, U = Eigen.geteigen!(Hk; format=format, kwargs...)
+    ϵs, U = Eigen.geteigen!(Eigen.checked_hermitian(Hk); format=format, kwargs...)
     band = real.(ϵs)
     fd = fermidirac.(band .- μ; T=T)
     # ρ_k = U * Diagonal(fd) * U' — done as two mul!s through a preallocated

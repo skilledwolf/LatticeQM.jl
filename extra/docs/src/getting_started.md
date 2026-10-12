@@ -79,6 +79,24 @@ The script plots graphene bands with Zeeman splitting and stores the figure at
 - **Long instantiation times**: precompile packages with
   `julia --project=. -e 'using Pkg; Pkg.precompile()'` before running notebooks.
 
+## Matrix structure and eigensolvers
+
+Bands, eigenstate grids/Berry curvature, density matrices, DOS, and optical
+response expect a Hermitian Hamiltonian at each momentum. These calculations
+check both triangles before selecting the Hermitian solver. They tolerate
+roundoff from Fourier assembly (relative Frobenius-norm discrepancy up to
+`100eps` of the real floating element type, with no absolute tolerance), but
+throw `ArgumentError` for larger asymmetry. If this happens, check conjugate
+hoppings and pairing terms; silently discarding one triangle can change the
+spectrum and eigenstates.
+
+The low-level `LatticeQM.Eigen.geteigen`, `geteigvals`, and `geteigvecs` dense
+solvers preserve general matrices, including unitary Wilson loops and their
+complex eigenvalues. The in-place `geteigen!` and `geteigvals!` follow the same
+rule. An explicit `LinearAlgebra.Hermitian(A, :U)` or `:L` wrapper defines the
+operator using the chosen triangle and is respected. The sparse backend
+(`format=:sparse`) uses Hermitian Lanczos and rejects non-Hermitian operators.
+
 ## Next steps
 - Continue with [Tutorial 1](tutorials/structure.md) for a deep dive into
   lattice construction.

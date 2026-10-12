@@ -118,7 +118,7 @@ function opticalconductivity(frequencies::AbstractVector, H, J1, J2, ks::Abstrac
         scratch_factory = () -> (Hcache=Spectrum.bloch_buffer(H, ks; format=format),),
         progress = progressbar) do local_OC, scratch, _j, k
         Hk = Spectrum.bloch!(scratch.Hcache, H, k)
-        ϵs, U = Eigen.geteigen!(Hk; format=format, kwargs...)
+        ϵs, U = Eigen.geteigen!(Eigen.checked_hermitian(Hk); format=format, kwargs...)
         kubo!(local_OC, frequencies, real(ϵs), U, J1(k), J2(k)'; μ=μ, Γ=Γ, T=T)
     end
     ProgressMeter.finish!(progressbar)

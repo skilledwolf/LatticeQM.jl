@@ -11,26 +11,44 @@ import LatticeQM.Utils: dense
 # Switch between dense/sparse (see below)
 ###################################################################################################
 
-eigvals_dense(M; kwargs...) = LinearAlgebra.eigvals(_hermitianize(dense(M)); kwargs...)
-eigvecs_dense(M; kwargs...) = LinearAlgebra.eigvecs(_hermitianize(dense(M)); kwargs...)
-eigen_dense(M; kwargs...) = LinearAlgebra.eigen(_hermitianize(dense(M)); kwargs...)
+# Preserve the operator: Wilson holonomies, for example, are unitary rather
+# than Hermitian. Julia dispatches on explicit matrix structure and detects
+# exact Hermiticity itself for ordinary dense matrices.
+eigvals_dense(M; kwargs...) = LinearAlgebra.eigvals(dense(M); kwargs...)
+eigvecs_dense(M; kwargs...) = LinearAlgebra.eigvecs(dense(M); kwargs...)
+eigen_dense(M; kwargs...) = LinearAlgebra.eigen(dense(M); kwargs...)
 
 # In-place dense variants. `eigvals!`/`eigen!` overwrite their input but skip
-# the dense() copy that the non-bang versions allocate on every call. They're
-# the right path inside hot k-loops where the caller has already filled a
+# the solver's input copy for dense matrices. They're the right path inside
+# hot k-loops where the caller has already filled a
 # scratch Hcache via `Spectrum._build_H!`.
-eigvals_dense!(M; kwargs...) = LinearAlgebra.eigvals!(_hermitianize(dense(M)); kwargs...)
-eigen_dense!(M; kwargs...) = LinearAlgebra.eigen!(_hermitianize(dense(M)); kwargs...)
+eigvals_dense!(M; kwargs...) = LinearAlgebra.eigvals!(dense(M); kwargs...)
+eigen_dense!(M; kwargs...) = LinearAlgebra.eigen!(dense(M); kwargs...)
 
-# Hamiltonians in this package are physically Hermitian (tight-binding, BdG,
-# Floquet). Wrap dense matrices in `Hermitian(...)` so LAPACK uses the
-# Hermitian solver (`heevr`) instead of the generic `geevx` path. The
-# Hermitian path is faster *and* numerically stable on borderline matrices —
-# `LAPACKException(3)` failures were observed on BdG sweeps with the generic
-# solver. `Hermitian` reads from the upper triangle and ignores the lower,
-# which is fine for our user-controlled Hamiltonians.
-@inline _hermitianize(M::AbstractMatrix) = LinearAlgebra.Hermitian(M)
-@inline _hermitianize(M::LinearAlgebra.Hermitian) = M
+"""
+    checked_hermitian(M)
+
+Internal boundary check for Hamiltonian observables and Hermitian Lanczos.
+Accept roundoff from Bloch/BdG assembly (relative Frobenius-norm discrepancy
+at most `100eps` of the real floating element type, with no absolute floor),
+then use the upper triangle. Materially non-Hermitian inputs throw an
+`ArgumentError`. An explicit `Hermitian` wrapper already defines the operator
+and its authoritative triangle, so it is preserved.
+
+This retains the Hermitian LAPACK path for approximately Hermitian BdG
+matrices, where generic `geevx` previously failed with `LAPACKException(3)`.
+Generic dense eigensolvers must not use this check: even tiny non-Hermitian
+parts can carry meaningful Wilson phases.
+"""
+@inline checked_hermitian(M::Hermitian) = M
+function checked_hermitian(M::AbstractMatrix)
+    if size(M, 1) == size(M, 2) &&
+       (LinearAlgebra.ishermitian(M) ||
+        isapprox(M, M'; rtol=100eps(real(float(one(eltype(M))))), atol=0))
+        return Hermitian(M)
+    end
+    throw(ArgumentError("expected a Hermitian Hamiltonian/operator (up to roundoff); use Eigen.geteigen(M; format=:dense) for a general operator"))
+end
 
 geteigvals(args...; format=:dense, kwargs...) = (format == :sparse) ? eigvals_sparse(args...; kwargs...) : eigvals_dense(args...; kwargs...)
 geteigvecs(args...; format=:dense, kwargs...) = (format == :sparse) ? eigvecs_sparse(args...; kwargs...) : eigvecs_dense(args...; kwargs...)

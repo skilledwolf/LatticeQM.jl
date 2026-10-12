@@ -13,15 +13,14 @@ module Utils
     export σ0, σ1, σ2, σ3, σX, σY, σZ, σUP, σDOWN, σPLUS, σMINUS, σs, spinorrotation
 
     # Just pass through different dense types
-    import SharedArrays, SparseArrays
+    import SharedArrays
     dense(A::Array) = A
     dense(A::SharedArrays.SharedArray) = A
-    dense(A::Hermitian{T,Matrix{T}}) where {T} = A
-    dense(A::Hermitian{T,SharedArrays.SharedMatrix{T}}) where {T} = A
     dense(A::SubArray) = Array(A) # for now dense creates copies of views instead of returning the view
-    # Create dense copies for sparse cases
-    dense(A::SparseArrays.SparseMatrixCSC) = Array(A)
-    dense(A::Hermitian{T,SparseArrays.SparseMatrixCSC{T,K}}) where {T,K} = Hermitian(Array(A))
+    # Materialize other storage, preserving an explicit Hermitian contract and
+    # the selected triangle even for sparse matrices and views.
+    dense(A::AbstractMatrix) = Matrix(A)
+    dense(A::Hermitian) = Hermitian(dense(parent(A)), A.uplo == 'U' ? :U : :L)
 
     densecopy(A::Array) = Array(A)
     densecopy(A::SubArray) = Array(A)

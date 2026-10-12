@@ -5,8 +5,6 @@ import LatticeQM.Spectrum
 import LatticeQM.Eigen
 import LatticeQM.Parallel
 
-@inline _eigvecs_at(H, k; kwargs...) = Eigen.geteigvecs(H(k); kwargs...)
-
 # Common eigenvector-grid loop shared between `statesgrid` and `statesgrid1D`.
 # Builds H(k) into a per-task scratch via the Spectrum/bands.jl
 # `bloch_buffer` / `bloch!` primitives, runs the eigensolver in-place, and
@@ -28,7 +26,7 @@ function _eigvecs_grid!(out, H, ks::AbstractMatrix, bandindices, placement::P;
         scratch_factory = () -> (Hcache = bloch_buffer(H, ks; format=format),)
     ) do scratch, j, k
         Hk = bloch!(scratch.Hcache, H, k)
-        _, U = Eigen.geteigen!(Hk)
+        _, U = Eigen.geteigen!(Eigen.checked_hermitian(Hk))
         @views placement(out, j) .= U[:, bandindices]
     end
     out
@@ -219,7 +217,7 @@ function berryalongpath(H, kpoints;
         # of the Hcache state once collected.
         Us = map((δkR, δkU, δkD, δkL)) do δk
             Hk = bloch!(scratch.Hcache, H, kc .+ δk)
-            _, U = Eigen.geteigen!(Hk)
+            _, U = Eigen.geteigen!(Eigen.checked_hermitian(Hk))
             U
         end
 
