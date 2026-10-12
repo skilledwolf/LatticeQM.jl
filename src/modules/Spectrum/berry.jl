@@ -1,4 +1,4 @@
-import LinearAlgebra: det, norm, I, svd, Hermitian, diag, dot
+import LinearAlgebra: det, norm, I, svd, diag
 import SharedArrays: SharedArray, sdata
 
 import LatticeQM.Spectrum
@@ -307,32 +307,48 @@ function Wilson1D(H, NX::Int, bandindices::AbstractArray=[])
     en, U, statesgrid
 end
 
-function Wilson1D(statesgrid::AbstractArray{ComplexF64,3}, j0::Int=0)
-    NY, M1, M2 = size(statesgrid)
+# Orthonormal frames have overlap singular values in [0, 1]. Below this
+# numerical threshold the polar factor cannot define a reliable transport.
+const _WILSON_TOL = sqrt(eps(Float64))
 
-    F = Matrix((1.0+0im)*I, (M2,M2))
-    for j_=1:NY
-        SVD = svd(statesgrid[mymod(j0+j_,NY), :, :]' * statesgrid[mymod(j0+j_+1,NY), :, :])#1+mod(j_-1+1,NY-1)
-        F = F * (SVD.U * SVD.Vt)
-        # F *= statesgrid[mymod(j0+j_,NY), :, :]' * statesgrid[mymod(j0+j_+1,NY), :, :]
+function _wilsonlinks(statesgrid::AbstractArray{ComplexF64,3})
+    N, _, nb = size(statesgrid)
+    N > 0 && nb > 0 || throw(ArgumentError("a Wilson loop needs a nonempty grid and occupied space"))
+    map(1:N) do j
+        overlap = @views statesgrid[j, :, :]' * statesgrid[mod1(j+1, N), :, :]
+        S = svd(overlap)
+        minimum(S.S) > _WILSON_TOL || throw(ArgumentError(
+            "singular overlap on Wilson link $j; refine the momentum grid or check the selected subspace"))
+        S.U * S.Vt
     end
+end
 
-    en, U = Eigen.geteigen(F)
-    en = angle.(en)./(2π)
-    perm = sortperm(en)
+function _wilsonspectrum(links, j0::Int=0)
+    F = Matrix{ComplexF64}(I, size(first(links), 1), size(first(links), 1))
+    for j in eachindex(links)
+        F = F * links[mod1(j0+j, length(links))]
+    end
+    vals, U = Eigen.geteigen(F)
+    centres = angle.(vals) ./ (2π)
+    p = sortperm(centres)
+    centres[p], U[:, p]
+end
 
-    en[perm], U[:,perm]
+"""
+    Wilson1D(statesgrid, j0=0)
+
+Wilson loop of orthonormal occupied frames, using SVD-unitarized overlaps.
+The matrix form returns `(centres, eigenvectors)` at base point `j0+1`
+(cyclically wrapped); the single-band form returns its centre modulo 1.
+Numerically singular links (smallest singular value ≤ `sqrt(eps(Float64))`)
+throw `ArgumentError`: their transport is undefined or unresolved by the grid.
+"""
+function Wilson1D(statesgrid::AbstractArray{ComplexF64,3}, j0::Int=0)
+    _wilsonspectrum(_wilsonlinks(statesgrid), j0)
 end
 
 function Wilson1D(statesgrid::AbstractArray{ComplexF64,2}, j0::Int=0)
-    NY, M1= size(statesgrid)
-
-    F = 1.0+0im
-    for j_=1:NY
-        F = F * (statesgrid[mymod(j0+j_,NY),:]' * statesgrid[mymod(j0+j_+1,NY),:])
-    end
-
-    angle(F)/(2π)
+    only(first(Wilson1D(reshape(statesgrid, size(statesgrid)..., 1), j0)))
 end
 
 function WilsonSlice1D(statesgrid::AbstractArray{ComplexF64,4})
@@ -375,96 +391,92 @@ end
     wilsonweights(statesgrid::AbstractArray{ComplexF64,3}, O::AbstractMatrix)
         -> (centres, weights)
 
-Holonomy-first operator weighting of a 1D Wilson loop.
+Holonomy-first operator weighting of a 1D Wilson loop. `statesgrid[j, :, n]`
+is the n-th orthonormal occupied state at point j. `O` must be Hermitian.
 
-`statesgrid[j, :, n]` is the n-th occupied eigenvector at the j-th point of a
-closed loop (as returned by [`statesgrid1D`](@ref)). Returns the Wannier
-centres of the loop (mod 1, sorted) and, for each Wilson band (hybrid Wannier
-function), the loop-averaged expectation value of the operator `O` in the
-Wilson-band basis,
+Returns sorted Wannier centres modulo 1 and the loop-averaged expectation of
+`O` in each Wilson band: `weights[n] = sum(w_n(j)' * O * w_n(j)) / N`.
+Diagonalize the unitary holonomy once, then parallel-transport its eigenvectors
+with the same SVD-unitarized links used by [`Wilson1D`](@ref). This keeps band
+labels consistent across the phase branch cut without rediagonalizing at
+other base points.
 
-    weights[n] = (1/N) Σ_j ⟨w_n(k_j)| O |w_n(k_j)⟩ .
-
-The Wilson band at point j is taken from the eigenvectors of the loop based at
-j (as in [`WilsonWannier2D`](@ref)). For `O` a spin or layer operator this
-gives the spin (layer) polarization of each hybrid Wannier function, and the
-determinant of the operator-weighted Wilson loop of Petrides & Zilberberg
-[arXiv:2203.14902] is `exp(2πi Σ_n weights[n] centres[n])`.
-
-Note that `Σ_n weights[n] centres[n]` is defined only modulo the weights
-themselves (shifting one Wannier centre by a lattice vector changes it by
-`weights[n]`), so it is quantized only when the weights are.
+Individual weights are not unique inside a degenerate Wilson eigenspace.
+This API rejects eigenvalues separated by at most `sqrt(eps(Float64))` on
+the unit circle, rather than assigning basis-dependent per-band weights.
+Singular links also throw `ArgumentError`. Both centres and weights can vary
+continuously when no protecting symmetry is present. The weighted sum of
+centres depends on their branch choices when weights are not integers.
 """
 function wilsonweights(statesgrid::AbstractArray{ComplexF64,3}, O::AbstractMatrix)
-    NY, M1, M2 = size(statesgrid)
-    links = [statesgrid[j, :, :]' * statesgrid[mymod(j + 1, NY), :, :] for j in 1:NY]
-    centres = zeros(M2)
-    weights = zeros(M2)
-    for j in 1:NY
-        F = Matrix{ComplexF64}(I, M2, M2)
-        for m in 0:NY-1
-            F = F * links[mymod(j + m, NY)]
-        end
-        en, U = Eigen.geteigen(F)
-        c = angle.(en) ./ (2π)
-        perm = sortperm(c)
-        U = U[:, perm]
-        if j == 1
-            centres = c[perm]
-        end
-        wb = statesgrid[j, :, :] * U
-        weights .+= real.(diag(wb' * O * wb))
+    N, norb, nb = size(statesgrid)
+    size(O) == (norb, norb) || throw(DimensionMismatch("O must act on the orbital space"))
+    O = Eigen.checked_hermitian(O)
+    links = _wilsonlinks(statesgrid)
+    centres, U = _wilsonspectrum(links)
+    factors = cis.(2π .* centres)
+    for i in 1:nb, j in i+1:nb
+        abs(factors[i] - factors[j]) > _WILSON_TOL || throw(ArgumentError(
+            "degenerate Wilson phases: individual band weights are not uniquely defined"))
     end
-    centres, weights ./ NY
+    weights = zeros(nb)
+    for j in 1:N
+        wb = @views statesgrid[j, :, :] * U
+        weights .+= real.(diag(wb' * O * wb))
+        U = links[j]' * U
+    end
+    centres, weights ./ N
 end
 
 """
     sectorwilson(statesgrid::AbstractArray{ComplexF64,3}, O::AbstractMatrix)
-        -> (phases, Ogap)
+        -> ((negative=centres_minus, positive=centres_plus), Ogap)
 
-Sector-first (operator-resolved) Wilson loop.
+Sector-first Wilson loops of the negative and positive spectral subspaces of
+`V(j)' * O * V(j)` within the occupied space. `O` must be Hermitian and the
+occupied frames orthonormal. Each sector has its own non-Abelian Wilson loop,
+computed by [`Wilson1D`](@ref); its centres are sorted and defined modulo 1.
+An empty sector has an empty vector of centres. Degeneracies and crossings
+within a same-sign sector are allowed.
 
-At every point of the loop the operator `O` is projected into the occupied
-space, `P O P`, and diagonalized; its eigenvectors, ordered by increasing
-eigenvalue, define `M2` rank-one sectors. Returns the Berry phase of each
-sector (mod 1) and the minimal |eigenvalue| of `P O P` along the loop, the
-"O gap" that keeps the sectors well defined. For `O` the spin operator this is
-the spin-resolved Wilson loop of Prodan [PRB 80, 125327 (2009)] and Lin et al.
-[Nat. Commun. 15, 550 (2024)]; for a layer operator it is layer resolved.
-
-The two orderings, [`wilsonweights`](@ref) and `sectorwilson`, coincide when
-the Wilson bands are eigenstates of `P O P` (e.g. decoupled layers) and differ
-otherwise. The sector phases are exact modulo integers but are only defined
-while `Ogap > 0`; the weights of `wilsonweights` are always defined but
-continuous.
+`Ogap` is the minimum absolute projected eigenvalue over the sampled grid.
+Throw `ArgumentError` if it is at most `sqrt(eps(Float64)) * norm(O)`, if the
+sector dimensions change, or if a sector has a singular overlap link. An open
+operator gap defines the sign sectors; it does not by itself quantize their
+Wilson phases, nor guarantee that a coarse grid resolves the loop.
 """
 function sectorwilson(statesgrid::AbstractArray{ComplexF64,3}, O::AbstractMatrix)
-    NY, M1, M2 = size(statesgrid)
-    secs = Vector{Matrix{ComplexF64}}(undef, NY)
+    N, norb, nb = size(statesgrid)
+    N > 0 && nb > 0 || throw(ArgumentError("a Wilson loop needs a nonempty grid and occupied space"))
+    size(O) == (norb, norb) || throw(DimensionMismatch("O must act on the orbital space"))
+    O = Eigen.checked_hermitian(O)
+    gap_tol = _WILSON_TOL * norm(O)
+    secs = similar(statesgrid)
     Ogap = Inf
-    for j in 1:NY
-        Vj = statesgrid[j, :, :]
-        ev, U = Eigen.geteigen(Hermitian(Vj' * O * Vj))
-        p = sortperm(real.(ev))
-        Ogap = min(Ogap, minimum(abs.(real.(ev))))
-        secs[j] = Vj * U[:, p]
-    end
-    phases = zeros(M2)
-    for n in 1:M2
-        z = one(ComplexF64)
-        for j in 1:NY
-            z *= dot(secs[j][:, n], secs[mymod(j + 1, NY)][:, n])
+    nminus = 0
+    for j in 1:N
+        V = @view statesgrid[j, :, :]
+        ev, U = Eigen.geteigen(Eigen.checked_hermitian(V' * O * V))
+        Ogap = min(Ogap, minimum(abs, ev))
+        Ogap > gap_tol || throw(ArgumentError("projected operator gap is closed or numerically unresolved"))
+        n = count(<(0), ev)
+        if j == 1
+            nminus = n
+        elseif n != nminus
+            throw(ArgumentError("operator sector dimensions change along the loop; refine the grid to resolve the gap closure"))
         end
-        phases[n] = angle(z) / (2π)
+        secs[j, :, :] = V * U
     end
-    phases, Ogap
+    negative = nminus == 0 ? Float64[] : first(Wilson1D(@view secs[:, :, 1:nminus]))
+    positive = nminus == nb ? Float64[] : first(Wilson1D(@view secs[:, :, nminus+1:nb]))
+    (negative=negative, positive=positive), Ogap
 end
 
 """
     WilsonWeights1D(H, NX::Int, O::AbstractMatrix, bandindices=[])
 
-Convenience wrapper: [`wilsonweights`](@ref) of the loop of a 1D Hamiltonian
-`H`, discretized with `NX` points (cf. [`Wilson1D`](@ref)).
+Evaluate [`wilsonweights`](@ref) on occupied eigenstates of the 1D Hamiltonian
+`H`. Returns `(centres, weights)`; degenerate Wilson phases are rejected.
 """
 function WilsonWeights1D(H, NX::Int, O::AbstractMatrix, bandindices::AbstractArray=[])
     _, statesgrid = statesgrid1D(H, NX, bandindices)
@@ -474,8 +486,8 @@ end
 """
     SectorWilson1D(H, NX::Int, O::AbstractMatrix, bandindices=[])
 
-Convenience wrapper: [`sectorwilson`](@ref) of the loop of a 1D Hamiltonian
-`H`, discretized with `NX` points.
+Evaluate [`sectorwilson`](@ref) on occupied eigenstates of the 1D Hamiltonian
+`H`. Returns `((negative=centres_minus, positive=centres_plus), Ogap)`.
 """
 function SectorWilson1D(H, NX::Int, O::AbstractMatrix, bandindices::AbstractArray=[])
     _, statesgrid = statesgrid1D(H, NX, bandindices)
@@ -483,27 +495,17 @@ function SectorWilson1D(H, NX::Int, O::AbstractMatrix, bandindices::AbstractArra
 end
 
 """
-    statesgrid1Dslice(H, NX::Int, bandindices, dim::Int, kfixed::Real)
+    statesgrid1Dslice(H, NX::Int, bandindices, dim::Int, kfixed::Real; kwargs...)
 
-Eigenvectors of a 2D Hamiltonian `H` along the closed loop in reduced
-direction `dim` (1 or 2) at the fixed value `kfixed` of the other reduced
-momentum, in the layout of [`statesgrid1D`](@ref). This is the "ladder at
-fixed edge momentum" slicing used for momentum-resolved polarizations; feed
-the result to [`Wilson1D`](@ref), [`wilsonweights`](@ref) or
-[`sectorwilson`](@ref).
+Eigenvectors along reduced momentum direction `dim` of a 2D Hamiltonian,
+with the other coordinate fixed at `kfixed`. For `dim=1`, sample `[x, kfixed]`;
+for `dim=2`, sample `[kfixed, x]`. Delegates to [`statesgrid1D`](@ref), including
+Hamiltonian validation and execution keywords, and returns `(kgrid, states)`.
 """
-function statesgrid1Dslice(H, NX::Int, bandindices::AbstractArray, dim::Int, kfixed::Real)
-    @assert dim == 1 || dim == 2 "dim must be 1 or 2"
-    kgrid = LinRange(0, 1, NX)
-    kpoint(x) = dim == 1 ? [x, kfixed] : [kfixed, x]
-    M1 = size(H(kpoint(0.0)), 1)
-    bandindices = isempty(bandindices) ? collect(1:M1) : bandindices
-    out = zeros(ComplexF64, NX, M1, length(bandindices))
-    for (j, x) in enumerate(kgrid)
-        _, U = Eigen.geteigen(Hermitian(Matrix(H(kpoint(x)))))
-        out[j, :, :] = U[:, bandindices]
-    end
-    kgrid, out
+function statesgrid1Dslice(H, NX::Int, bandindices::AbstractArray, dim::Int, kfixed::Real; kwargs...)
+    dim in (1, 2) || throw(ArgumentError("dim must be 1 or 2"))
+    Hslice = k -> H(dim == 1 ? [k[1], kfixed] : [kfixed, k[1]])
+    statesgrid1D(Hslice, NX, bandindices; kwargs...)
 end
 
 """
