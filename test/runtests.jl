@@ -16,6 +16,7 @@ using Test
     @testset "Spectrum/graphene"   include("test_spectrum_graphene.jl")
     @testset "Spectrum/square"     include("test_spectrum_square.jl")
     @testset "Spectrum/triangular" include("test_spectrum_triangular.jl")
+    @testset "Spectrum/wilson"     include("test_spectrum_wilson.jl")
     @testset "Superconductivity"   include("test_superconductivity.jl")
     @testset "Floquet"             include("test_floquet.jl")
     @testset "LinearResponse"      include("test_linearresponse.jl")
