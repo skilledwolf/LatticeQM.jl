@@ -3,7 +3,8 @@ using LinearAlgebra
 using LatticeQM
 using Random: Xoshiro
 using LatticeQM.Spectrum: statesgrid1D, Wilson1D, wilsonweights, sectorwilson,
-                          WilsonWeights1D, SectorWilson1D, statesgrid1Dslice
+                          WilsonWeights1D, SectorWilson1D, statesgrid1Dslice,
+                          Wilson2D, WilsonWannier2D
 
 # Two-leg ladder of SSH chains, basis (A1, B1, A2, B2), rung tperp on A1-B2,
 # bias ±V. Leg ℓ has intracell amplitude tp[ℓ] and intercell amplitude t = 1.
@@ -58,7 +59,7 @@ end
     @test size(sg) == (101, 2, 1)
     _, sg2 = statesgrid1Dslice(H, 101, [1], 2, 0.2)  # loop along k2 at k1 = 0.2
     @test size(sg2) == (101, 2, 1)
-    # Zak phase of the lower graphene band along k2 at fixed k1: 0 or 1/2 mod 1
+    # Zak phase of the lower graphene band along k1 at fixed k2: 0 or 1/2 mod 1
     # (chiral symmetry); away from the Dirac projections it is well defined.
     z = Wilson1D(sg[:, :, 1])
     @test isapprox(mod(2z, 1), 0.0; atol=1e-6) || isapprox(mod(2z, 1), 1.0; atol=1e-6)
@@ -68,10 +69,12 @@ end
 function rotate_wilson_frames(states; seed=42)
     rng = Xoshiro(seed)
     rotated = similar(states)
-    nb = size(states, 3)
-    for j in axes(states, 1)
+    nb = size(states, ndims(states))
+    flat = reshape(states, :, size(states, ndims(states)-1), nb)
+    out = reshape(rotated, size(flat))
+    for j in axes(flat, 1)
         Q = Matrix(qr(randn(rng, ComplexF64, nb, nb)).Q)
-        rotated[j, :, :] = states[j, :, :] * Q
+        out[j, :, :] = flat[j, :, :] * Q
     end
     rotated
 end
@@ -161,11 +164,8 @@ end
 end
 
 @testset "Operator Wilson loops: undefined inputs are rejected" begin
-    # A two-dimensional constant occupied space has degenerate Wilson phases.
     states = repeat(reshape(Matrix{ComplexF64}(I, 2, 2), 1, 2, 2), 3, 1, 1)
     O = Diagonal([-1.0, 1.0])
-    @test_throws r"degenerate Wilson phases" wilsonweights(states, O)
-    @test_throws r"degenerate Wilson phases" wilsonweights(rotate_wilson_frames(states), O)
     @test_throws r"operator gap" sectorwilson(states, zeros(2, 2))
     @test_throws r"operator gap" sectorwilson(states, Diagonal([-1.0, 1e-16]))
     for scale in (1e-20, 1e20)
@@ -207,4 +207,256 @@ end
     end
     @test_throws ArgumentError statesgrid1Dslice(H, 5, [1], 3, 0.2)
     @test_throws ArgumentError statesgrid1Dslice(k -> [1.0 0.5; 0.0 2.0], 5, [1], 1, 0.2; multimode=:serial)
+end
+
+@testset "Wilson weights: degenerate subspaces" begin
+    # Both legs in the same SSH phase have coincident Wilson eigenvalues.
+    # The layer-weight trace is zero, while the charge weight counts states.
+    for (t1, t2, factor) in ((0.4, 0.6, -1), (1.4, 1.6, 1))
+        h = ladder(t1, t2, 0.0, 0.0)
+        kgrid, states = statesgrid1D(h, 61, 1:2; multimode=:serial)
+        for frames in (states, rotate_wilson_frames(states))
+            result = wilsonweights(frames, τz; kgrid)
+            @test result.multiplicities == [2]
+            @test cis(2π * only(result.centres)) ≈ factor atol=1e-12
+            @test only(result.weights) ≈ 0 atol=1e-12
+            charge = wilsonweights(frames, Matrix{Float64}(I, 4, 4); kgrid)
+            @test charge.weights ≈ [2] atol=1e-12
+            _, U = Wilson1D(frames)
+            @test U' * U ≈ I atol=1e-12
+        end
+    end
+
+    # A degenerate π pair and an isolated zero phase: preserve block identity
+    # under general U(3) gauge changes, including numerical splitting at ±π.
+    _, pair = statesgrid1D(ladder(0.4, 0.6, 0.0, 0.0), 61, 1:2; multimode=:serial)
+    H(k) = ComplexF64[0 1.6+cis(-2π*k[1]); 1.6+cis(2π*k[1]) 0]
+    _, trivial = statesgrid1D(H, 61, [1]; multimode=:serial)
+    states = zeros(ComplexF64, 61, 6, 3)
+    states[:, 1:4, 1:2] = pair
+    states[:, 5:6, 3] = trivial[:, :, 1]
+    O = Diagonal([1.0, 1.0, 2.0, 2.0, 4.0, 4.0])
+    for frames in (states, rotate_wilson_frames(states; seed=31))
+        result = wilsonweights(frames, O)
+        iπ = argmin(abs.(cis.(2π .* result.centres) .+ 1))
+        @test result.multiplicities[iπ] == 2
+        @test result.weights[iπ] ≈ 3 atol=1e-12
+        @test result.multiplicities[3-iπ] == 1
+        @test result.weights[3-iπ] ≈ 4 atol=1e-12
+    end
+end
+
+@testset "Wilson weights: quadrature and explicit occupancy" begin
+    # The occupied spinor has <σz> = 0.2 + 0.4cos(2πk), whose mean is 0.2.
+    function average_model(shift)
+        k -> begin
+            x = 2π*(k[1]+shift)
+            m = 0.2 + 0.4cos(x)
+            v = ComplexF64[sqrt((1+m)/2), cis(x)*sqrt((1-m)/2)]
+            Matrix{ComplexF64}(I, 2, 2) - 2v*v'
+        end
+    end
+    O = Diagonal([1.0, -1.0])
+    for N in (21, 101), shift in (0.0, 0.5)
+        H = average_model(shift)
+        result = WilsonWeights1D(H, N, O, [1]; multimode=:serial)
+        @test only(result.weights) ≈ 0.2 atol=1e-12
+        kgrid, states = statesgrid1D(H, N, [1]; multimode=:serial)
+        @test wilsonweights(rotate_wilson_frames(states), O; kgrid).weights ≈ result.weights atol=1e-12
+        @test wilsonweights(states[1:end-1, :, :], O).weights ≈ result.weights atol=1e-12
+    end
+    H = average_model(0.0)
+    for f in (WilsonWeights1D, SectorWilson1D)
+        @test_throws MethodError f(H, 21, O)
+        @test_throws r"bandindices explicitly" f(H, 21, O, Int[])
+        @test_throws ArgumentError f(H, 1, O, [1])
+    end
+    _, states = statesgrid1D(H, 5, [1]; multimode=:serial)
+    @test_throws DimensionMismatch wilsonweights(states, O; kgrid=[0, 1])
+    @test_throws ArgumentError wilsonweights(states, O; kgrid=[0, 0.3, 0.2, 0.8, 1])
+    @test_throws ArgumentError wilsonweights(states, O; kgrid=range(0, 2; length=5))
+
+    # A nonuniform grid represents a piecewise-linear expectation whose
+    # exact integral is 0.19. Including the repeated endpoint changes nothing.
+    kgrid = [0.0, 0.1, 0.4, 0.9, 1.0]
+    m = [0.6, 0.3, -0.2, 0.5, 0.6]
+    for j in eachindex(kgrid)
+        states[j,:,1] = [sqrt((1+m[j])/2), cis(2π*kgrid[j])*sqrt((1-m[j])/2)]
+    end
+    @test only(wilsonweights(states, O; kgrid).weights) ≈ 0.19 atol=1e-12
+    @test only(wilsonweights(states[1:4,:,:], O; kgrid=kgrid[1:4]).weights) ≈ 0.19 atol=1e-12
+end
+
+@testset "Wilson weights and sectors: transport identities" begin
+    _, states = statesgrid1D(ladder(0.4, 1.6, 0.3, 0.15), 81, 1:2; multimode=:serial)
+    c, w = wilsonweights(states, τz)
+    @test sum(w) ≈ sum(real(tr(states[j,:,:]' * τz * states[j,:,:])) for j=1:81)/81 atol=1e-12
+    cr, wr = wilsonweights(reverse(states; dims=1), τz)
+    @test cr ≈ reverse(-c) atol=1e-12
+    @test wr ≈ reverse(w) atol=1e-12
+    cs, ws = wilsonweights(circshift(states, (23,0,0)), τz)
+    @test cs ≈ c atol=1e-12
+    @test ws ≈ w atol=1e-12
+    p, gap = sectorwilson(states, τz)
+    pn, gapn = sectorwilson(states, -τz)
+    @test p.negative ≈ pn.positive atol=1e-12
+    @test p.positive ≈ pn.negative atol=1e-12
+    @test gap ≈ gapn atol=1e-12
+end
+
+@testset "Nested Wilson loops: phase cuts and degenerate sectors" begin
+    N = 13
+    constant = zeros(ComplexF64, N, N, 4, 2)
+    constant[:, :, 1, 1] .= 1
+    constant[:, :, 2, 2] .= 1
+    for frames in (constant, rotate_wilson_frames(constant))
+        p1, p2 = WilsonWannier2D(frames)
+        @test p1 ≈ [0] atol=1e-12
+        @test p2 ≈ [0] atol=1e-12
+    end
+
+    ssh(t, m=0.0) = k -> ComplexF64[m t+cis(-2π*k[1]); t+cis(2π*k[1]) -m]
+    _, topo = statesgrid1D(ssh(0.4), N+1, [1]; multimode=:serial)
+    _, trivial = statesgrid1D(ssh(1.6), N+1, [1]; multimode=:serial)
+    grid = zeros(ComplexF64, N, N, 8, 2)
+    for i in 1:N, j in 1:N
+        grid[i,j,1:4,1] = kron(topo[i,:,1], topo[j,:,1])
+        grid[i,j,5:8,2] = kron(trivial[i,:,1], trivial[j,:,1])
+    end
+    for frames in (grid, rotate_wilson_frames(grid))
+        for cuts in ((nothing, nothing), ([-0.25, 0.25], [-0.25, 0.25]))
+            p1, p2 = WilsonWannier2D(frames; wannier_cuts=cuts)
+            @test sort(real.(cis.(2π .* p1))) ≈ [-1, 1] atol=1e-12
+            @test sort(real.(cis.(2π .* p2))) ≈ [-1, 1] atol=1e-12
+        end
+    end
+    @test_throws r"Wannier sector gap" WilsonWannier2D(grid; wannier_cuts=([0.0, 0.25], nothing))
+    @test_throws ArgumentError WilsonWannier2D(grid; wannier_cuts=([0.25, -0.25], nothing))
+
+    # Two identical nonquantized Wannier bands form a rank-two sector. Its
+    # nested polarization is the sum, independent of the chosen basis.
+    _, broken = statesgrid1D(ssh(0.4, 0.7), N+1, [1]; multimode=:serial)
+    ν = Wilson1D(broken[1:N, :, 1])
+    for i in 1:N, j in 1:N
+        v = kron(broken[i,:,1], broken[j,:,1])
+        grid[i,j,1:4,1] = v
+        grid[i,j,5:8,2] = v
+    end
+    for frames in (grid, rotate_wilson_frames(grid))
+        p1, p2 = WilsonWannier2D(frames)
+        @test cis(2π * only(p1)) ≈ cis(4π*ν) atol=1e-12
+        @test cis(2π * only(p2)) ≈ cis(4π*ν) atol=1e-12
+    end
+
+    # A rank-two sector separated from a third band must remain invariant
+    # even when the occupied gauge mixes states across the sector boundary.
+    mixed = zeros(ComplexF64, N, N, 12, 3)
+    mixed[:, :, 1:8, 1:2] = grid
+    mixed[:, :, 9:12, 3] = conj.(grid[:, :, 1:4, 1])
+    for frames in (mixed, rotate_wilson_frames(mixed))
+        p1, p2 = WilsonWannier2D(frames; wannier_cuts=([-0.4, 0.0], [-0.4, 0.0]))
+        @test cis.(2π .* p1) ≈ [cis(4π*ν), cis(-2π*ν)] atol=1e-12
+        @test cis.(2π .* p2) ≈ [cis(4π*ν), cis(-2π*ν)] atol=1e-12
+    end
+
+    # Different phases may be grouped deliberately, without defining spurious
+    # individual nested bands. The two conjugate copies have total phase zero.
+    for i in 1:N, j in 1:N
+        grid[i,j,5:8,2] = conj.(grid[i,j,1:4,1])
+    end
+    p1, p2 = WilsonWannier2D(rotate_wilson_frames(grid); wannier_cuts=([0.0], [0.0]))
+    @test p1 ≈ [0] atol=1e-12
+    @test p2 ≈ [0] atol=1e-12
+
+    H(k) = ssh(0.4, 0.7)(k)
+    for f in (Wilson2D, WilsonWannier2D)
+        default = f(H, 11; multimode=:serial)
+        explicit = f(H, 11, 11, [1]; multimode=:serial)
+        @test first(default) ≈ first(explicit) atol=1e-12
+        @test_throws ArgumentError f(H, 1)
+    end
+end
+
+@testset "Nested Wilson loops: quadrupole symmetry and Chern obstruction" begin
+    s0 = Matrix{ComplexF64}(I, 2, 2)
+    sx = ComplexF64[0 1; 1 0]; sy = ComplexF64[0 -im; im 0]; sz = ComplexF64[1 0; 0 -1]
+    Γ0 = kron(sz, s0); Γ1 = -kron(sy, sx); Γ2 = -kron(sy, sy)
+    Γ3 = -kron(sy, sz); Γ4 = kron(sx, s0)
+    bbh(t, m) = k -> (t+cos(2π*k[1]))*Γ4 + sin(2π*k[1])*Γ3 +
+                      (t+cos(2π*k[2]))*Γ2 + sin(2π*k[2])*Γ1 + m*Γ0
+    for (t, expected) in ((0.5, -1), (1.5, 1))
+        p1, p2 = WilsonWannier2D(bbh(t, 0.0), 17, 17, 1:2; multimode=:serial)
+        @test cis.(2π .* p1) ≈ fill(expected, 2) atol=1e-12
+        @test cis.(2π .* p2) ≈ fill(expected, 2) atol=1e-12
+    end
+    p1, p2 = WilsonWannier2D(bbh(0.5, 0.3), 17, 17, 1:2; multimode=:serial)
+    @test all(abs.(imag.(cis.(2π .* p1))) .> 0.1)
+    @test all(abs.(imag.(cis.(2π .* p2))) .> 0.1)
+    # A Chern band has winding polarization, so no periodic branch exists
+    # for the transverse average requested by the nested-polarization API.
+    chern(k) = sin(2π*k[1])*sx + sin(2π*k[2])*sy + (-1+cos(2π*k[1])+cos(2π*k[2]))*sz
+    @test_throws r"nested polarization winds" WilsonWannier2D(chern, 21, 21, [1]; multimode=:serial)
+end
+
+@testset "Nested Wilson loops: sector ranks cannot change" begin
+    NX, NY = 9, 17
+    frames = zeros(ComplexF64, NX, NY, 4, 2)
+    for i in 1:NX, j in 1:NY
+        # One phase moves from ~0.1 to ~0.4 across the cut at 0.25,
+        # while the other stays near -0.2. No sampled phase sits on the cut.
+        a = 0.9 - 0.3sin(π*(i-1)/(NX-1))^2
+        frames[i,j,1:2,1] = [sqrt(a), cis(2π*(j-1)/NY)*sqrt(1-a)]
+        frames[i,j,3:4,2] = [sqrt(0.8), cis(-2π*(j-1)/NY)*sqrt(0.2)]
+    end
+    @test_throws r"Wannier sector dimensions change" WilsonWannier2D(frames;
+        wannier_cuts=([0.0, 0.25], [0.0]))
+    # With no internal boundary this is a valid rank-two sector.
+    p1, p2 = WilsonWannier2D(rotate_wilson_frames(frames); wannier_cuts=([0.0], [0.0]))
+    @test p1 ≈ [0] atol=1e-12
+    @test all(isfinite, p2)
+end
+
+@testset "Operator Wilson loops: spin-mixed 2D topological sectors" begin
+    sx = ComplexF64[0 1; 1 0]; sy = ComplexF64[0 -im; im 0]; sz = ComplexF64[1 0; 0 -1]
+    s0 = Matrix{ComplexF64}(I, 2, 2)
+    spin = kron(sz, s0)
+    # Two time-reversed Chern blocks with a Rashba term that breaks spin
+    # conservation but preserves the energy gap and projected-spin gap.
+    function model(k, λ)
+        x, y = 2π .* k
+        sin(x)*kron(sz,sx) + sin(y)*kron(s0,sy) + (-1+cos(x)+cos(y))*kron(s0,sz) +
+            λ*kron(sin(y)*sx-sin(x)*sy, s0)
+    end
+    for λ in (0.0, 0.3)
+        N = 31
+        phases = zeros(N, 2)
+        gap, egap = Inf, Inf
+        for (j,y) in enumerate(range(0, 1; length=N))
+            ks, states = statesgrid1Dslice(k -> model(k, λ), 41, 1:2, 1, y; multimode=:serial)
+            p, g = sectorwilson(states, spin)
+            phases[j,:] = [only(p.negative), only(p.positive)]
+            gap = min(gap, g)
+            for x in ks
+                ev = eigvals(Hermitian(model([x,y], λ)))
+                egap = min(egap, ev[3]-ev[2])
+            end
+            if j == 7
+                pr, gr = sectorwilson(rotate_wilson_frames(states), spin)
+                @test cis(2π*only(pr.negative)) ≈ cis(2π*only(p.negative)) atol=1e-12
+                @test cis(2π*only(pr.positive)) ≈ cis(2π*only(p.positive)) atol=1e-12
+                @test gr ≈ g atol=1e-12
+            elseif j == 1
+                # The Kramers-degenerate Wilson pair still has a well-defined
+                # total spin weight, even though individual weights do not.
+                result = wilsonweights(states, spin; kgrid=ks)
+                @test result.multiplicities == [2]
+                @test result.weights ≈ [0] atol=1e-12
+            end
+        end
+        winding = vec(sum(angle.(cis.(2π .* diff(phases; dims=1))); dims=1)) ./ (2π)
+        @test abs.(winding) ≈ [1, 1] atol=1e-12
+        @test sum(winding) ≈ 0 atol=1e-12
+        @test gap > 0.9
+        @test egap > 1
+    end
 end

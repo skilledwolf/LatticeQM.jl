@@ -253,10 +253,11 @@ end
 @deprecate NestedWilson2D Wilson2D
 @deprecate NestedWilsonWannier2D WilsonWannier2D
 
-function Wilson2D(H, NX::Int, NY::Int=0, bandindices=[1])
-
-    _, _, statesgrid0 = statesgrid(H, NX, NY, bandindices)
-    Wilson2D(statesgrid0[1:(NX-1),1:(NY-1),:,:])
+function Wilson2D(H, NX::Int, NY::Int=NX, bandindices=[1]; kwargs...)
+    NY = NY < 1 ? NX : NY
+    NX > 1 && NY > 1 || throw(ArgumentError("Wilson grids need at least two points per direction"))
+    _, _, statesgrid0 = statesgrid(H, NX, NY, bandindices; kwargs...)
+    Wilson2D(@view statesgrid0[1:(NX-1),1:(NY-1),:,:])
 end
 
 function Wilson2D(statesgrid::AbstractArray{ComplexF64,4})
@@ -269,33 +270,101 @@ function Wilson2D(statesgrid::AbstractArray{ComplexF64,4})
 end
 
 
-function WilsonWannier2D(H, NX::Int, NY::Int=0, bandindices=[1])
-
-    _, _, statesgrid0 = statesgrid(H, NX, NY, bandindices)
-    WilsonWannier2D(statesgrid0[1:(NX-1),1:(NY-1),:,:])
+function WilsonWannier2D(H, NX::Int, NY::Int=NX, bandindices=[1];
+                         wannier_cuts=(nothing, nothing), kwargs...)
+    NY = NY < 1 ? NX : NY
+    NX > 1 && NY > 1 || throw(ArgumentError("Wilson grids need at least two points per direction"))
+    _, _, statesgrid0 = statesgrid(H, NX, NY, bandindices; kwargs...)
+    WilsonWannier2D(@view(statesgrid0[1:(NX-1),1:(NY-1),:,:]); wannier_cuts)
 end
 
 import Statistics
 
-function WilsonWannier2D(statesgrid::AbstractArray{ComplexF64,4})
-    NX, NY, M1, M2 = size(statesgrid)
+"""
+    WilsonWannier2D(statesgrid; wannier_cuts=(nothing, nothing)) -> (p1, p2)
 
-    newstatesgrid1 = similar(statesgrid)
-    for i_=1:NX, j_=1:NY
-        @views _, U = Wilson1D(statesgrid[i_,:,:,:], j_-1)
-        newstatesgrid1[i_,j_,:,:] = statesgrid[i_,j_, :, :] * U
+Nested polarizations of gapped Wannier sectors on a periodic, uniformly
+sampled grid **without repeated endpoints**. `p1` is along the first grid
+direction within sectors of the second-direction Wilson loop; `p2` reverses
+the directions. Each entry is a sector's total polarization modulo 1, not
+an individual band's polarization inside a degenerate sector.
+
+`wannier_cuts[d]` specifies increasing phase cuts (in units of 2π, spanning
+less than one period) bounding the sectors for `p[d]`. For example,
+`[-0.25, 0.25]` separates bands near 0 and 1/2, including across ±1/2.
+By default, cuts are placed midway between distinct Wilson phases at the
+first transverse point; numerically degenerate phases form one sector.
+Explicit cuts can group several bands, allowing crossings within a sector.
+A single cut selects the entire occupied space.
+
+Sector ranks must stay constant and cuts must avoid the sampled spectrum.
+Singular links and unresolved sector gaps throw `ArgumentError`; refine the
+grid or choose cuts in persistent Wannier gaps. No finite grid certifies an
+unsampled gap. Nested determinant phases are unwrapped before averaging;
+a nonzero winding or an ambiguous half-period step precludes this periodic
+average and is rejected. The Hamiltonian overload removes repeated endpoints
+and accepts the execution keywords of [`statesgrid`](@ref).
+"""
+function WilsonWannier2D(statesgrid::AbstractArray{ComplexF64,4};
+                         wannier_cuts=(nothing, nothing))
+    length(wannier_cuts) == 2 || throw(ArgumentError("supply Wannier cuts for both directions"))
+    _nestedwilson(statesgrid, wannier_cuts[1]),
+        _nestedwilson(PermutedDimsArray(statesgrid, (2, 1, 3, 4)), wannier_cuts[2])
+end
+
+function _nestedwilson(statesgrid, cuts)
+    NX, NY, _, nb = size(statesgrid)
+    NX > 0 && NY > 0 && nb > 0 || throw(ArgumentError("a nested loop needs a nonempty grid and occupied space"))
+    frames = similar(statesgrid)
+    ranks = Int[]
+    for i in 1:NX
+        links = _wilsonlinks(@view statesgrid[i, :, :, :])
+        centres, U = _wilsonspectrum(links)
+        if i == 1
+            if cuts === nothing
+                c, _ = _wilsonblocks(centres)
+                cuts = (c .+ vcat(last(c) - 1, c[1:end-1])) ./ 2
+            end
+            cuts = collect(Float64, cuts)
+            !isempty(cuts) && all(isfinite, cuts) && all(diff(cuts) .> 0) &&
+                last(cuts) - first(cuts) < 1 || throw(ArgumentError(
+                    "Wannier cuts must increase and span less than one period"))
+        end
+        if length(cuts) > 1
+            minimum(abs(cis(2π*c) - cis(2π*b)) for c in centres, b in cuts) > _WILSON_TOL ||
+                throw(ArgumentError("Wannier sector gap is closed or unresolved at a phase cut"))
+        end
+        labels = [searchsortedlast(cuts .- first(cuts), mod(c - first(cuts), 1)) for c in centres]
+        groups = [findall(==(b), labels) for b in eachindex(cuts)]
+        if i == 1
+            ranks = length.(groups)
+            all(>(0), ranks) || throw(ArgumentError("Wannier sectors must be nonempty"))
+        else
+            length.(groups) == ranks || throw(ArgumentError(
+                "Wannier sector dimensions change; choose cuts in persistent gaps or refine the grid"))
+        end
+        U = U[:, reduce(vcat, groups)]
+        for j in 1:NY
+            frames[i, j, :, :] = statesgrid[i, j, :, :] * U
+            U = links[j]' * U
+        end
     end
-
-    newstatesgrid2 = similar(statesgrid)
-    for i_=1:NX, j_=1:NY
-        @views _, U = Wilson1D(statesgrid[:,j_,:,:], i_-1)
-        newstatesgrid2[i_,j_,:,:] = statesgrid[i_,j_, :, :] * U
+    edges = cumsum(vcat(0, ranks))
+    map(eachindex(ranks)) do b
+        bands = edges[b]+1:edges[b+1]
+        phases = [sum(first(Wilson1D(@view frames[:, j, :, bands]))) for j in 1:NY]
+        _periodic_phase_mean(phases)
     end
+end
 
-    @views p1 = [Statistics.mean(Wilson1D(newstatesgrid1[:,j_,:,n_]) for j_=1:NY) for n_=1:M2]
-    @views p2 = [Statistics.mean(Wilson1D(newstatesgrid2[i_,:,:,n_]) for i_=1:NX) for n_=1:M2]
-    
-    p1, p2
+function _periodic_phase_mean(phases)
+    steps = angle.(cis.(2π .* (circshift(phases, -1) .- phases))) ./ (2π)
+    any(abs.(abs.(steps) .- 0.5) .<= _WILSON_TOL) && throw(ArgumentError(
+        "nested polarization has an unresolved half-period step; refine the grid"))
+    abs(sum(steps)) < _WILSON_TOL || throw(ArgumentError(
+        "nested polarization winds; a single periodic average is not defined"))
+    unwrapped = first(phases) .+ cumsum(vcat(0.0, steps[1:end-1]))
+    angle(cis(2π * Statistics.mean(unwrapped))) / (2π)
 end
 
 
@@ -328,10 +397,31 @@ function _wilsonspectrum(links, j0::Int=0)
     for j in eachindex(links)
         F = F * links[mod1(j0+j, length(links))]
     end
-    vals, U = Eigen.geteigen(F)
-    centres = angle.(vals) ./ (2π)
+    # A unitary matrix is normal. Schur vectors preserve orthonormality even
+    # at degeneracy, where generic eigenvectors can be nearly parallel.
+    S = schur(F)
+    centres = angle.(S.values) ./ (2π)
     p = sortperm(centres)
-    centres[p], U[:, p]
+    centres[p], S.Z[:, p]
+end
+
+# Connected clusters on the phase circle, including a cluster crossing ±π.
+function _wilsonblocks(centres)
+    groups = [Int[1]]
+    factors = cis.(2π .* centres)
+    for j in 2:length(centres)
+        if abs(factors[j] - factors[j-1]) <= _WILSON_TOL
+            push!(last(groups), j)
+        else
+            push!(groups, [j])
+        end
+    end
+    if length(groups) > 1 && abs(first(factors) - last(factors)) <= _WILSON_TOL
+        append!(first(groups), pop!(groups))
+    end
+    c = [angle(sum(factors[g])) / (2π) for g in groups]
+    p = sortperm(c)
+    c[p], groups[p]
 end
 
 """
@@ -388,44 +478,56 @@ end
 ################################################################################
 
 """
-    wilsonweights(statesgrid::AbstractArray{ComplexF64,3}, O::AbstractMatrix)
-        -> (centres, weights)
+    wilsonweights(statesgrid, O; kgrid=nothing)
+        -> (; centres, weights, multiplicities)
 
-Holonomy-first operator weighting of a 1D Wilson loop. `statesgrid[j, :, n]`
-is the n-th orthonormal occupied state at point j. `O` must be Hermitian.
+Holonomy-first operator weights of a 1D Wilson loop. `statesgrid[j, :, n]`
+is the n-th orthonormal occupied state at point j. `O` must be Hermitian in
+this fixed, periodic orbital basis.
 
-Returns sorted Wannier centres modulo 1 and the loop-averaged expectation of
-`O` in each Wilson band: `weights[n] = sum(w_n(j)' * O * w_n(j)) / N`.
-Diagonalize the unitary holonomy once, then parallel-transport its eigenvectors
-with the same SVD-unitarized links used by [`Wilson1D`](@ref). This keeps band
-labels consistent across the phase branch cut without rediagonalizing at
-other base points.
+Each returned entry describes a Wilson eigenspace: its centre modulo 1,
+loop-averaged **total** expectation of `O`, and dimension. Wilson eigenvalues
+separated by at most `sqrt(eps(Float64))` on the unit circle are grouped,
+including across ±π. A rank-one block gives the usual individual band weight;
+a degenerate block gives its basis-independent trace, not arbitrary individual
+weights. For example, `O = I` gives `weights == multiplicities`.
 
-Individual weights are not unique inside a degenerate Wilson eigenspace.
-This API rejects eigenvalues separated by at most `sqrt(eps(Float64))` on
-the unit circle, rather than assigning basis-dependent per-band weights.
-Singular links also throw `ArgumentError`. Both centres and weights can vary
-continuously when no protecting symmetry is present. The weighted sum of
-centres depends on their branch choices when weights are not integers.
+Diagonalize once and parallel-transport the orthonormal eigenspaces using the
+same unitary links as [`Wilson1D`](@ref). Without `kgrid`, samples have equal
+weight and should cover one period without a repeated endpoint. Supplying
+increasing reduced momenta spanning at most one period uses periodic
+trapezoidal quadrature, including correct weights for repeated endpoints.
+The Hamiltonian wrapper supplies its grid automatically.
+
+Singular links throw `ArgumentError`. Centres and weights can vary continuously
+without protecting symmetry. Weighted centres require a branch convention
+when the weights are not integers; no quantized spin/layer invariant is implied.
 """
-function wilsonweights(statesgrid::AbstractArray{ComplexF64,3}, O::AbstractMatrix)
+function wilsonweights(statesgrid::AbstractArray{ComplexF64,3}, O::AbstractMatrix; kgrid=nothing)
     N, norb, nb = size(statesgrid)
     size(O) == (norb, norb) || throw(DimensionMismatch("O must act on the orbital space"))
     O = Eigen.checked_hermitian(O)
     links = _wilsonlinks(statesgrid)
     centres, U = _wilsonspectrum(links)
-    factors = cis.(2π .* centres)
-    for i in 1:nb, j in i+1:nb
-        abs(factors[i] - factors[j]) > _WILSON_TOL || throw(ArgumentError(
-            "degenerate Wilson phases: individual band weights are not uniquely defined"))
-    end
+    centres, groups = _wilsonblocks(centres)
+    quadrature = _wilsonquadrature(N, kgrid)
     weights = zeros(nb)
     for j in 1:N
         wb = @views statesgrid[j, :, :] * U
-        weights .+= real.(diag(wb' * O * wb))
+        weights .+= quadrature[j] .* real.(diag(wb' * O * wb))
         U = links[j]' * U
     end
-    centres, weights ./ N
+    (; centres, weights=[sum(weights[g]) for g in groups], multiplicities=length.(groups))
+end
+
+function _wilsonquadrature(N, kgrid)
+    kgrid === nothing && return fill(1/N, N)
+    length(kgrid) == N || throw(DimensionMismatch("kgrid must have one momentum per frame"))
+    k = collect(Float64, kgrid)
+    all(isfinite, k) && all(diff(k) .> 0) && last(k) - first(k) <= 1 ||
+        throw(ArgumentError("kgrid must increase and span at most one reduced-momentum period"))
+    steps = vcat(diff(k), 1 - (last(k) - first(k)))
+    (steps .+ circshift(steps, 1)) ./ 2
 end
 
 """
@@ -473,24 +575,33 @@ function sectorwilson(statesgrid::AbstractArray{ComplexF64,3}, O::AbstractMatrix
 end
 
 """
-    WilsonWeights1D(H, NX::Int, O::AbstractMatrix, bandindices=[])
+    WilsonWeights1D(H, NX::Int, O::AbstractMatrix, bandindices; kwargs...)
 
-Evaluate [`wilsonweights`](@ref) on occupied eigenstates of the 1D Hamiltonian
-`H`. Returns `(centres, weights)`; degenerate Wilson phases are rejected.
+Evaluate [`wilsonweights`](@ref) on explicitly selected eigenstates of the
+1D Hamiltonian `H`. Returns `(; centres, weights, multiplicities)`. The grid
+includes both endpoints, counted with half weight in the loop average.
+`bandindices` must be nonempty; the occupied bands are never inferred.
+Accepts the execution keywords of [`statesgrid1D`](@ref).
 """
-function WilsonWeights1D(H, NX::Int, O::AbstractMatrix, bandindices::AbstractArray=[])
-    _, statesgrid = statesgrid1D(H, NX, bandindices)
-    wilsonweights(statesgrid, O)
+function WilsonWeights1D(H, NX::Int, O::AbstractMatrix, bandindices::AbstractArray; kwargs...)
+    isempty(bandindices) && throw(ArgumentError("select the occupied bandindices explicitly"))
+    NX > 1 || throw(ArgumentError("a Wilson grid needs at least two points"))
+    kgrid, statesgrid = statesgrid1D(H, NX, bandindices; kwargs...)
+    wilsonweights(statesgrid, O; kgrid)
 end
 
 """
-    SectorWilson1D(H, NX::Int, O::AbstractMatrix, bandindices=[])
+    SectorWilson1D(H, NX::Int, O::AbstractMatrix, bandindices; kwargs...)
 
-Evaluate [`sectorwilson`](@ref) on occupied eigenstates of the 1D Hamiltonian
-`H`. Returns `((negative=centres_minus, positive=centres_plus), Ogap)`.
+Evaluate [`sectorwilson`](@ref) on explicitly selected eigenstates of the
+1D Hamiltonian `H`. Returns `((negative=centres_minus, positive=centres_plus), Ogap)`.
+`bandindices` must be nonempty; the occupied bands are never inferred.
+Accepts the execution keywords of [`statesgrid1D`](@ref).
 """
-function SectorWilson1D(H, NX::Int, O::AbstractMatrix, bandindices::AbstractArray=[])
-    _, statesgrid = statesgrid1D(H, NX, bandindices)
+function SectorWilson1D(H, NX::Int, O::AbstractMatrix, bandindices::AbstractArray; kwargs...)
+    isempty(bandindices) && throw(ArgumentError("select the occupied bandindices explicitly"))
+    NX > 1 || throw(ArgumentError("a Wilson grid needs at least two points"))
+    _, statesgrid = statesgrid1D(H, NX, bandindices; kwargs...)
     sectorwilson(statesgrid, O)
 end
 
