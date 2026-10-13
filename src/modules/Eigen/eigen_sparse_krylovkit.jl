@@ -3,58 +3,44 @@ import Random
 import LinearAlgebra: I, lu, Hermitian
 import SparseArrays: SparseMatrixCSC
 
-# Sparse Hermitian eigensolver via KrylovKit. Pure Julia, thread-safe, and
-# (verified empirically on TBG-N=7/N=11) gives 5-orders-tighter residuals and
-# machine-precision eigenvector orthonormality than the legacy Arpack backend
-# (removed; see git history for eigen_sparse_arpack.jl).
-
 const KRYK_TOL = 1e-12
 const KRYK_MAXITER = 200
 
-_kryk_dim(num_bands::Int) = max(2*num_bands + 10, 20)
+# BlockLanczos restarts keep roughly 3/5 of krylovdim, rounded down to a
+# whole block. Four blocks retain at least two blocks at a restart; the old
+# scalar-Lanczos sizing retained only the requested vectors and could lose
+# the entire residual block before the convergence check.
+_kryk_dim(num_bands::Int) = max(4*num_bands, 20)
 
 sanitize_hermitian_sparse(H::AbstractMatrix) = H
 sanitize_hermitian_sparse(H::Hermitian{T1,SparseMatrixCSC{T1,T2}}) where {T1,T2} = SparseMatrixCSC(H)
 
-# Filter Arpack-specific kwargs that KrylovKit doesn't understand. Anything
-# unknown is silently dropped to keep callers that pass `tol`/`maxiter`/`ncv`
-# from breaking on the swap.
-function _kryk_kwargs(kwargs)
-    out = Dict{Symbol, Any}()
-    for (k, v) in pairs(kwargs)
-        if k === :tol || k === :maxiter
-            out[k] = v
-        end
-    end
-    out
-end
-
 """
     eigen_sparse(M; num_bands, sigma=1e-8, which=:LM, tol=$KRYK_TOL, kwargs...)
 
-Hermitian sparse eigensolver via KrylovKit Lanczos. Non-Hermitian matrices
+Hermitian sparse eigensolver via KrylovKit block Lanczos. Non-Hermitian matrices
 are rejected; only roundoff-level asymmetry is accepted.
 
 - `which=:LM` (default): eigenvalues closest to `sigma` via shift-invert.
   This is the moiré workflow — `sigma` defaults to ~0 to find low-energy bands.
 - `which=:SR` / `:LR`: smallest / largest real eigenvalue, no shift-invert.
 
-Returns `(eigvals::Vector, eigvecs::Matrix)`. Matches the existing Arpack
-interface so callers don't need to change.
+Returns `(eigvals::Vector, eigvecs::Matrix)` with energies in ascending order.
 """
 function eigen_sparse(M::AbstractMatrix; num_bands::Int,
                      sigma::Float64=1e-8, which::Symbol=:LM,
                      tol::Float64=KRYK_TOL, maxiter::Int=KRYK_MAXITER, kwargs...)
     M = sanitize_hermitian_sparse(checked_hermitian(M))
     n = size(M, 1)
+    1 <= num_bands <= n || throw(ArgumentError("num_bands must lie in 1:$n"))
     krylovdim = min(_kryk_dim(num_bands), n)
-    alg = KrylovKit.Lanczos(; krylovdim=krylovdim, tol=tol, maxiter=maxiter)
+    alg = KrylovKit.BlockLanczos(; krylovdim, tol, maxiter)
 
-    # Seed Krylov from a genuinely deterministic, unbiased vector: a local
-    # seeded RNG, so results are reproducible across runs/processes/threads
-    # without touching the global RNG. (The old `randn(eltype(M), n)` used
-    # the unseeded global RNG despite a comment claiming determinism.)
-    x0 = randn(Random.Xoshiro(0x1a771ce9), eltype(M), n)
+    # A single starting vector cannot span a degenerate eigenspace. A block
+    # with num_bands independent vectors resolves every multiplicity needed
+    # by this request. Use a local RNG for repeatable, thread-safe results.
+    rng = Random.Xoshiro(0x1a771ce9)
+    x0 = KrylovKit.Block([randn(rng, float(eltype(M)), n) for _ in 1:num_bands])
 
     if which === :LM
         # Shift-invert: target eigenvalues of M closest to `sigma`.

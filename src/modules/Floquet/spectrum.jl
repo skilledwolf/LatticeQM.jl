@@ -8,9 +8,13 @@
     If the number of eigenvalues inside the window differs from dim (degeneracies at the zone edge or
     truncation artifacts), the dim states closest to the window are selected instead and folded back
     into (-omega/2, omega/2]."""
-function getfirstFBZ(bands::AbstractArray, M::Integer, omega::Real)
+getfirstFBZ(bands::AbstractArray, M::Integer, omega::Real) = first(_firstFBZ(bands, M, omega))
+
+function _firstFBZ(bands::AbstractMatrix, M::Integer, omega::Real)
+    omega > 0 || throw(ArgumentError("drive frequency must be positive"))
     dim = Int(size(bands,1)/(2*M+1)) #dimension of the Bloch Hamiltonian
     Fbands = zeros(dim,size(bands,2))
+    indices = Matrix{Int}(undef, size(Fbands))
 
     halfomega = omega/2
     inwindow(e) = -halfomega < e <= halfomega
@@ -23,26 +27,13 @@ function getfirstFBZ(bands::AbstractArray, M::Integer, omega::Real)
         if length(sel) != dim #zone-edge degeneracy or truncation artifact: take the dim states closest to the window
             sel = partialsortperm(windowdist.(col), 1:dim)
         end
-        Fbands[:,k] = sort!(fold.(col[sel]))
+        energies = fold.(col[sel])
+        order = sortperm(energies)
+        Fbands[:,k] = energies[order]
+        indices[:,k] = sel[order]
     end
 
-    return Fbands
-end
-
-"""getfirstFBZ(bands::AbstractArray, M::Integer)
-    Legacy method kept for backward compatibility: selects the middle dim rows of the energy-sorted
-    bands. This is only correct as long as no quasienergy band crosses the edge of the Floquet
-    Brillouin zone; otherwise a replica copy is included and the true band dropped. Pass the drive
-    frequency omega (see the three-argument method) to get the correct windowed selection."""
-function getfirstFBZ(bands::AbstractArray, M::Integer)
-    dim = Int(size(bands,1)/(2*M+1)) #dimension of the Bloch Hamiltonian
-    Fbands = zeros(dim,size(bands,2))
-
-    for i=1:dim
-        Fbands[i,:] = bands[M*dim+i,:]
-    end
-
-    return Fbands
+    return Fbands, indices
 end
 
 """transformeigvecs(U::AbstractMatrix, M::Integer, omega::Real, t::Number)
@@ -82,8 +73,13 @@ Throw away all band data except for the first Floquet Brillouin zone,
 i.e., the quasienergies inside (-omega/2, omega/2] with omega the drive frequency.
 """
 function keepfirstFBZ!(data::Spectrum.BandData, H::FloquetOperator)
-    bands = getfirstFBZ(data.bands, H.M, H.drive.omega)
+    bands, indices = _firstFBZ(data.bands, H.M, H.drive.omega)
+    obs = similar(data.obs, size(bands)..., size(data.obs, 3))
+    for k in axes(bands, 2)
+        obs[:, k, :] = data.obs[indices[:, k], k, :]
+    end
     data.bands = bands
+    data.obs = obs
     data
 end
 

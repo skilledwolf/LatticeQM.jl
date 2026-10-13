@@ -28,7 +28,7 @@ function graphene(lat::Lattice; vectorized=true, mode=:nospin, format=:auto, cel
 end
 
 function addgraphene!(hops, lat::Lattice; kwargs...)
-    hops!(hops, lat, t_graphene; kwargs...)
+    addhops!(hops, graphene(lat; kwargs...))
 end
 
 # default parameters taken from PHYSICAL REVIEW B 82, 035409 (2010), Table 1
@@ -191,88 +191,34 @@ function addrashba!(hops, lat, rashba::Number)
     end
 end
 
-################################################################################
-################################################################################
-################################################################################
-
-"""
-    This is the hopping amplitude between to twisted layers as given by overlap
-    intergrals between p_z orbitals.
-"""
-
-norm2(r) = dot(r,r)
-
-using ..Utils: heaviside
-
-# graphene_interlayer(δz, Δ; z, ℓinter) =  δz^2 /Δ^2 * exp(-(Δ-z)/ℓinter)
-# graphene_intralayer(δz, Δ; a, ℓintra, ℓz) = (1 - δz^2 /(Δ^2)) * exp(-(Δ-a)/ℓintra -δz^2 /ℓz^2)
-
-@inline function graphene_hopping(r::AbstractVector{Float64}, r0=0; tz::Float64=0.46, t0::Float64=1.0, ℓinter::Float64=0.125, ℓintra::Float64=0.08, z::Float64=3.0, a::Float64=1.0,
-           Δmin::Float64=0.1, Δmax::Float64=5.0)
-    r = r .- r0
-    @views Δ = sqrt.(sum(abs2,r[1:3]))
-    result = 0.0
-    if Δmax > Δ > Δmin
-        @views δz = r[3]
-        χ = δz^2 /(Δ^2)
-        # result +=  (-t0) * (1-χ) * exp(-(Δ-a)/ℓintra) * exp(-δz^2 /ℓz^2) - tz * χ * exp(-(Δ-z)/ℓinter)
-        result +=  (-t0) * (1-χ) * exp(-(Δ-a)/ℓintra) - tz * χ * exp(-(Δ-z)/ℓinter)
-    end
-    result
+# One hopping law for scalar and matrix construction paths.
+@inline function _graphene_hopping(Δ, δz; tmin=1e-5, tz=0.46, t0=1.0,
+    ℓinter=0.125, ℓintra=0.08, z=3.0, a=1.0, Δmin=0.1, Δmax=5.0)
+    (Δ == 0 || Δ < Δmin || Δ > Δmax) && return 0.0
+    χ = δz^2 / Δ^2
+    v = -t0 * (1 - χ) * exp(-abs(Δ - a) / ℓintra) -
+        tz * χ * exp(-abs(Δ - z) / ℓinter)
+    abs(v) < tmin ? zero(v) : v
 end
 
-using ..TightBinding: MAX_DENSE, MAX_DIAGS
+function t_graphene(r1::AbstractVector, r2::AbstractVector; kwargs...)
+    δx, δy, δz = r1[1] - r2[1], r1[2] - r2[2], r1[3] - r2[3]
+    _graphene_hopping(sqrt(abs2(δx) + abs2(δy) + abs2(δz)), δz; kwargs...)
+end
 
-switchlin(x::AbstractFloat) =  ifelse(x < 0, zero(x), x)
-
-function t_graphene(R1::Matrix{Float64}, R2::Matrix{Float64}; kwargs...)
-    N = size(R1,2)
-
-    if N < MAX_DENSE + 1
-        out = zeros(ComplexF64, N,N)
-    else
-        out = spzeros(ComplexF64, N,N)
-        sizehint!(out, round(Int, MAX_DIAGS * N)) # preallocate memory: important for huge sparse matrices
-    end
-
+function t_graphene(R1::AbstractMatrix, R2::AbstractMatrix; kwargs...)
+    N = size(R1, 2)
+    out = N <= MAX_DENSE ? zeros(ComplexF64, N, N) : spzeros(ComplexF64, N, N)
+    N > MAX_DENSE && sizehint!(out, MAX_DIAGS * N)
     addgraphenematrix!(out, R1, R2; kwargs...)
 end
-precompile(t_graphene, (Matrix{Float64}, Matrix{Float64}))
 
-function addgraphenematrix!(out::AbstractMatrix, R1::Matrix{Float64}, R2::Matrix{Float64}; tmin::Float64=1e-5, tz::Float64=0.46, t0::Float64=1.0,
-    ℓinter::Float64=0.125, ℓintra::Float64=0.08, z::Float64=3.0, a::Float64=1.0,
-    Δmin::Float64=0.1, Δmax::Float64=5.0)
-
+function addgraphenematrix!(out::AbstractMatrix, R1::AbstractMatrix, R2::AbstractMatrix; kwargs...)
     N = size(R1, 2)
-    @assert N == size(out,1) == size(out,2) == size(R2,2) "Incompatible dimensions."
-
-    δR = similar(R1)
-    @fastmath @inbounds for j = 1:N
-        @views δR .= R1 .- R2[:, j]
-
-        for i = 1:N
-            @views Δ = sqrt(sum(abs2, δR[1:3, i])) # absolute value of distance vector
-
-            if Δmax < Δ || Δ < Δmin # cutoff lengths
-                continue
-            end
-
-            δz = δR[3, i]
-            χ = δz^2 / (Δ^2)
-
-            v = -t0 * (1 - χ) * exp(-abs(Δ - a) / ℓintra) - tz * χ * exp(-abs(Δ - z) / ℓinter)
-
-            if abs(v) < tmin # small energy cutoff for hop amplitudes
-                continue
-            end
-
-            out[i, j] += v
-        end
+    @assert N == size(out, 1) == size(out, 2) == size(R2, 2) "Incompatible dimensions."
+    for j in 1:N, i in 1:N
+        v = t_graphene(view(R1, :, i), view(R2, :, j); kwargs...)
+        iszero(v) || (out[i, j] += v)
     end
-
     out
 end
-precompile(addgraphene!, (Matrix{Float64}, Matrix{Float64}, Matrix{Float64}))
-precompile(addgraphene!, (Matrix{ComplexF64}, Matrix{Float64}, Matrix{Float64}))
-precompile(addgraphene!, (SparseMatrixCSC{ComplexF64,Int64}, Matrix{Float64}, Matrix{Float64}))
-precompile(addgraphene!, (SparseMatrixCSC{Float64,Int64}, Matrix{Float64}, Matrix{Float64}))

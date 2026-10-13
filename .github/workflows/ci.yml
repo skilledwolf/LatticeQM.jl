@@ -40,4 +40,14 @@ jobs:
         # distributed paths in test_parallelism.jl + the meanfield SCF.
         env:
           JULIA_NUM_THREADS: 2
+          LATTICEQM_FULL_TESTS: 1
         run: julia --project=test --procs=2 --check-bounds=yes --color=yes test/runtests.jl
+      - name: Run example smoke tests
+        if: matrix.julia-version == '1.12'
+        env:
+          JULIA_NUM_THREADS: 2
+          GKSwstype: 100
+          LATTICEQM_FULL_EXAMPLES: 1
+        run: |
+          julia --project=test --color=yes -e 'using Pkg; Pkg.add(PackageSpec(name="Plots", version="1"))'
+          julia --project=test --check-bounds=yes --color=yes test/test_examples_smoke.jl

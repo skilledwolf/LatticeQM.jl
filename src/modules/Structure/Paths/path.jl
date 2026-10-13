@@ -37,14 +37,13 @@ end
 Base.eachcol(ks::DiscretePath) = Base.eachcol(ks.points)
 Base.size(ks::DiscretePath, args...) = Base.size(ks.points, args...)
 
-Base.iterate(ks::DiscretePath) = length(ks)>0 ? (first(eachcol(ks.points)),Base.firstindex(ks)) : nothing
-Base.iterate(ks::DiscretePath, state) = (state+=1; state>lastindex(ks) ? nothing : (ks[state],state))
+Base.iterate(ks::DiscretePath, state=1) = state > length(ks) ? nothing : (ks.points[:, state], state + 1)
 Base.length(ks::DiscretePath) = Base.size(ks,2)
-# Base.eltype(ks::DiscretePath) = typeof(ks[firstindex(ks)])
+Base.eltype(::Type{DiscretePath}) = Vector{Float64}
 
 Base.values(ks::DiscretePath) = Base.eachcol(ks.points)
-Base.firstindex(ks::DiscretePath) = first(CartesianIndices(ks.points))[2]
-Base.lastindex(ks::DiscretePath) = last(CartesianIndices(ks.points))[2]
+Base.firstindex(ks::DiscretePath) = 1
+Base.lastindex(ks::DiscretePath) = length(ks)
 Base.get(ks::DiscretePath, args...) = Base.get(ks.points, args...)
 Base.getindex(ks::DiscretePath, args...) = Base.getindex(ks.points, args...)
 Base.setindex!(ks::DiscretePath,v,args...) = Base.setindex!(ks.points,v,args...)

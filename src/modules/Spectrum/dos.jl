@@ -27,10 +27,14 @@ function density_at_k!(n::AbstractVector{Float64}, spectrum_k, μ::Float64)
     n
 end
 
-function density(H, ks::AbstractMatrix{Float64}, μ::Float64=0.0; format=:dense, kwargs...)
-    spectrum(k) = Eigen.geteigen(Eigen.checked_hermitian(H(k)); format=format)
+function density(H, ks::AbstractMatrix{Float64}, μ::Float64=0.0;
+                 format=:dense, multimode::Symbol=:auto,
+                 executor::Union{Nothing,Parallel.Executor}=nothing,
+                 progress_label=PROGRESSBAR_DENSITY_DEFAULTLABEL,
+                 hidebar=!Spectrum.PROGRESSBAR_SHOWDEFAULT, kwargs...)
+    spectrum(k) = Eigen.geteigen(Eigen.checked_hermitian(H(k)); format, kwargs...)
     n = zeros(Float64, size(H(ks[:, 1]), 1))
-    density!(n, spectrum, ks, μ; kwargs...)
+    density!(n, spectrum, ks, μ; multimode, executor, progress_label, hidebar)
 end
 
 function density!(n::AbstractVector{Float64}, spectrum::Function, ks::AbstractMatrix{Float64}, μ::Float64=0.0;
@@ -55,12 +59,12 @@ end
 ##########################################################################################
 
 function ldos!(n::AbstractVector, ϵs::AbstractVector, U::AbstractMatrix, ωs::AbstractVector; Γ::Real=0.1)
+    isempty(ωs) && throw(ArgumentError("LDOS requires at least one frequency"))
     for (ϵ, ψ) in zip(ϵs, eachcol(U))
-        for ω in ωs
-            n[:] .+= imag(abs2.(ψ) ./ (ω + 1.0im * Γ - ϵ))
-        end
+        weight = sum(ω -> imag(inv(ω + 1.0im * Γ - ϵ)), ωs) / length(ωs)
+        n .+= weight .* abs2.(ψ)
     end
-    n[:] ./= size(ωs)
+    n
 end
 
 function ldos!(n::AbstractVector, H, ks::AbstractMatrix, ωs::AbstractVector;
@@ -92,8 +96,8 @@ end
 """
     ldos(H, ks, frequencies; Γ=0.1, format=:sparse, kwargs...)
 
-Site-resolved local density of states, k-averaged over `ks` and summed over
-the frequency window `frequencies`.
+Site-resolved local density of states, k-averaged over `ks` and
+averaged over the frequency samples `frequencies`.
 
 !!! note "Normalization"
     Includes the spectral-function 1/π: each state carries total weight 1

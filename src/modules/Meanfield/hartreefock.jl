@@ -163,12 +163,7 @@ mutable struct HartreeFock{K, T2h, Th<:Hops{K,T2h}, T2v, Tv<:Hops{K,T2v}, TJ<:Un
                     "$(length(exchange.sf2idx)) does not match Hamiltonian " *
                     "dimension $(size(h[zerokey(h)], 1))"))
         end
-        # Pre-allocate hMF preserving h's matrix type — `Base.zero(::Hops)` is
-        # overridden in Operators/densitymatrix.jl to always return dense
-        # (because density-matrix partials must be dense), so we go through
-        # the underlying matrix's `zero` instead to keep sparse Hamiltonians
-        # sparse.
-        hMF = Th(Dict{K,T2h}(L => zero(h[L]) for L in keys(h)))
+        hMF = zero(h)
         new{K,T2h,Th,T2v,Tv,typeof(exchange)}(h, v, μ, V0, hMF, 0.0, 0.0, 0.0,
                                               0.0, 0.0, fock, hartree, exchange)
     end
@@ -185,6 +180,21 @@ function (hf::MeanfieldGenerator)(ρ)
     meanfieldOperator!(hf, ρ)
     meanfieldScalar!(hf, ρ)
     hf
+end
+
+
+# Density reconstruction only fills existing keys. Include every interaction
+# block before SCF so an onsite seed cannot silently disable bond fields.
+_density_keys(hf::MeanfieldGenerator) = keys(hf.v)
+_density_keys(hf::HartreeFock) = hf.exchange === nothing ? keys(hf.v) :
+    union(keys(hf.v), keys(hf.exchange.j))
+
+function _ensure_density_support!(ρ::Hops, hf::MeanfieldGenerator)
+    block = ρ[zerokey(ρ)]
+    for L in _density_keys(hf), R in (L, -L)
+        haskey(ρ, R) || (ρ[R] = zero(block))
+    end
+    ρ
 end
 
 

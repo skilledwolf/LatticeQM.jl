@@ -1,7 +1,7 @@
 
 module Meanfield
 
-    using SharedArrays, SparseArrays
+    using SparseArrays
     using LinearAlgebra
 
     import LatticeQM.Utils
@@ -15,7 +15,6 @@ module Meanfield
 
     include("fixedpoint.jl")
     include("selfconsistent.jl")
-    include("selfconsistent_purification.jl")
     # export solveselfconsistent
 
 end

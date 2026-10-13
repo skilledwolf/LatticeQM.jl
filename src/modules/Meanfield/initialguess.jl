@@ -223,10 +223,12 @@ that `regulargrid(nk=klin^d)` produces, so the SCF can populate every
 Fourier mode of `ρ_full(k)`. Keys are added with zero matrix blocks; any
 existing block content is preserved.
 
-This is the prerequisite for using `residual_norm=:commutator` as a hard
-convergence criterion: with sparse `keys(ρ)` (the default for e.g. on-site
-Hubbard `v`), `bloch!(ρ, k)` reconstructs only a low-rank approximation of
-`ρ_full(k)`, and `‖[H, ρ]‖_F` hits a non-vanishing truncation floor.
+This is needed for the additional `residual_norm=:commutator` convergence
+condition: with sparse `keys(ρ)` (the default for e.g. on-site Hubbard `v`),
+`bloch!(ρ, k)` contains only a truncated Fourier series of `ρ_full(k)`, and
+`‖[H, ρ]‖_F` can hit a non-vanishing truncation floor. SCF always checks the
+density fixed-point defect as well, since commutativity alone does not fix
+the occupations.
 
 # klin parity
 

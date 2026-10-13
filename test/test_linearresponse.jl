@@ -56,3 +56,14 @@ using LatticeQM
     # 3. Positive dissipative diagonal response above broadening.
     @test all(real(σxx) .> -1e-6)
 end
+
+@testset "LinearResponse: Cartesian convenience wrappers" begin
+    lat = Geometries.honeycomb()
+    H = Operators.graphene(lat; format=:dense, mode=:nospin)
+    ωs, ks = [0.1, 0.5], [0.1 0.3; 0.2 0.4]
+    opts = (; multimode=:serial, hidebar=true)
+    @test LinearResponse.opticalconductivityXX(ωs, H, lat, ks; opts...) ≈
+          LinearResponse.opticalconductivity(ωs, 1, 1, H, lat, ks; opts...)
+    @test LinearResponse.opticalconductivityXY(ωs, H, lat, ks; opts...) ≈
+          LinearResponse.opticalconductivity(ωs, 1, 2, H, lat, ks; opts...)
+end

@@ -112,7 +112,7 @@ function Lattice(basis::Matrix{Float64}, latticedim::Int, spacecoordinates::Matr
     @assert size(extracoordinates, 2) == size(spacecoordinates, 2)
 
     extralabels_dict = Dict{String,UInt}(key => index for (index, key) in enumerate(extralabels))
-    Lattice(basis, latticedim, spacecoordinates, extracoordinates, extralabels_dict, specialpoints)
+    Lattice(basis, latticedim, spacecoordinates, extracoordinates, extralabels_dict, deepcopy(specialpoints))
 end
 
 
@@ -360,14 +360,11 @@ end
 Function f takes orbital i at position p_i and displaces it by vector v_i = f(p_i).
 """
 function displace!(lat, f::Function)
-
-    # Modify the lattice geometry
     XY = positions(lat)
-
-    for (i_, p) = enumerate(eachcol(XY))
-        lat.spacecoordinates[:, i_] += f(p)
+    for p in eachcol(XY)
+        p .+= f(p)
     end
-
+    lat.spacecoordinates .= basis(lat) \ XY
     lat
 end
 
@@ -377,15 +374,12 @@ end
 Function f takes orbital i at position p_i and displaces it in the third coodinate by z_i = f(p_i).
 """
 function displaceZ!(lat, f::Function)
-
-    # Modify the lattice geometry
-    XY = positions(lat)
-
-    for (i_, p) = enumerate(eachcol(XY))
-        lat.spacecoordinates[3, i_] += f(p)
-    end
-
-    lat
+    spacedim(lat) >= 3 || throw(ArgumentError("A z displacement requires at least three spatial dimensions."))
+    displace!(lat, p -> begin
+        δ = zeros(length(p))
+        δ[3] = f(p)
+        δ
+    end)
 end
 
 mirrorZ(lat::Lattice) = mirrorZ!(copy(lat))
@@ -423,13 +417,13 @@ function reduceto0D(lat::Lattice, N::Int)
     v[d] = N
     reduceto0D(lat, v)
 end
-reduceto0D(lat::Lattice, v::AbstractVector{Int}) = reduceto0D(lat, Diagonal(v))
+reduceto0D(lat::Lattice, v::AbstractVector{Int}) = reduceto0D(lat, Matrix(Diagonal(v)))
 function reduceto0D(lat::Lattice, M::AbstractMatrix{Int})
-    lat1 = superlattice(lat, M)
+    lat1 = superlattice(lat, Matrix(M))
     lat1.latticedim = 0
     kdict = Paths.LabeledPoints(
         ["Γ"],
-        [[0.0]],
+        [zeros(0)],
         ["\$\\Gamma\$"],
         ["Γ"]
     )

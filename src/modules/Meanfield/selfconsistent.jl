@@ -16,7 +16,10 @@ Convenience wrapper around `solveselfconsistent` that constructs a `HartreeFock`
 functional from base Hamiltonian `h` and interaction kernel `v`. Returns the
 converged mean‑field solution and metadata.
 """
-solvehartreefock(h::T0, v, ρ_init, filling::Number, args...; exchange=nothing, kwargs...) where {T0} = solveselfconsistent(ρ_init, HartreeFock(h, v; exchange=exchange), filling, args...; kwargs...)
+function solvehartreefock(h, v, ρ_init, filling::Number, args...; exchange=nothing, kwargs...)
+    mf = exchange === nothing ? HartreeFock(h, v) : HartreeFock(h, v; exchange=exchange)
+    solveselfconsistent(ρ_init, mf, filling, args...; kwargs...)
+end
 solvefock(h::T0, v, ρ_init, filling::Number, args...; kwargs...) where {T0} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=false, fock=true), filling, args...; kwargs...)
 solvehartree(h::T0, v, ρ_init, filling::Number, args...; kwargs...) where {T0} = solveselfconsistent(ρ_init, HartreeFock(h, v; hartree=true, fock=false), filling, args...; kwargs...)
 
@@ -79,28 +82,12 @@ function solveselfconsistent!(ρ0::T0, ρ1::T0, mf::MeanfieldGenerator, filling:
     mm = (multimode === :global) ? :auto : multimode
     exec = Parallel.to_executor(mm)
 
-    if exec isa Parallel.DistributedExec
-        # Convert to SharedDenseHops so the in-tree
-        # `Spectrum.sanatize_distributed_hamiltonian(::DenseHops)` hook can hand
-        # workers a shared buffer instead of full per-worker copies. The
-        # historical extra step of wrapping each matrix in a `view` (via
-        # `gethopsview` → `SubarrayHops`) is no longer needed: the per-task
-        # accumulator is allocated by `Parallel.kspace_reduce!` via
-        # `Base.zero(::Hops)`, so workers don't write into the SharedMatrix
-        # directly anymore.
-        return _solveselfconsistent_impl!(TightBinding.shareddense(ρ0),
-                                           TightBinding.shareddense(ρ1),
-                                           mf, filling, ks;
-                                           multimode=:distributed, kwargs...)
-    elseif exec isa Parallel.ThreadedExec
-        # Threading shares memory by reference; a plain dense copy is fine.
-        # (Previously this path errored — the legacy Context dispatch had no
-        # MultiThreadedContext implementation. With Parallel.kspace_* under
-        # the hood, threading just works.)
-        return _solveselfconsistent_impl!(Utils.dense(ρ0), Utils.dense(ρ1), mf, filling, ks; multimode=:multithreaded, kwargs...)
-    else  # SerialExec
-        return _solveselfconsistent_impl!(Utils.dense(ρ0), Utils.dense(ρ1), mf, filling, ks; multimode=:serial, kwargs...)
-    end
+    # Worker reductions return ordinary dense matrices; SharedArrays created on
+    # a worker need not be mapped on the process collecting the partials.
+    mode = exec isa Parallel.DistributedExec ? :distributed :
+           exec isa Parallel.ThreadedExec ? :multithreaded : :serial
+    _solveselfconsistent_impl!(Utils.dense(ρ0), Utils.dense(ρ1), mf, filling, ks;
+                              multimode=mode, kwargs...)
 end
 
 sanitize!(X) = X # dummy function, supply dispatch for your type
@@ -122,10 +109,10 @@ Frobenius norm of the commutator `[H, ρ]`, evaluated in k-space:
 ```
 
 `H` and `ρ` must share an orbital basis (same matrix dimension per `Hops`
-block); their key sets may differ. Used as the SCF convergence metric:
-self-consistency is exactly `[H_MF[ρ], ρ] = 0`, so the commutator norm is a
-direct, basis-independent measure of how far the iteration is from a
-fixed point.
+block); their key sets may differ. A vanishing commutator is necessary but
+not sufficient for self-consistency: the occupations must also match the
+requested filling and temperature. SCF combines this diagnostic with the
+density fixed-point defect.
 """
 function commutator_kspace_norm(H, ρ, ks::AbstractMatrix{Float64};
                                 kweights::Union{Nothing,AbstractVector{Float64}}=nothing,
@@ -227,8 +214,7 @@ end
 """
     _scf_driver!(ρ0, ρ1, mf, update_ρ!; kwargs...)
 
-Common SCF skeleton shared by `solveselfconsistent!` (k-space diagonalization)
-and `solveselfconsistent_purification!` (real-space canonical purification).
+SCF driver for k-space diagonalization.
 The caller supplies a closure `update_ρ!(ρ1, mf) -> ϵ_band` that overwrites
 `ρ1` from the current mean-field operator and returns the band-energy
 contribution `Tr[H_MF · ρ_{k+1}]` at this iteration. The driver caches that
@@ -245,9 +231,9 @@ Keywords:
     driver invokes it as either `log_callback(iter, ϵ, residual, info)` (4
     args) or the legacy `log_callback(iter, ϵ, residual)` (3 args), picked
     via `applicable`. `info` is a NamedTuple `(ϵkin, ϵband, ϵH, ϵF, μ)`.
-  * `residual_fn=nothing` — closure `(ρ1, ρ0) -> Real` that overrides the
-    convergence metric used by `fixedpoint!`. Defaults provided by the
-    caller (typically the commutator norm `‖[H_MF, ρ]‖_F`).
+  * `residual_fn=nothing` — optional additional convergence metric
+    `(ρ1, ρ0) -> Real`. Both this metric and the density defect must meet
+    the tolerance.
   * `iterations::Int=500`, `tol::Real=1e-7`, `verbose::Bool=false` — passed
     through to `fixedpoint!`.
   * Any other kwargs are forwarded to `fixedpoint!` (e.g. `β`, `p_norm`,
@@ -367,6 +353,9 @@ function _solveselfconsistent_impl!(ρ0::T1, ρ1::T1, hartreefock::MeanfieldGene
     multimode=:serial, T=0.0, hidebar::Bool=true, verbose::Bool=false,
     residual_norm::Symbol=:density, kwargs...) where {T1}
 
+    _ensure_density_support!(ρ0, hartreefock)
+    _ensure_density_support!(ρ1, hartreefock)
+
     # `hidebar` defaults to `true` here (vs `false` in standalone calls):
     # the inner progress bars from `chemicalpotential` and
     # `getdensitymatrix!` fire once per SCF iteration, which makes the
@@ -380,22 +369,9 @@ function _solveselfconsistent_impl!(ρ0::T1, ρ1::T1, hartreefock::MeanfieldGene
         ϵ0
     end
 
-    # `residual_fn` closes over `hartreefock.hMF`, which has just been
-    # updated for ρ_0 inside `f!` — the closure fires before mixing.
-    #   * `:density` (default) — `‖Δρ‖ / ‖ρ‖`. Drops to machine precision
-    #     at a true SCF fixed point regardless of `keys(ρ)`.
-    #   * `:commutator` — `‖[H_MF, ρ]‖_F` over the full BZ, the canonical
-    #     chemistry-SCF DIIS metric. Self-consistency ⇔ `[H_MF, ρ] = 0`,
-    #     so the residual is in absolute energy units and basis-independent.
-    #     **Prerequisite:** `keys(ρ)` must cover the inverse-grid
-    #     Wigner-Seitz cell so that `bloch!(ρ, k)` reconstructs the full
-    #     `ρ(k) = U·Diag(fd)·U⁺` exactly at every grid k. Use
-    #     [`Meanfield.enrichkeys!(ρ_init, klin)`](@ref) (with **odd klin**)
-    #     to do this. Without it, the Bloch sum stays a low-rank
-    #     approximation and the commutator stalls at a non-zero truncation
-    #     floor (~10⁰ for Hubbard with sparse `keys(ρ) = {0}`). With odd
-    #     klin and rich keys, it converges to machine precision in ~10
-    #     iterations.
+    # The density defect is always checked before mixing. A commutator is
+    # an additional condition: it alone cannot determine occupations. Its
+    # Bloch reconstruction also requires enough density keys (enrichkeys!).
     residual_fn = if residual_norm === :density
         nothing
     elseif residual_norm === :commutator

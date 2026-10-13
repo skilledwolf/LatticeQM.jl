@@ -117,7 +117,7 @@ end
 end
 
 # Energy convention: the BdG `getdensitymatrix!` returns the *physical*
-# grand-canonical kinetic ⟨H_phys − μN̂⟩, recovered from the BdG sum via the
+# canonical kinetic ⟨H_phys⟩, recovered from the BdG sum via the
 # Nambu c-number correction. Compare to a direct many-body computation on a
 # tiny model where both sides can be evaluated exactly.
 @testset "Superconductivity: BdG kinetic energy matches direct ⟨H_phys⟩" begin
@@ -140,6 +140,53 @@ end
     # Direct: at μ=0 and T→0, the lower band (E = −3) is filled, upper is
     # empty. ⟨H⟩ = E_filled = −3.
     @test isapprox(ϵ_kin, -3.0; atol=1e-3)
+end
+
+@testset "Superconductivity: canonical energy and public SCF wrapper" begin
+    h = Hops([0] => ComplexF64[1 0; 0 3])
+    v = Hops([0] => zeros(ComplexF64, 2, 2))
+    H = BdGOperator(h)
+    ks = zeros(1, 1)
+    μ, T = 2.0, 0.1
+    ρnormal = zero(h)
+    ρbdg = BdGOperator(zero(h))
+    energy = Operators.getdensitymatrix!(ρnormal, h, ks, μ;
+        T=T, hidebar=true, multimode=:serial)
+    energy_bdg = Operators.getdensitymatrix!(ρbdg, H, ks, μ;
+        T=T, hidebar=true, multimode=:serial)
+    expected_energy = 1 / (1 + exp((1 - μ) / T)) + 3 / (1 + exp((3 - μ) / T))
+    @test energy ≈ expected_energy atol=1e-12
+    @test energy_bdg ≈ expected_energy atol=1e-12
+    @test LatticeQM.Utils.getelectronsector(ρbdg)[[0]] ≈ ρnormal[[0]] atol=1e-12
+    @test H.h[[0]] ≈ BdGOperator(h).h[[0]] atol=1e-14
+
+    seed = Hops([0] => ComplexF64[0.5 0; 0 0.5])
+    normal = Meanfield.solvehartreefock(h, v, seed, 0.5, ks;
+        T=T, multimode=:serial, iterations=5, tol=1e-9)
+    bdg = Meanfield.solvehartreefock(H, v, BdGOperator(seed), 0.5, ks;
+        T=T, multimode=:serial, iterations=5, tol=1e-9)
+    @test normal[4] && bdg[4]
+    @test bdg[2] ≈ normal[2] atol=1e-10
+    @test bdg[3].ϵkin ≈ normal[3].ϵkin atol=1e-10
+end
+
+@testset "Superconductivity: chemical-potential bracket includes strong pairing" begin
+    h = Hops([0] => zeros(ComplexF64, 2, 2))
+    Δ = Hops([0] => ComplexF64[0 10; -10 0])
+    H = BdGOperator(h, Δ)
+    ks = zeros(1, 1)
+    for target in (0.01, 0.99)
+        μ = Spectrum.chemicalpotential(H, ks, target; T=0.0, hidebar=true)
+        # For ξ=-μ, n=(1+μ/sqrt(μ²+Δ²))/2 in this flat model.
+        x = 2target - 1
+        @test μ ≈ 10x / sqrt(1 - x^2) atol=1e-9
+        @test Spectrum.filling(H, ks, μ; T=0.0, hidebar=true) ≈ target atol=1e-12
+        explicit = Spectrum.chemicalpotential(H, ks, target;
+            T=0.0, μ_lo=-100.0, μ_hi=100.0, hidebar=true)
+        @test explicit ≈ μ atol=1e-9
+    end
+    @test_throws ArgumentError Spectrum.chemicalpotential(H, ks, 0.01;
+        T=0.0, μ_lo=-1.0, μ_hi=1.0, hidebar=true)
 end
 
 # Filling regression: verify Spectrum.filling(::BdGOperator) tracks the

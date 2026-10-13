@@ -1,3 +1,5 @@
+import ..Structure.Lattices: foldBZ!, getB
+
 
 """
     fermisurfacedensity_fromdata(bands, energy; broadening=:auto)

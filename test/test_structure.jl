@@ -238,3 +238,80 @@ end
     @test size(LatticeQM.Structure.regulargrid(nk=1000, dim=3), 2) == 1000
     @test size(LatticeQM.Structure.regulargrid(nk=100, dim=2), 2) == 100
 end
+
+@testset "Structure: fillregion includes every orbital in boundary cells" begin
+    for (lat, region, expected) in (
+        (Geometries.honeycomb(), p -> norm(p) < 1.1, 4),
+        (Lattices.Lattice([1.0 0; 0 2; 0 0], zeros(3, 1)),
+         p -> abs(p[1]) < 2.1 && abs(p[2]) < 2.1, 15),
+        (Lattices.Lattice([1.0 6; 0 1; 0 0], zeros(3, 1)),
+         p -> norm(p) < 2.1, 13))
+        flake = Lattices.fillregion(lat, region)
+        # Independent finite-box enumeration includes cells whose origins lie
+        # outside the region and long integer steps of the sheared basis.
+        reference = [Tuple(round.(p; digits=10)) for i in -20:20 for j in -20:20
+                     for p in eachcol(Lattices.positions(lat) .+ Lattices.getA(lat) * [i, j])
+                     if region(p[1:2])]
+        actual = [Tuple(round.(p; digits=10)) for p in eachcol(Lattices.positions(flake))]
+        @test length(actual) == expected
+        @test Set(actual) == Set(reference)
+    end
+end
+
+@testset "Structure: displacements and bilayers use Cartesian positions" begin
+    lat = Geometries.honeycomb()
+    original = Lattices.positions(lat)
+    Lattices.displace!(lat, _ -> [1.0, 0.0, 0.0])
+    @test Lattices.positions(lat) ≈ original .+ [1.0, 0.0, 0.0]
+
+    # The third basis vector need not be a Cartesian unit vector either.
+    lat.basis[:, 3] = [0.2, 0.3, 2.0]
+    original = Lattices.positions(lat)
+    Lattices.displaceZ!(lat, _ -> 0.7)
+    @test Lattices.positions(lat) ≈ original .+ [0.0, 0.0, 0.7]
+
+    lat = Geometries.honeycomb()
+    original = copy(lat)
+    shift = [0.25, -0.1]
+    bilayer = Lattices.bistack(lat, 2; fracshift=shift)
+    n = Lattices.countorbitals(lat)
+    @test Lattices.positions(bilayer)[:, 1:n] ≈ Lattices.positions(lat)
+    @test Lattices.positions(bilayer)[:, n+1:2n] ≈
+          Lattices.positions(lat) .+ Lattices.getA(lat) * shift .+ [0.0, 0.0, 2.0]
+    @test Lattices.extracoordinates(bilayer, "sublattice") == [0.0, 1.0, 0.0, 1.0]
+    @test lat.spacecoordinates == original.spacecoordinates
+    @test lat.extralabels == original.extralabels
+    @test lat.specialpoints !== bilayer.specialpoints
+end
+
+@testset "Structure: independent metadata, finite lattices and path iteration" begin
+    for constructor in (Geometries.square, Geometries.honeycomb, Geometries.triangular)
+        firstlat, secondlat = constructor(), constructor()
+        firstlat.specialpoints["Γ"][1] = 0.25
+        @test secondlat.specialpoints["Γ"] == [0.0, 0.0]
+        @test constructor().specialpoints["Γ"] == [0.0, 0.0]
+    end
+    lat = Geometries.honeycomb()
+    for periods in (3, [2, 3])
+        finite = Lattices.reduceto0D(lat, periods)
+        @test Lattices.latticedim(finite) == 0
+        @test Lattices.countorbitals(finite) == (periods isa Int ? 6 : 12)
+        @test isempty(finite.specialpoints["Γ"])
+    end
+    path = kpath(lat; num_points=9)
+    @test collect(path) == collect(eachcol(path.points))
+end
+
+@testset "Structure: rotational grids contain one complete orbit per seed" begin
+    for order in (1, 3, 4, 6)
+        grid = Structure.randomgrid(nk=120, rot_symmetry=order)
+        @test size(grid) == (2, 120)
+        n = div(120, order)
+        for i in 1:order-1
+            @test grid[:, i*n+1:(i+1)*n] ≈
+                  Structure.rotation2D(2π * i / order) * grid[:, 1:n]
+        end
+    end
+    @test size(Structure.randomgrid(nk=8, dim=3)) == (3, 8)
+    @test_throws ArgumentError Structure.randomgrid(nk=8, dim=3, rot_symmetry=4)
+end

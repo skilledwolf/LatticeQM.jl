@@ -73,3 +73,10 @@ end
     @test p1 ≈ [nested_phase, -nested_phase] atol=1e-12
     @test p2 ≈ [nested_phase, -nested_phase] atol=1e-12
 end
+
+@testset "Berry: unsupported sparse mode fails before evaluating H" begin
+    H = k -> error("must not construct a dense Hamiltonian")
+    @test_throws ArgumentError Spectrum.statesgrid(H, 3, 3, [1]; format=:sparse)
+    @test_throws ArgumentError Spectrum.statesgrid1D(H, 3, [1]; format=:sparse)
+    @test_throws ArgumentError Spectrum.berryalongpath(H, zeros(2, 3); format=:sparse)
+end

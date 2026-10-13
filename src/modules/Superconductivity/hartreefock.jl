@@ -19,18 +19,15 @@ mutable struct HartreeFockBDG{K, T2h, Th<:Hops{K,T2h}, T2v, Tv<:Hops{K,T2v}} <: 
 
     function HartreeFockBDG(h::Th, v::Tv, μ=0.0; hartree=true, fock=true) where {K,T2h,Th<:Hops{K,T2h},T2v,Tv<:Hops{K,T2v}}
         V0 = sum(v[L] for L in keys(v))
-        # See note in `Meanfield.HartreeFock`: type-preserving zero through
-        # the underlying matrix, since `Base.zero(::Hops)` always densifies.
-        hMF = Th(Dict{K,T2h}(L => zero(h[L]) for L in keys(h)))
-        ΔMF = Th(Dict{K,T2h}(L => zero(h[L]) for L in keys(h)))
-        # `ϵkin` is set by the SCF driver and shares the BdG quasi-particle
-        # convention of the underlying band energy; for BdG the variational
-        # identity has extra pairing-channel pieces, so interpret with care.
+        hMF = zero(h)
+        ΔMF = zero(h)
         new{K,T2h,Th,T2v,Tv}(h, v, μ, V0, hMF, ΔMF, 0.0, 0.0, 0.0, 0.0, 0.0, fock, hartree)
     end
 end
 
 Meanfield.sanitize!(ρ::BdGOperator{T}) where {T} = Meanfield.sanitize!(ρ.h)
+Meanfield._ensure_density_support!(ρ::BdGOperator, hf::HartreeFockBDG) =
+    (Meanfield._ensure_density_support!(ρ.h, hf); ρ)
 
 # Anderson acceleration for BdG SCF: the fixedpoint! driver projects the
 # post-Anderson iterate back onto the Hermitian subspace via

@@ -13,7 +13,7 @@ v = Operators.gethubbard(lat; mode=:σx, a=0.5, U=5.0) # interaction potential
 
 ρ_sol, ϵ_GS, HMF, converged, error = Meanfield.solvehartreefock(
     H, v, ρ_init, 0.75; klin=30, iterations=800, tol=1e-7,# p_norm=Inf,
-    T=0.01, β=0.25,  show_trace=true, clear_trace=true
+    T=0.01, β=0.25, show_trace=true, clear_trace=true, convergenceerror=true
 )
 
 # Get magnetization
@@ -31,7 +31,7 @@ bands = getbands(H, ks, sz)
 p1 = plot(bands; markersize=2, size=(600,200))
 
 # Get the bands with mean-field terms
-bands_mf = getbands(HMF.h, ks, sz)
+bands_mf = getbands(Meanfield.hMF(HMF), ks, sz)
 bands_mf.bands .-= HMF.μ
 p2 = plot(bands_mf; markersize=2, size=(600,200))
 

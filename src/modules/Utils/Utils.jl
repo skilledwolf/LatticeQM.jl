@@ -22,9 +22,8 @@ module Utils
     dense(A::AbstractMatrix) = Matrix(A)
     dense(A::Hermitian) = Hermitian(dense(parent(A)), A.uplo == 'U' ? :U : :L)
 
-    densecopy(A::Array) = Array(A)
-    densecopy(A::SubArray) = Array(A)
-    densecopy(A::SharedArrays.SharedArray) = Array(A)
+    densecopy(A::AbstractArray) = Array(A)
+    densecopy(A::Hermitian) = Hermitian(densecopy(parent(A)), A.uplo == 'U' ? :U : :L)
 
     export dense
 

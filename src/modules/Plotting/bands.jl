@@ -3,15 +3,15 @@ import LatticeQM.Spectrum
 import LatticeQM.Structure.Paths
 
 @recipe function f(data::Spectrum.BandData, n::Integer=1; sharpen=0.0, climits=nothing, csymmetric=true, cquantile=0.97)
+    bands = data.bands
     if data.obs == nothing || n == 0 || size(data.obs,3) == 0
         markercolor --> :black
     else
         mycolors = data.obs[:,:,n]
-        # Apply sorting operation for each column
+        # Draw colors in order without changing the stored band/observable pairs.
         perm = sortperm(mycolors; dims=1)
-        data.bands .= data.bands[perm]
-        mycolors .= mycolors[perm]
-        data.obs[:, :, n] .= mycolors
+        bands = bands[perm]
+        mycolors = mycolors[perm]
 
         max = quantile(abs.(mycolors)[:], cquantile) # maximum(abs.(data.obs[:,:,n]))
         # max = maximum(abs.(data.obs[:,:,n]))
@@ -19,12 +19,12 @@ import LatticeQM.Structure.Paths
 
 
         if sharpen > 0.0
-            zmin = minimum(data.obs[:,:,n])
-            zmax = maximum(data.obs[:,:,n])
+            zmin, zmax = extrema(mycolors)
 
-            mycolors = 2.0 .* ((data.obs[:,:,n].-zmin)./(zmax-zmin) .- 0.5) # scale into [-1,1]
-            mycolors = tanh.(sharpen .* mycolors)
+            mycolors = zmax == zmin ? zero(mycolors) :
+                tanh.(sharpen .* (2 .* (mycolors .- zmin) ./ (zmax-zmin) .- 1))
             max = 1.0
+            min = -1.0
         end
         # mycolors = data.obs[:,:,n]
         marker_z      := transpose(mycolors)#transpose(mycolors)
@@ -47,5 +47,5 @@ import LatticeQM.Structure.Paths
     size --> (320,300)
     xticks --> (Paths.scaleticks(data.path; start=1.0, length=float(size(data.bands)[2])), Paths.ticklabels(data.path))
 
-    transpose(data.bands)
+    transpose(bands)
 end
