@@ -26,13 +26,15 @@ After each call to `f!`:
     than the default for that reason. A future version may add automatic
     rank-revealing QR pruning to make it safe by default.
 
-The default residual is `‖x1 - x0‖ / max(‖x1‖, eps())` if `relative=true`,
-else absolute. Pass `residual_fn=(x1, x0) -> Real` to override it — the
-callback is evaluated immediately after `f!`, before mixing rewrites `x0`,
-so it sees the raw `(x_{k+1}^{f}, x_k)` pair. The Anderson least-squares
-math always uses the iterate-difference form internally regardless of
-`residual_fn`. Set `log_callback=(iter, ϵ, residual) -> ...` to log every
-step without enabling the progress bar.
+The residual is the raw fixed-point defect `‖f(x0) - x0‖`, divided by
+`‖f(x0)‖` when `relative=true` and the norm is nonzero. It is measured
+before damping or Anderson acceleration, so a small step cannot hide an
+unconverged fixed point. An optional `residual_fn=(x1, x0) -> Real` adds a
+second convergence condition; the reported residual is the larger of the
+two. The callback sees the raw `(f(x0), x0)` pair before mixing.
+Once converged, both buffers hold the validated `x0`; no further mixing or
+acceleration is applied to it.
+Set `log_callback=(iter, ϵ, residual) -> ...` to log every step.
 
 Sanity-checked against `f_a(x) = 1/2 * (a/x + x)`, fixed point `√a`.
 """
@@ -84,21 +86,23 @@ function fixedpoint!(f!, x1, x0;
 
         ϵ0 = f!(x1, x0)
 
-        # Custom residual must be evaluated before mixing overwrites x0 (and
-        # before the Anderson combination overwrites x1). It typically
-        # depends on auxiliary state populated by `f!` — e.g. the SCF driver
-        # caches `H_MF[ρ_0]` on the meanfield generator and computes the
-        # commutator `‖[H_MF, ρ_0]‖` here.
-        custom_residual = residual_fn === nothing ? nothing : residual_fn(x1, x0)
-
-        # `f!` may grow the block key set (the purification path extends ρ to
-        # the sparsity pattern of H). Mixing, residual, and copy-back must see
-        # the union with same-key pairing — the old code paired `values(x1)`
-        # with `values(x0)` by Dict iteration order, which broadcasts a
-        # singleton or mispairs blocks the moment the key sets diverge.
+        # Pair blocks by key, including keys introduced by the update.
         _sync_keysets!(x1, x0)
+        diff_norm = norm([norm(x1[L] .- x0[L], p_norm) for L in keys(x0)], p_norm)
+        x1_norm = relative ? norm([norm(x1[L], p_norm) for L in keys(x0)], p_norm) : 0.0
+        residual = relative && x1_norm > eps() ? diff_norm / x1_norm : diff_norm
+        if residual_fn !== nothing
+            residual = max(residual, residual_fn(x1, x0))
+        end
 
-        if use_anderson
+        if residual < tol
+            # The measured defect belongs to x0. An Anderson extrapolation
+            # can leave this fixed point even when the defect is already small.
+            converged = true
+            for L in keys(x0)
+                x1[L] .= x0[L]
+            end
+        elseif use_anderson
             if sort!(collect(keys(x0))) != key_order
                 # Layout changed: stale flat history has the wrong length and
                 # would mispair blocks. Rebuild buffers and restart the
@@ -126,20 +130,10 @@ function fixedpoint!(f!, x1, x0;
             # constraint (x1[L]' == x1[-L]); project back. Cheap, and
             # required for downstream meanfield assertions.
             _hermitianize_if_supported!(x1)
-            # Refresh flat_next from the projected x1 so the residual norm
-            # below reflects what the next iteration actually sees.
-            _flatten!(flat_next, x1, key_order, key_sizes)
             for k in key_order
                 x0[k] .= x1[k]
             end
 
-            diff_norm = norm(flat_next .- flat_x, p_norm)
-            if relative
-                x1_norm = norm(flat_next, p_norm)
-                residual = x1_norm > eps() ? diff_norm / x1_norm : diff_norm
-            else
-                residual = diff_norm
-            end
         else
             # Linear damped mixing (key sets are synced above, so same-key
             # pairing over keys(x0) covers everything)
@@ -147,21 +141,9 @@ function fixedpoint!(f!, x1, x0;
                 @. x1[δL] = β * x1[δL] + (1 - β) * x0[δL]
             end
 
-            diff_norm = norm([norm(x1[δL] .- x0[δL], p_norm) for δL in keys(x0)], p_norm)
-            if relative
-                x1_norm = norm([norm(x1[δL], p_norm) for δL in keys(x0)], p_norm)
-                residual = x1_norm > eps() ? diff_norm / x1_norm : diff_norm
-            else
-                residual = diff_norm
-            end
-
             for δL in keys(x0)
                 @. x0[δL] = x1[δL]
             end
-        end
-
-        if custom_residual !== nothing
-            residual = custom_residual
         end
 
         if show_trace
@@ -172,10 +154,7 @@ function fixedpoint!(f!, x1, x0;
             log_callback(iter, ϵ0, residual)
         end
 
-        if residual < tol
-            converged = true
-            break
-        end
+        converged && break
     end
 
     if show_trace && clear_trace
@@ -187,7 +166,7 @@ function fixedpoint!(f!, x1, x0;
     end
 
     if !converged
-        @warn("Did not convergence to requested target tolerance. Residual: $residual")
+        @warn("Did not converge to requested target tolerance. Residual: $residual")
     end
 
     ϵ0, residual, converged
@@ -253,7 +232,7 @@ end
 # Extend both iterates to the union of their block key sets, filling missing
 # blocks with zeros of the partner's shape/backing. Returns true if either
 # container gained a key. Keeps mixing/residual/copy-back well-defined when
-# `f!` grows the sparsity pattern (purification SCF).
+# an update adds blocks.
 function _sync_keysets!(x1, x0)
     changed = false
     for δL in keys(x0)

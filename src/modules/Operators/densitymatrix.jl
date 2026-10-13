@@ -59,27 +59,10 @@ import LatticeQM.TightBinding: efficientzero, flexibleformat!, fourierphase
 import LatticeQM.TightBinding: SharedDenseHops, Hops
 
 
-# Per-task scratch: a Hops accumulator with the same δL keys / matrix shapes
-# as the master. Allocated once per chunk, reused across every k in the chunk.
-function _densitymatrix_local(ρs::AbstractHops)
-    δLs = keys(ρs)
-    isempty(δLs) && return TightBinding.Hops(Dict{Vector{Int}, Matrix{ComplexF64}}())
-    data = Dict{eltype(δLs), Matrix{ComplexF64}}()
-    for δL in δLs
-        data[δL] = zeros(ComplexF64, size(ρs[δL]))
-    end
-    TightBinding.Hops(data)
-end
+# Worker partials travel back to the master as ordinary matrices. A SharedArray
+# created on a worker is not necessarily mapped in the master process.
+Parallel._local_zero(ρ::SharedDenseHops) = TightBinding.zero_dense(ρ)
 
-# kspace_reduce! requires `output` to support `zero(output)` and accumulation.
-# TightBinding's type-preserving `Base.zero(::Hops)` covers the ComplexF64
-# accumulators that flow through here. (An earlier `Base.zero(h::Hops) =
-# _densitymatrix_local(h)` overload silently shadowed that method for
-# non-ComplexF64 Hops — type piracy on TightBinding's type; removed.)
-# The `_accumulate!` extension teaches `Parallel.kspace_reduce!` how to fold
-# per-task partials back into the master output (Hops opts out of
-# broadcasting via `Base.broadcastable(H::Hops) = Ref(H)`, so the default
-# `output .+= partial` won't work for Hops).
 function Parallel._accumulate!(out::AbstractHops, partial::AbstractHops)
     for δL in keys(out)
         out[δL] .+= partial[δL]

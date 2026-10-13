@@ -51,44 +51,38 @@ import ..Structure
 import ..Structure.Lattices
 import ..Structure.Lattices: Lattice
 
+"""Site densities, summed over the internal states belonging to each orbital."""
 function localdensity(ρ::Hops, lat::Lattice)
-
     N = Lattices.countorbitals(lat)
-    D = zeros(ComplexF64, N)
-
-    P(i) = kron(Diagonal([complex(float(i==j)) for j=1:N]), Diagonal(ones(2))) #assuming spinhalf here. fix in future.
-
-    for i=1:N
-        D[i] = expval(ρ, P(i))
+    block = ρ[zerokey(ρ)]
+    size(block, 1) == size(block, 2) && size(block, 1) % N == 0 ||
+        throw(DimensionMismatch("Density matrix must contain an equal number of internal states per orbital"))
+    n = size(block, 1) ÷ N
+    result = zeros(ComplexF64, N)
+    for i in 1:N, a in 1:n
+        j = n * (i - 1) + a
+        result[i] += block[j, j]
     end
-
-    D
+    result
 end
 
-function localmagnetization(ρ::Hops, lat::Lattice)
+"""Site magnetizations in the spin-half basis (spin is the fast index)."""
+localmagnetization(ρ::Hops, lat::Lattice) = localobservables(ρ, lat)[2:4, :]
 
-    N = Lattices.countorbitals(lat)
-    M = zeros(ComplexF64, 3,N)
-
-    P(i) = kron(Diagonal([complex(float(i==j)) for j=1:N]), Diagonal(ones(2))) #assuming spinhalf here. fix in future.
-
-    for i=1:N
-        M[:,i] = magnetization(ρ, P(i), lat)
-    end
-
-    M
-end
-
+"""Return site density and Pauli x/y/z expectations as rows, in O(N) work."""
 function localobservables(ρ::Hops, lat::Lattice)
     N = Lattices.countorbitals(lat)
-    M = zeros(ComplexF64, 4,N)
-
-    P(i) = kron(Diagonal([complex(float(i==j)) for j=1:N]), Diagonal(ones(2))) #assuming spinhalf here. fix in future.
-
-    for i=1:N
-        M[1,i] = expval(ρ, P(i))
-        M[2:4,i] = magnetization(ρ, P(i), lat)
+    block = ρ[zerokey(ρ)]
+    size(block) == (2N, 2N) || throw(DimensionMismatch("Spin observables require two states per orbital"))
+    result = Matrix{ComplexF64}(undef, 4, N)
+    for i in 1:N
+        up, down = 2i - 1, 2i
+        a, b = block[up, up], block[up, down]
+        c, d = block[down, up], block[down, down]
+        result[1, i] = a + d
+        result[2, i] = b + c
+        result[3, i] = im * (b - c)
+        result[4, i] = a - d
     end
-
-    M
+    result
 end

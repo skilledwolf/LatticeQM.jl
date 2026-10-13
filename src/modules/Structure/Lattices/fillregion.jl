@@ -1,12 +1,3 @@
-function minsum(x::AbstractVector,y::AbstractVector)
-	if length(y) > length(x)
-		minsum(y,x)
-	else
-		N = minimum([length(x),length(y)])
-		return [x[1:N] .+ y[1:N]; x[N+1:end]]
-	end
-end
-
 import ..Paths
 
 function cropcircle(lat::Lattice)
@@ -62,7 +53,10 @@ Returns a 0-dimensional lattice (single unit cell with no periodicities).
 
 f(p)=true if point p belongs to the region and f(p)=false otherwise
 
-Note: f must define a finite region that includes the origin.
+The region must be finite and include the origin. The sampled cells containing
+an orbital or their origin in the region must be connected through adjacent
+cells of the reduced lattice basis. Disconnected regions should be filled
+separately.
 """
 function fillregion(lat::Lattice, f::Function)
 	d = latticedim(lat)
@@ -73,63 +67,38 @@ function fillregion(lat::Lattice, f::Function)
 
 	A = getA(lat)
 
-	δA = hcat(getneighborcells(lat; halfspace=false, innerpoints=true, excludeorigin=true)...)
-
-
-	function getpoints()
-
-		@assert f(zeros(d)) "The origin must lie in the region."
-		candidates = Vector{Int64}[zeros(d)]
-		confirmed = Vector{Int64}[]
-		dismissed = Vector{Int64}[]
-
-		while length(candidates) > 0
-			for p in candidates
-
-				if f((A * p)[1:d]) # the candidate is confirmed; f sees d in-plane cartesian coords (same contract as the orbital filter below)
-					found = true
-					append!(confirmed, [p]) # ... added to the list
-
-					# Generate new candidates
-					for δx in eachcol(δA) # ... and it's (unknown) neighbors proposed for the next step
-						pnew = p + δx
-
-						if !in(pnew,confirmed) && !in(pnew,dismissed) && !in(pnew,candidates)
-							append!(candidates, [pnew])
-						end
-					end
-				else
-					append!(dismissed, [p])
-				end
-
-				deleteat!(candidates, findall(x->x==p, candidates)) # ... remove from candidates
-			end
-		end
-
-		confirmed
-	end
-
-	# points = A*hcat(getpoints()...)
-
-	# mysum(M,p) = (M[1:D,:].+p[1:D]; M)
-
-	# points = hcat([mysum(points,p0) for p0 = eachcol(unitcell)]...)
-	# points = points[:,f.(eachcol(points[1:d,:]))]
-	# N = size(points, 2)
-
-	points0 = getpoints()
+	# Include both spanning directions even for unequal lattice constants. A
+	# shortest-neighbor shell alone may only span one direction.
+	_, U = _lattice_reduce(A)
+	steps = [Tuple(U * [i, j]) for i in -1:1 for j in -1:1 if i != 0 || j != 0]
+	@assert f(zeros(d)) "The origin must lie in the region."
+	queue = [(0, 0)]
+	seen = Set(queue)
 	points = Vector{Float64}[]
-	for p in points0
-		for p0 = eachcol(unitcell)
-			p1 = minsum(p0, A *p)
-
-			if f(p1[1:d])
-				append!(points, [p1])
+	index = 1
+	while index <= length(queue)
+		cell = queue[index]
+		index += 1
+		shift = A * collect(cell)
+		occupied = f(shift[1:d])
+		for orbital in eachcol(unitcell)
+			point = copy(orbital)
+			point[1:D] .+= shift
+			if f(point[1:d])
+				push!(points, point)
+				occupied = true
+			end
+		end
+		occupied || continue
+		for step in steps
+			neighbor = cell .+ step
+			if !(neighbor in seen)
+				push!(seen, neighbor)
+				push!(queue, neighbor)
 			end
 		end
 	end
-	N = length(points)
-	points = hcat(points...)
+	points = isempty(points) ? zeros(size(unitcell, 1), 0) : reduce(hcat, points)
 
 	# Return a zero-dimensional lattice object. The unitcell contains the positions of orbitals in the region
 	# Original orbital labels (such as sublattice or layer-index) are preserved.

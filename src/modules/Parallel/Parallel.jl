@@ -65,7 +65,7 @@ Pick the most parallel executor that's actually available right now.
 Distributed wins if workers exist, else threads, else serial.
 """
 function auto()
-    if nworkers() > 1
+    if nprocs() > 1
         return DistributedExec()
     elseif Threads.nthreads() > 1
         return ThreadedExec()
@@ -93,7 +93,7 @@ function to_executor(s::Symbol)
         # Graceful degradation: fall back to threads or serial if no workers
         # are configured, matching the historical `multimode=:distributed`
         # semantics that downstream callers (e.g. chemicalpotential) rely on.
-        if nworkers() > 1
+        if nprocs() > 1
             DistributedExec()
         elseif Threads.nthreads() > 1
             ThreadedExec()
@@ -163,7 +163,7 @@ function configure_blas!(exec::Executor; threads::Union{Nothing,Int}=nothing,
             changed = true
         end
 
-        if exec isa DistributedExec && nworkers() > 1
+        if exec isa DistributedExec && nprocs() > 1
             # Push BLAS=`target` to every worker whose recorded target is
             # missing or different. `LinearAlgebra` may not be in `Main` on
             # the worker process, so import there first. Julia 1.12
@@ -302,12 +302,12 @@ function _kspace_threaded_reduce!(body!::F, output, ks, scratch_factory::G, publ
     nks = size(ks, 2)
     chunks = _chunked_ranges(nks, exec.nthreads)
     nc = length(chunks)
-    partials = [zero(output) for _ in 1:nc]
-    scalars = scalar_init === nothing ? nothing : fill(scalar_init, nc)
+    partials = [_local_zero(output) for _ in 1:nc]
+    scalars = scalar_init === nothing ? nothing : fill(zero(scalar_init), nc)
     @sync for (ic, chunk) in enumerate(chunks)
         Threads.@spawn begin
             scratch = scratch_factory()
-            local s = scalar_init
+            local s = scalar_init === nothing ? nothing : zero(scalar_init)
             for j in chunk
                 v = body!(partials[ic], scratch, j, view(ks, :, j))
                 if scalar_init !== nothing
@@ -323,7 +323,7 @@ function _kspace_threaded_reduce!(body!::F, output, ks, scratch_factory::G, publ
     for p in partials
         _accumulate!(output, p)
     end
-    return scalar_init === nothing ? output : sum(scalars)
+    return scalar_init === nothing ? output : scalar_init + sum(scalars)
 end
 
 function _chunked_ranges(total::Int, nchunks::Int)
@@ -337,6 +337,10 @@ end
 # it for `AbstractHops` (which deliberately opts out of broadcasting via
 # `Base.broadcastable(H::Hops) = Ref(H)`, so `.+=` would fail).
 @inline _accumulate!(out, partial) = (out .+= partial; out)
+
+# Task-local partials must not create new shared-memory mappings on workers.
+# Types backed by shared storage can specialize this to allocate ordinary memory.
+_local_zero(out) = zero(out)
 
 # Progress pump abstraction used by both kspace_foreach! and kspace_reduce!
 # under threaded / distributed executors. Returns `(publish, finish)`:
@@ -414,10 +418,9 @@ function kspace_reduce!(body!::F, output, ks::AbstractMatrix, exec::Executor;
         elseif exec isa DistributedExec
             # Streaming reduction: workers `put!` their partial (and
             # optional scalar contribution) into a `RemoteChannel`, master
-            # folds via `_accumulate!` (and `+`) as each arrives. Peak
-            # memory is one partial vs n_chunks held simultaneously under
-            # the old pmap-then-fold pattern, and the fold overlaps with
-            # stragglers.
+            # folds via `_accumulate!` (and `+`) as each arrives. This
+            # overlaps with workers that are still computing. The channel
+            # can buffer at most one partial per worker chunk.
             chunks = _chunked_ranges(nks, exec.nworkers)
             n_chunks = length(chunks)
             partial_ch = RemoteChannel(() -> Channel{Any}(n_chunks), 1)
@@ -444,9 +447,9 @@ function kspace_reduce!(body!::F, output, ks::AbstractMatrix, exec::Executor;
 
             try
                 @sync pmap(chunks) do chunk
-                    local_out = zero(output)
+                    local_out = _local_zero(output)
                     scratch = scratch_factory()
-                    local s = scalar_init
+                    local s = scalar_init === nothing ? nothing : zero(scalar_init)
                     for j in chunk
                         v = body!(local_out, scratch, j, view(ks, :, j))
                         if scalar_init !== nothing

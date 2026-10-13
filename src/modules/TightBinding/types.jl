@@ -25,18 +25,17 @@ function fouriersum!(out::AbstractMatrix, hoppings, k)
 end
 
 function fouriersum(hoppings::Dict{K,T}, k::Real, d::Int) where {K,T}
-    N=length(zerokey(hoppings))
-    newhops = Dict()
-
-    for key in keys(hoppings)
-        newhops[key[(1:N).!=d]] = zeros(typeof(hoppings[key]), size(hoppings[key]))
+    N = length(first(keys(hoppings)))
+    1 <= d <= N || throw(ArgumentError("Fourier dimension must lie in 1:$N"))
+    newhops = Dict{Vector{Int},AbstractMatrix{ComplexF64}}()
+    for (key, h) in hoppings
+        reduced = key[(1:N) .!= d]
+        block = h * cis(2π * k * key[d])
+        newhops[reduced] = haskey(newhops, reduced) ? newhops[reduced] + block : block
     end
 
-    for (key,h)=hoppings
-        newhops[key[(1:N).!=d]] .+= h .* fourierphase([k],[key[d]])
-    end
-
-    newhops
+    # Infer a concrete matrix type when all resulting blocks share one.
+    Dict((R => block for (R, block) in newhops)...)
 end
 
 ######################################################################################
@@ -69,7 +68,7 @@ SparseArrays.issparse(hops::SparseHops{K}) where {K<:AbstractVector{<:Int}} = tr
 (H::Hops{K,T})(k) where {K,T} = fouriersum(H.data, k)
 fouriersum!(out::AbstractMatrix, H::Hops{K,T}, k) where {K,T} = fouriersum!(out, H.data, k)
 
-fouriersum(hoppings::Hops{K,T}, k::Real, d::Int) where {K,T} = Hops{K,T}(fouriersum(hoppings.data, k, d))
+fouriersum(hoppings::Hops, k::Real, d::Int) = Hops(fouriersum(hoppings.data, k, d))
 
 # Hops{K,T}(d::AbstractDict) where {K<:AbstractVector{Int},T<:AbstractMatrix{ComplexF64}} = (print("miau"); ) # Hops{K,T}(Dict{K,T}(d...))
 
@@ -196,7 +195,16 @@ hopdim(hops::Hops) = size(hops,1)
 
 Base.:+(h1::Hops, h2::Hops) = addhops(h1,h2)
 Base.:-(h1::Hops, h2::Hops) = addhops(h1,(-1)*h2)
-addhops!(hops::Hops, newhops::Hops...) = (mergewith!(+, hops.data, map(x->x.data,newhops)...); hops)
+function addhops!(hops::Hops, newhops::Hops...)
+    for other in newhops, (R, block) in other
+        if haskey(hops, R)
+            hops[R] = hops[R] + block
+        else
+            hops[copy(R)] = copy(block)
+        end
+    end
+    hops
+end
 addhops(hops::Hops, newhops::Hops...) = (H=deepcopy(hops); addhops!(H,newhops...)) #merge(+, hops, newhops...)
 
 Base.:*(h::Hops, s::Number) = multiplyhops(h,s)
@@ -204,32 +212,37 @@ Base.:*(s::Number, h::Hops) = multiplyhops(h,s)
 Base.:*(h1::Hops, h2::Hops) = multiplyhops(h1,h2)
 Base.:*(h1::Hops, h2::AbstractMatrix) = multiplyhops(h1,h2)
 Base.:*(h1::AbstractMatrix, h2::Hops) = multiplyhops(h1,h2)
-multiplyhops(h1::AbstractMatrix, h2::Hops) = multiplyhops(Hops(h1),h2)
-multiplyhops(h1::Hops, h2::AbstractMatrix) = multiplyhops(h1,Hops(h2))
-multiplyhops(h1::Hops, h2::Hops) = Hops(k=>h1[k]*h2[k] for k=intersect(keys(h1),keys(h2)))
+multiplyhops(M::AbstractMatrix, h::Hops) = Hops(copy(R) => M * block for (R, block) in h)
+multiplyhops(h::Hops, M::AbstractMatrix) = Hops(copy(R) => block * M for (R, block) in h)
+function multiplyhops(h1::Hops, h2::Hops)
+    out = Hops()
+    for (R, A) in h1, (S, B) in h2
+        key = R + S
+        block = A * B
+        out[key] = haskey(out, key) ? out[key] + block : block
+    end
+    isempty(out.data) ? out : Hops(R => block for (R, block) in out)
+end
 multiplyhops(h::Hops, s::Number) = Hops(k=>h[k]*s for k=keys(h))
 multiplyhops(s::Number, h::Hops) = multiplyhops(h, s)
 
 """
-Naive implementation of combining the linear spaces of two hopping models.
+Combine the linear spaces of two hopping models without modifying either input.
 """
 function directsum(h1::Hops, h2::Hops)
     d1 = hopdim(h1)
     d2 = hopdim(h2)
     D = d1+d2
 
-    for δL in keys(h1)
-        tmp = spzeros(D,D)
-        tmp[1:d1,1:d1] .= h1[δL]
-        h1[δL] = tmp
-    end
-    for δL in keys(h2)
-        tmp = spzeros(D,D)
-        tmp[d1+1:D,d1+1:D] .= h2[δL]
-        h2[δL] = tmp
+    out = SparseHops()
+    for δL in union(keys(h1), keys(h2))
+        tmp = spzeros(ComplexF64, D, D)
+        haskey(h1, δL) && (tmp[1:d1, 1:d1] = h1[δL])
+        haskey(h2, δL) && (tmp[d1+1:D, d1+1:D] = h2[δL])
+        out[copy(δL)] = tmp
     end
 
-    addhops(h1,h2)
+    out
 end
 
 function Base.kron(a, b::Hops)

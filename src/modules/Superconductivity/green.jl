@@ -14,16 +14,13 @@ Compute the full Nambu density matrix `ρ` from the BdG Hamiltonian `H` at
 chemical potential `μ`. Internally shifts `H` by `−μ` while running the
 sum, then restores `H` to its prior state (`try`/`finally`-protected).
 
-Returns the **physical** grand-canonical kinetic energy
-⟨H_phys − μ N̂⟩, recovered from the BdG sum via
+Returns the physical canonical band energy `⟨H_phys⟩`, matching the normal
+Hamiltonian density-matrix routine. The shifted Nambu sum is corrected by
+its c-number and by `μ Nₑ`:
 
-    ⟨H_phys − μ N̂⟩ = (1/2) Tr(ρ_BdG · H_BdG^shifted) + (Tr h_e − N μ) / 2,
+    ⟨H_phys⟩ = Tr(ρ_BdG H_BdG^shifted)/2 + (Tr h_e − N μ)/2 + μ Nₑ,
 
-where the constant term is the Nambu c-number from anticommuting
-`c c† = 1 − c†c` in the hole sector. Without it the reported value
-would equal twice the kinetic plus a μ- and N-dependent offset; this
-matters whenever `ϵ_GS = ϵ_kin + ϵ_MF` is consumed (e.g. comparing total
-energies between SCF runs at different parameters).
+where `Nₑ = Tr(ρ_e[0])` is the physical electron number per cell.
 """
 function Operators.getdensitymatrix!(ρ::BdGOperator{T}, H::BdGOperator{T2}, ks::AbstractMatrix, μ::Real=0; kwargs...) where {T,T2}
     L = size(ks, 2)
@@ -46,9 +43,7 @@ function Operators.getdensitymatrix!(ρ::BdGOperator{T}, H::BdGOperator{T2}, ks:
         Operators.addchemicalpotential!(H, μ)
     end
 
-    # Recover ⟨H_phys − μ N̂⟩ from the BdG sum. After the restore, the
-    # zero-key electron block holds the user's h_e (no μ shift), so we
-    # subtract `d * μ` explicitly to account for what was used inside.
     h_zk_electron = view(H.h[TightBinding.zerokey(H.h)], 1:d, 1:d)
-    return out / 2 + (real(tr(h_zk_electron)) - d * μ) / 2
+    ρ_zk_electron = view(ρ.h[TightBinding.zerokey(ρ.h)], 1:d, 1:d)
+    return out / 2 + (real(tr(h_zk_electron)) - d * μ) / 2 + μ * real(tr(ρ_zk_electron))
 end

@@ -1,5 +1,6 @@
 using Test
 using LatticeQM
+import LinearAlgebra
 using LinearAlgebra: I, tr, Diagonal, Hermitian, eigen, eigvals, dot
 
 # Spin operators on a 2-orbital honeycomb sit in a (2N)×(2N) = 4×4 space.
@@ -276,4 +277,50 @@ end
     n2 = sum(count(!iszero, M) for M in values(H2.data))
     @test n1 > 0
     @test n2 == n1        # same connectivity, rescaled geometry
+end
+
+@testset "Operators: local observables use onsite blocks" begin
+    lat = Geometries.honeycomb()
+    # Complex coherences make the sign of the y component observable.
+    onsite = ComplexF64[0.7 0.1+0.2im 0.03 0.04;
+                       0.1-0.2im 0.2 0.05 0.06;
+                       0.03 0.05 0.4 -0.1+0.15im;
+                       0.04 0.06 -0.1-0.15im 0.6]
+    ρ = Hops([0, 0] => onsite, [1, 0] => ones(ComplexF64, 4, 4))
+    σ = (Matrix{ComplexF64}(I, 2, 2), LatticeQM.Utils.σX, LatticeQM.Utils.σY, LatticeQM.Utils.σZ)
+    reference = [tr(onsite * kron(Diagonal([i == j for j in 1:2]), s)) for s in σ, i in 1:2]
+    @test Operators.localobservables(ρ, lat) ≈ reference
+    @test Operators.localmagnetization(ρ, lat) ≈ reference[2:4, :]
+    @test Operators.localdensity(ρ, lat) ≈ reference[1, :]
+    @test Operators.localdensity(Hops([0, 0] => ComplexF64[0.2 im; -im 0.8]), lat) ≈ [0.2, 0.8]
+    # Guard the allocation complexity: only the 4×N result is needed.
+    Operators.localobservables(ρ, lat)
+    @test (@allocated Operators.localobservables(ρ, lat)) < 4096
+end
+
+@testset "Operators: current hopping-function overload" begin
+    lat = Geometries.honeycomb()
+    t(r1, r2) = abs(sum(abs2, r1[1:3] - r2[1:3]) - 1) < 1e-8 ? -1.0 : 0.0
+    h = Hops(lat, t; cellrange=1, format=:sparse)
+    actual = Operators.getcurrentoperators(lat, t; cellrange=1, format=:sparse)
+    expected = Operators.getcurrentoperators(lat, h)
+    @test length(actual) == 2
+    for k in ([0.0, 0.0], [0.13, 0.27]), i in 1:2
+        @test actual[i](k) ≈ expected[i](k)
+    end
+end
+
+@testset "Operators: graphene construction and addition agree" begin
+    lat = Geometries.honeycomb()
+    for format in (:dense, :sparse)
+        hv = Operators.graphene(lat; vectorized=true, format=format, t0=2.0)
+        hs = Operators.graphene(lat; vectorized=false, format=format, t0=2.0)
+        initial = Hops([0, 0] => ComplexF64[0.3 0; 0 -0.7])
+        added = deepcopy(initial)
+        @test Operators.addgraphene!(added, lat; format=format, t0=2.0) === added
+        for k in ([0.0, 0.0], [0.13, 0.27])
+            @test hv(k) ≈ hs(k)
+            @test added(k) ≈ initial(k) + hv(k)
+        end
+    end
 end

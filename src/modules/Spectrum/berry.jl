@@ -41,13 +41,14 @@ phases need to be calculated.
 
 `statesgrid[i,j,:,k]` is the `k`-th eigenvector at gridpoint `i,j`.
 
-Accepts `multimode`/`executor` and `format` like `bandmatrix`; defaults to
-`:auto` and `:dense`.
+Accepts `multimode`/`executor` like `bandmatrix`; defaults to `:auto`.
+Only `format=:dense` is supported because band indices refer to the full spectrum.
 """
 function statesgrid(H, NX::Int, NY::Int=0, bandindices::AbstractArray=[];
                     multimode=:auto,
                     executor::Union{Nothing,Parallel.Executor}=nothing,
                     format::Symbol=:dense)
+    format === :dense || throw(ArgumentError("Berry grids require format=:dense and globally indexed bands"))
     NY = (NY<1) ? NX : NY
 
     # 2D k-grid (NX × NY matrix of 2-vectors). Flattened column-major into a
@@ -83,6 +84,7 @@ function statesgrid1D(H, NX::Int, bandindices::AbstractArray=[];
                       multimode=:auto,
                       executor::Union{Nothing,Parallel.Executor}=nothing,
                       format::Symbol=:dense)
+    format === :dense || throw(ArgumentError("Berry grids require format=:dense and globally indexed bands"))
     kgrid = LinRange(0, 1, NX)
     ks = reshape(collect(Float64, kgrid), 1, NX)
 
@@ -169,6 +171,7 @@ function berryalongpath(H, kpoints;
                         multimode=:auto,
                         executor::Union{Nothing,Parallel.Executor}=nothing,
                         format::Symbol=:dense)
+    format === :dense || throw(ArgumentError("Berry grids require format=:dense and globally indexed bands"))
 
     N = size(kpoints, 2)            # number of k-points along the path
     M = dim(H, kpoints)             # Hilbert dimension

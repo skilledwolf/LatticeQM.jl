@@ -96,7 +96,7 @@ import ..TightBinding: zero_matrix
 
 function hops!(hops::Hops{K,T}, R::Matrix{Float64}, neighbors::Dict{Vector{Int},Vector{Float64}}, t; kwargs...) where {K,T}
     N = size(R,2)
-    d = asserthopdim(t(R[:,1]))::Int
+    d = asserthopdim(t(R[:,1], R[:,1]))::Int
     V  = Matrix{ComplexF64}(undef, (d, d)) # preallocate memory for the hopping matrix
 
     for (δL,δa) in neighbors

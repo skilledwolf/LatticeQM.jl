@@ -182,7 +182,7 @@ honeycomb_ABC(a::Float64=1.0, z::Float64=3.0) = Lattice(
 # cell with a sublattice-aware origin shift. Centralising this means the
 # special-points choice and the fold shift change in exactly one place.
 function _finalize_twisted!(slat; fold::Bool)
-    slat.specialpoints = kdict_tri_mini
+    slat.specialpoints = deepcopy(kdict_tri_mini)
     fold && Lattices.foldPC!(slat; shift=[1/3, 1/3, 0])
     return slat
 end

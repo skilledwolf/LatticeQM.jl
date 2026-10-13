@@ -145,18 +145,35 @@ non-zero gap.
 """
 function Spectrum.chemicalpotential(H::BdGOperator, ks, target::Real;
                                      T::Real=0.01,
-                                     μ_lo::Real=-100.0, μ_hi::Real=100.0,
+                                     μ_lo::Union{Nothing,Real}=nothing,
+                                     μ_hi::Union{Nothing,Real}=nothing,
                                      kwargs...)
-    # Bracket from the normal-state spectrum so bisection converges fast on
-    # well-conditioned models. We use `Spectrum.bandmatrix` on the electron
-    # sector only as a guide for the bracket; the actual μ is fit against
-    # the full BdG.
+    0 < target < 1 || throw(ArgumentError("BdG target filling must lie strictly between 0 and 1 for a finite chemical potential"))
+    T >= 0 || throw(ArgumentError("temperature must be nonnegative"))
     h_el = Utils.getelectronsector(H)
     bands = Spectrum.bandmatrix(h_el, ks; multimode=:serial, hidebar=true,
                                 progress_label="BdG chemical potential bracket")[1]
     em, eM = extrema(bands)
-    lo = max(μ_lo, em - 1.0)
-    hi = min(μ_hi, eM + 1.0)
+    width = max(eM - em, T, 1.0)
+    lo = μ_lo === nothing ? em - width : Float64(μ_lo)
+    hi = μ_hi === nothing ? eM + width : Float64(μ_hi)
+    lo < hi || throw(ArgumentError("chemical-potential bounds must satisfy μ_lo < μ_hi"))
     f(μ) = Spectrum.filling(H, ks, μ; T=T, kwargs...) - target
-    Roots.find_zero(f, (lo, hi))
+    flo, fhi = f(lo), f(hi)
+    # Pairing can move the required μ far beyond the normal-state band
+    # edges. Expand unspecified bounds until they actually bracket filling.
+    for _ in 1:64
+        flo <= 0 <= fhi && return Roots.find_zero(f, (lo, hi), Roots.Bisection())
+        width *= 2
+        if flo > 0 && μ_lo === nothing
+            lo -= width
+            flo = f(lo)
+        elseif fhi < 0 && μ_hi === nothing
+            hi += width
+            fhi = f(hi)
+        else
+            break
+        end
+    end
+    throw(ArgumentError("chemical-potential bounds do not bracket the requested BdG filling"))
 end

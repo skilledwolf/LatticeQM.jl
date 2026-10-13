@@ -57,6 +57,28 @@ using LinearAlgebra: I, det, tr
     end
 end
 
+@testset "Utils: integer zero-temperature occupations" begin
+    @test LatticeQM.Utils.fermidirac([-1, 0, 1]) == [1.0, 0.5, 0.0]
+    @test LatticeQM.Utils.heaviside(0) == 0.5
+    @test LatticeQM.Utils.heaviside(0 + 0im) == 0.5 + 0im
+end
+
+using SparseArrays
+using LinearAlgebra: Hermitian
+@testset "Utils: densecopy materializes sparse storage and preserves Hermitian triangles" begin
+    source = sparse(ComplexF64[1 0; 2+im 3])
+    result = LatticeQM.Utils.densecopy(source)
+    @test result isa Matrix
+    @test result == source
+    result[1, 1] = 9
+    @test source[1, 1] == 1
+    hermitian = Hermitian(source, :L)
+    result = LatticeQM.Utils.densecopy(hermitian)
+    @test result isa Hermitian{ComplexF64,Matrix{ComplexF64}}
+    @test result == hermitian
+    @test result.uplo == 'L'
+end
+
 # spinorrotation must be unitary for any θ, n.
 @testset "Utils: spinorrotation is unitary" begin
     for θ in (0.0, π/4, π/2, π, 1.234), n in ([0,0,1], [1,0,0], [0,1,0], [1,1,1])

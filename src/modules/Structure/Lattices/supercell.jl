@@ -196,25 +196,15 @@ end
 
 Create a bilayer by duplicating `lat` and offsetting the upper copy by `δz`
 along the third (z) coordinate. Optionally shift the second layer in fractional
-in‑plane coordinates by `fracshift` before stacking. Adds a `"z"` extra
-coordinate if missing. Returns the new stacked `Lattice`.
+in‑plane coordinates by `fracshift` before stacking. Preserves all extra
+coordinates and leaves the input unchanged. Returns the new stacked `Lattice`.
 """
-function bistack(lat::Lattice, δz::Float64; fracshift=[0.0; 0.0])
-    if !hasdimension(lat, "z")
-        N = countorbitals(lat)
-        newdimension!(lat, "z", zeros(Float64,1,N))
-    end
-
-    A = getA(lat)
-    spacecoordinates1 = lat.spacecoordinates
-    spacecoordinates2 = deepcopy(spacecoordinates1) .+ (A*fracshift)
-
-    extracoordinates1 = lat.extracoordinates
-    extracoordinates2 = deepcopy(extracoordinates1)
-    # extracoordinates1[lat.extralabels["z"],:] .+= δz/2
-    extracoordinates2[lat.extralabels["z"],:] .+= δz
-
-    return Lattice(A, hcat(spacecoordinates1, spacecoordinates2), hcat(extracoordinates1, extracoordinates2), lat.extralabels)
+function bistack(lat::Lattice, δz::Real; fracshift=[0.0, 0.0])
+    length(fracshift) == latticedim(lat) || throw(DimensionMismatch("fracshift must match the lattice dimension."))
+    upper = copy(lat)
+    translate!(upper, padvec(fracshift, spacedim(lat)))
+    displaceZ!(upper, _ -> δz)
+    mergelattices(lat, upper)
 end
 
 

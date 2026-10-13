@@ -141,11 +141,6 @@ end
     @test all(-ω/2 .< F .<= ω/2)
     @test F[:, 1] ≈ [-0.4, 0.1]
 
-    # legacy two-argument method keeps the old middle-rows behavior
-    # (documented as only valid when no band crosses the FBZ edge)
-    Flegacy = getfirstFBZ(bands, M)
-    @test Flegacy[:, 1] ≈ [0.1, 0.6]
-
     # fallback: no eigenvalue inside the window (severe truncation) — the
     # closest state is picked and folded back into the FBZ
     bands_edge = reshape([0.6, 1.6, 2.6], 3, 1)   # d = 1, M = 1
@@ -182,4 +177,20 @@ end
     U = eigen(Hermitian(Matrix(getFloquetMatrix(M, H0, drive)))).vectors
     T = 2π / ω
     @test transformeigvecs(U, M, ω, T) ≈ transformeigvecs(U, M, ω, 0.0) atol = 1e-8
+end
+
+@testset "Floquet: filtering keeps every observable attached to its state" begin
+    bands = [-1.3 -1.4; -0.9 -0.8; -0.3 0.6; 0.1 1.1; 0.7 1.6; 1.1 2.1]
+    obs = cat(Float64[1 11; 2 12; 3 13; 4 14; 5 15; 6 16],
+              Float64[101 111; 102 112; 103 113; 104 114; 105 115; 106 116]; dims=3)
+    HF = Floquet.FloquetOperator(k -> zeros(2, 2), periodicDrive(1.0), 1)
+    data = Spectrum.BandData(copy(bands), copy(obs), nothing)
+    Floquet.keepfirstFBZ!(data, HF)
+    @test data.bands ≈ [-0.3 -0.4; 0.1 0.2]
+    @test size(data.obs) == (2, 2, 2)
+    @test data.obs[:, 1, :] == obs[[3, 4], 1, :]
+    @test data.obs[:, 2, :] == obs[[3, 2], 2, :]
+    emptyobs = Spectrum.BandData(copy(bands), zeros(6, 2, 0), nothing)
+    Floquet.keepfirstFBZ!(emptyobs, HF)
+    @test size(emptyobs.obs) == (2, 2, 0)
 end

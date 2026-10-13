@@ -40,13 +40,12 @@ end
     getcurrentoperators(lat, t::Function; kwargs...)
 
 Build current operators directly from a hopping function `t(r1, r2; ...)`.
-Returns one `Hops` per lattice direction. `kwargs` are forwarded both to `t`
-and to the `Hops(lat, ...)` constructor (e.g. `cellrange`, `format`).
+Returns one `Hops` per lattice direction. `kwargs` configure the
+`Hops(lat, ...)` constructor (e.g. `cellrange`, `format`). Bind any hopping
+parameters in `t` itself.
 """
 function getcurrentoperators(lat::Lattice, t::Function; kwargs...)
-    d = Lattices.latticedim(lat)
-    [Hops(lat, (r1, r2) -> -1im * (r1 - r2)[α] * t(r1, r2; kwargs...);
-          kwargs...) for α in 1:d]
+    getcurrentoperators(lat, Hops(lat, t; kwargs...))
 end
 
 

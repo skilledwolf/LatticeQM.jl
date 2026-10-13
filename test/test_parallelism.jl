@@ -15,7 +15,7 @@ import SparseArrays
         @test Parallel.to_executor(:threaded) isa Parallel.SerialExec
     end
     # distributed degrades when no workers exist
-    if nworkers() > 1
+    if nprocs() > 1
         @test Parallel.to_executor(:distributed) isa Parallel.DistributedExec
     else
         @test !(Parallel.to_executor(:distributed) isa Parallel.DistributedExec)
@@ -94,9 +94,8 @@ end
         @test isapprox(ϵT, ϵS; atol=1e-10)
     end
 
-    # Distributed: skip if no extra workers; nworkers()==1 means we're
-    # running with the master only (which would degrade to serial anyway).
-    if nworkers() > 1
+    # Distributed: skip if there are no extra processes.
+    if nprocs() > 1
         ρD = Hops(); for k in keys(h); ρD[k] = zeros(ComplexF64, size(h[k])); end
         ϵD = Operators.getdensitymatrix!(ρD, h, ks, kweights, 0.0;
                                            T=0.05, hidebar=true, multimode=:distributed)
@@ -128,12 +127,12 @@ end
     end
 
     @testset "distributed matches serial" begin
-        if nworkers() > 1
+        if nprocs() > 1
             bands_d, obs_d = Spectrum.bandmatrix(T, ks, proj; multimode=:distributed, hidebar=true)
             @test bands_d ≈ bands_serial
             @test obs_d ≈ obs_serial
         else
-            @test_skip nworkers() > 1
+            @test_skip nprocs() > 1
         end
     end
 end
@@ -159,12 +158,12 @@ end
         @test_skip Threads.nthreads() > 1
     end
 
-    if nworkers() > 1
+    if nprocs() > 1
         bands_d, _ = Spectrum.bandmatrix(T, ks; multimode=:distributed, format=:sparse,
                                          num_bands=num_bands, hidebar=true)
         @test sort(bands_s; dims=1) ≈ sort(bands_d; dims=1) atol=1e-8
     else
-        @test_skip nworkers() > 1
+        @test_skip nprocs() > 1
     end
 end
 
@@ -195,4 +194,33 @@ end
     # spzeros version returned a sparse matrix; a regression to dense would
     # blow up memory for large lattices).
     @test Operators.Sn(lat, [0.0, 0.0, 1.0]) isa SparseArrays.AbstractSparseMatrix
+end
+
+@testset "Parallel: scalar initial value counted once" begin
+    executors = Parallel.Executor[Parallel.SerialExec(), Parallel.ThreadedExec(2)]
+    nprocs() > 1 && push!(executors, Parallel.DistributedExec())
+    for exec in executors, nk in (0, 1, 4)
+        out = [2.0]
+        result = Parallel.kspace_reduce!(out, zeros(1, nk), exec; scalar_init=10.0) do partial, _, _, _
+            partial[1] += 1
+            1.0
+        end
+        @test result == 10 + nk
+        @test out == [2 + nk]
+    end
+end
+
+@testset "Parallel: shared density output uses portable worker partials" begin
+    if nprocs() > 1
+        h = Hops([0, 0] => ComplexF64[-1 0; 0 2])
+        ks = zeros(2, 4)
+        expected = TightBinding.zero_dense(h)
+        shared = TightBinding.shareddense(expected)
+        serial_energy = Operators.getdensitymatrix!(expected, h, ks; T=0.1,
+            executor=Parallel.SerialExec(), hidebar=true)
+        shared_energy = Operators.getdensitymatrix!(shared, h, ks; T=0.1,
+            executor=Parallel.DistributedExec(), hidebar=true)
+        @test shared[[0, 0]] ≈ expected[[0, 0]]
+        @test shared_energy ≈ serial_energy
+    end
 end

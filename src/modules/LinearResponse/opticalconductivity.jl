@@ -15,7 +15,7 @@ optical conductivity σ(ω). See the low-level
 formula and the χ → σ conversion.
 """
 function opticalconductivityXX(frequencies::AbstractVector, H, lat::Lattice, args...; kwargs...)
-    opticalconductivityXX(frequencies, 1, 1, H, lat, args...; kwargs...)
+    opticalconductivity(frequencies, 1, 1, H, lat, args...; kwargs...)
 end
 
 """
@@ -28,7 +28,7 @@ correlator χ_xy(ω) — not σ_xy(ω) itself; see the low-level
 for details.
 """
 function opticalconductivityXY(frequencies::AbstractVector, H, lat::Lattice, args...; kwargs...)
-    opticalconductivityXY(frequencies, 1, 2, H, lat, args...; kwargs...)
+    opticalconductivity(frequencies, 1, 2, H, lat, args...; kwargs...)
 end
 
 import ..Operators: getcurrentoperators

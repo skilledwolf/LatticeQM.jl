@@ -26,16 +26,30 @@ end
 # hardcode NN=1 and NNN=√3, which silently produced an *empty* term on any
 # honeycomb whose bond length is not exactly 1 (e.g. a = 1.42 Å graphene).
 function _nnbondlength(lat::Lattice)
-    D = Lattices.spacedim(lat)
     R = Lattices.positions(lat)
+    N = size(R, 2)
+    N > 0 || throw(ArgumentError("Cannot determine a bond length without orbitals."))
+    tree = KDTree(R)
     A = Lattices.getA(lat)
     cells = Lattices.getneighborcells(lat, 1; halfspace=false, innerpoints=true, excludeorigin=false)
     dmin = Inf
-    for c in cells
-        δ = A * c
-        for i in axes(R, 2), j in axes(R, 2)
-            dij = norm(R[:, i] .+ δ .- R[:, j])
-            dij > sqrt(eps()) && (dmin = min(dmin, dij))
+    @views for c in cells
+        shift = A * c
+        for i in axes(R, 2)
+            point = R[:, i] + shift
+            k = min(2, N)
+            while true
+                _, distances = knn(tree, point, k, true)
+                nonzero = findfirst(>(sqrt(eps())), distances)
+                if nonzero !== nothing
+                    dmin = min(dmin, distances[nonzero])
+                    break
+                end
+                k == N && break
+                # Coincident orbitals (e.g. spin or layer copies) must not
+                # hide the nearest nonzero distance.
+                k = min(2k, N)
+            end
         end
     end
     @assert isfinite(dmin) "Could not determine a nearest-neighbor bond length for this lattice."
@@ -94,22 +108,7 @@ end
 import SparseArrays: spzeros
 import ..TightBinding
 import ..Structure
-import NearestNeighbors: KDTree, inrange
-
-# Find all pairs (i, j) such that ‖ptsA[:, i] − ptsB[:, j]‖ ≤ radius. Returns
-# Dict mapping (i, j) → distance. Replaces scipy.spatial.cKDTree's
-# sparse_distance_matrix without the PyCall dependency.
-function pairs_within_radius(treeA::KDTree, ptsA::AbstractMatrix,
-                             ptsB::AbstractMatrix, radius::Real)
-    result = Dict{Tuple{Int,Int},Float64}()
-    @views for j in axes(ptsB, 2)
-        idxs = inrange(treeA, ptsB[:, j], radius)
-        for i in idxs
-            result[(i, j)] = norm(ptsA[:, i] .- ptsB[:, j])
-        end
-    end
-    result
-end
+import NearestNeighbors: KDTree, inrange, knn
 
 function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, cellrange=1, a0=nothing, mode=:none, zmode=:none)
     cross2D(x, y) = x[1] * y[2] - x[2] * y[1]
@@ -124,8 +123,6 @@ function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, cellrange=1
 
     # Stack atom positions across all cellrange-shifted cells; one KDTree query
     # finds the common nearest neighbour of any NNN pair in O(log Ncells·N).
-    # This is the only place a spatial index is asymptotically helpful — pair
-    # discovery already uses Lattices.getneighbors which is itself O(N·logN).
     allpoints = hcat((points[1:D, :] .+ A * R for R in cellneighbors)...)
     largetree = KDTree(allpoints)
 
@@ -140,8 +137,8 @@ function addhaldane_fast!(hops, lat::Lattice, t2::Function; ϕ=π/2, cellrange=1
             r2 = points[1:D, j]
             mid = (r1 .+ r2) / 2
 
-            # On a hexagonal lattice the midpoint of any NNN pair coincides
-            # with their common nearest-neighbour atom. 0.53·a0 > a0/2 to
+            # The midpoint of a hexagonal NNN pair lies a0/2 from its
+            # common nearest-neighbor atom. 0.53·a0 > a0/2 to
             # absorb numerical jitter; for non-hexagonal geometries the
             # caller should fall back to addhaldane_naive!.
             cands = inrange(largetree, mid, 0.53 * a0)

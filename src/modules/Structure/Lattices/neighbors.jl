@@ -1,43 +1,28 @@
+import NearestNeighbors: KDTree, inrange
+
 function getneighbors(lat, d=1.0; cellrange::Int=1)
-
-    # neighbors = [[i;j] for i=-1:1 for j=-1:1] #if i+j>=0 && i>=0]
-    neighbors = getneighborcells(lat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)
-    neighbors = map(x->[x...], neighbors)
-
-    N = countorbitals(lat)
-    ldim = latticedim(lat)
+    cells = getneighborcells(lat, cellrange; halfspace=false, innerpoints=true, excludeorigin=false)
     R = positions(lat)
-    # Z = extracoordinates(lat,"z")
-
     A = getA(lat)
-
-    δAs = [A * v for v=neighbors]
-
-    pairs = Dict{Vector{Int}, Vector{Tuple{Int,Int}}}()
-    for δR in neighbors
-        pairs[δR] = Vector{Tuple{Int,Int}}() #spzeros(Int,N,N)
-    end
-
-    # Relative window: an absolute ±1e-10 was fragile both for large
-    # coordinates (moiré cells — fp error grows with position magnitude) and
-    # for target distances derived from the geometry rather than typed as
-    # exact literals.
+    pairs = Dict(cell => Tuple{Int,Int}[] for cell in cells)
+    isempty(R) && return pairs
+    tree = KDTree(R)
     tol = max(1e-10, 1e-8 * d)
-    for (δR, δA) in zip(neighbors, δAs)
-        for i=1:N
-            Ri = R[:,i] .+ δA
-            for j=1:N
-                Rj = R[:,j]
-
-                if d-tol < norm(Ri-Rj) < d+tol #&& abs2(Z[i]-Z[j]) < 0.01
-                    # pairs[δR][i,j] = 1
-                    append!(pairs[δR], [(i,j)])
+    @views for cell in cells
+        shift = A * cell
+        for i in axes(R, 2)
+            point = R[:, i] + shift
+            # Query only the local radius, then retain the original open
+            # distance window and (shifted site, reference site) convention.
+            for j in inrange(tree, point, d + tol, true)
+                distance = norm(point - R[:, j])
+                if d - tol < distance < d + tol
+                    push!(pairs[cell], (i, j))
                 end
             end
         end
     end
-
-    return pairs
+    pairs
 end
 
 import LinearAlgebra

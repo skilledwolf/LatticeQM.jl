@@ -12,7 +12,9 @@ import LatticeQM.Structure.Lattices: Lattice, allpositions, extracoordinates, re
     lat = deepcopy(lat0)
     repeat!(lat, supercell)
     if colors != nothing
-        colors = vcat(fill(colors, countorbitals(lat))...)
+        length(colors) == countorbitals(lat0) || throw(DimensionMismatch("Provide one color per orbital."))
+        copies = isempty(colors) ? 0 : div(countorbitals(lat), length(colors))
+        colors = repeat(colors, copies)
     end
 
     spacecoordinates = positions(lat)[1:2,:]
@@ -20,7 +22,7 @@ import LatticeQM.Structure.Lattices: Lattice, allpositions, extracoordinates, re
     perm = (:)
     if sort != false
         perm = sortposition!(lat, sort)
-        colors = colors[perm]
+        colors === nothing || (colors = colors[perm])
         spacecoordinates = spacecoordinates[:,perm]
     end
 
@@ -28,7 +30,7 @@ import LatticeQM.Structure.Lattices: Lattice, allpositions, extracoordinates, re
     if filter != ()
         indices = filterindices(lat, filter...)
         spacecoordinates = spacecoordinates[:,indices]
-        colors = colors[indices]
+        colors === nothing || (colors = colors[indices])
     end
 
     if colors != nothing

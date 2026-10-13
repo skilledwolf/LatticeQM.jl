@@ -171,3 +171,38 @@ end
     ϵ2, _ = LatticeQM.Eigen.eigen_sparse(A; num_bands=4)
     @test ϵ1 == ϵ2
 end
+
+@testset "Eigen.eigen_sparse: repeated eigenvalues keep their multiplicity" begin
+    # Four independent states per level must not collapse to one eigenpair.
+    A = sparse(Diagonal(repeat(collect(1.0:5.0); inner=4)))
+    for (which, expected) in ((:SR, 1.0), (:LR, 5.0), (:LM, 2.0))
+        values, U = LatticeQM.Eigen.eigen_sparse(A; num_bands=4, which, sigma=2.1)
+        @test values ≈ fill(expected, 4) atol=1e-10
+        @test A * U ≈ U * Diagonal(values) atol=1e-10
+        @test U' * U ≈ I atol=1e-10
+    end
+    # Complete degeneracy also covers a Krylov space that terminates at once.
+    values, U = LatticeQM.Eigen.eigen_sparse(sparse(2.0I, 8, 8); num_bands=3, which=:SR)
+    @test values ≈ fill(2.0, 3)
+    @test U' * U ≈ I
+    @test_throws ArgumentError LatticeQM.Eigen.eigen_sparse(A; num_bands=0)
+    @test_throws ArgumentError LatticeQM.Eigen.eigen_sparse(A; num_bands=21)
+end
+
+@testset "Eigen.eigen_sparse: block restarts retain search directions" begin
+    # These two points used to exhaust the residual block during restart
+    # when 36 requested bands were squeezed into a scalar-sized Krylov space.
+    lat = Geometries.honeycomb_twisted(5)
+    h = Operators.graphene(lat; format=:sparse, mode=:nospin, tz=0.32)
+    Operators.setfilling!(h, 0.5; nk=9, multimode=:serial, hidebar=true)
+    for k in ([0.4686091398526591, 0.5313908601473407],
+              [0.5336937426099728, 0.466306257390027])
+        H = sparse(Hermitian(h(k)))
+        values, U = LatticeQM.Eigen.eigen_sparse(H; num_bands=36)
+        reference = eigvals(Hermitian(Matrix(H)))
+        closest = sort(reference; by=x -> abs(x - 1e-8))[1:36]
+        @test values ≈ sort(closest) atol=1e-9
+        @test norm(H * U - U * Diagonal(values)) < 1e-9
+        @test norm(U' * U - I) < 1e-9
+    end
+end

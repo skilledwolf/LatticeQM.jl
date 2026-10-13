@@ -1,7 +1,42 @@
 using Test
 using LatticeQM
 using LatticeQM.Operators: addhaldane_naive!, addhaldane_fast!
-using LinearAlgebra: eigvals
+using LinearAlgebra: eigvals, norm, I
+
+@testset "Haldane: indexed neighbor searches agree with brute force" begin
+    for lat in (Geometries.honeycomb(1.42), Lattices.superlattice(Geometries.honeycomb(), [2, 3]))
+        points = Lattices.positions(lat)
+        basis = Lattices.getA(lat)
+        cells = Lattices.getneighborcells(lat, 1; halfspace=false, innerpoints=true, excludeorigin=false)
+        distances = [norm(points[:, i] + basis * cell - points[:, j])
+                     for cell in cells for i in axes(points, 2) for j in axes(points, 2)]
+        bond = minimum(filter(>(sqrt(eps())), distances))
+        @test Operators._nnbondlength(lat) ≈ bond
+        for distance in (bond, sqrt(3) * bond)
+            tol = max(1e-10, 1e-8 * distance)
+            neighbors = Lattices.getneighbors(lat, distance)
+            for cell in cells
+                reference = [(i, j) for i in axes(points, 2) for j in axes(points, 2)
+                             if distance - tol < norm(points[:, i] + basis * cell - points[:, j]) < distance + tol]
+                @test neighbors[cell] == reference
+            end
+        end
+    end
+    # More coincident orbitals than the initial nearest-neighbor query size.
+    duplicate = Lattices.Lattice(Matrix{Float64}(I, 3, 3); periodic=0)
+    Lattices.addorbitals!(duplicate, [zeros(3, 4) [2.0, 0.0, 0.0]])
+    @test Operators._nnbondlength(duplicate) ≈ 2.0
+end
+
+@testset "Haldane: neighbor discovery avoids quadratic allocations" begin
+    lat = Lattices.superlattice(Geometries.honeycomb(), [10, 10])
+    Operators._nnbondlength(lat)
+    Lattices.getneighbors(lat, sqrt(3))
+    # Loose ceilings distinguish local spatial queries from the former
+    # all-pairs loops, without timing-dependent assertions.
+    @test (@allocated Operators._nnbondlength(lat)) < 20_000_000
+    @test (@allocated Lattices.getneighbors(lat, sqrt(3))) < 20_000_000
+end
 
 # Haldane model on honeycomb. Adds a complex next-nearest-neighbour hopping
 # t₂ exp(±iϕ) with the chirality of the closing triangle, opening a mass gap

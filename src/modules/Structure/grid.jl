@@ -1,4 +1,4 @@
-
+import LinearAlgebra: I
 mutable struct Mesh{A<:AbstractMatrix,B<:AbstractVector,C<:AbstractVector{<:Int}}
     points::A # each column is a point
     measure::B # each point has a measure of it's corresponding plaquette
@@ -54,7 +54,9 @@ function regulargrid(; nk::Int = 100, dim::Int = 2)
 end
 
 function randomgrid(; nk::Int = 100, dim::Int = 2, rot_symmetry::Int = 1, B = :id)
-    @assert rot_symmetry > 0
+    rot_symmetry > 0 || throw(ArgumentError("rot_symmetry must be positive."))
+    dim > 0 || throw(ArgumentError("dim must be positive."))
+    rot_symmetry == 1 || dim == 2 || throw(ArgumentError("Rotational symmetry requires dim=2."))
 
     if B == :id
         B = Matrix(1.0 * I, dim, dim)
@@ -63,12 +65,14 @@ function randomgrid(; nk::Int = 100, dim::Int = 2, rot_symmetry::Int = 1, B = :i
     N = div(nk, rot_symmetry) # integer division
     @assert N > 0
 
-    println("Random (symmetrized) k grid. # points: ", N * rot_symmetry)
-    ks = rand(Float64, (dim, N))
+    seed = rand(Float64, dim, N)
+    ks = Matrix{Float64}(undef, dim, N * rot_symmetry)
+    ks[:, 1:N] = seed
 
     # symmetrized sampling
     for i = 1:(rot_symmetry-1)
-        ks = Matrix([ks inv(B[1:dim, 1:dim]) * rotation2D(2π / rot_symmetry * i) * B[1:dim, 1:dim] * ks])
+        basis = B[1:dim, 1:dim]
+        ks[:, i*N+1:(i+1)*N] = basis \ (rotation2D(2π * i / rot_symmetry) * basis * seed)
     end
 
     ks

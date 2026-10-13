@@ -19,6 +19,32 @@ function make_jkernel(J1::Float64, Jnn::Float64)
          [-1, 0] => complex(jp'))
 end
 
+@testset "SCF density support follows the interaction" begin
+    h = Hops([0] => ComplexF64[0.2;;], [1] => ComplexF64[-1;;],
+             [-1] => ComplexF64[-1;;])
+    ρ0 = Hops([0] => ComplexF64[0.5;;])
+    ρextended = Hops([0] => ComplexF64[0.5;;], [1] => zeros(ComplexF64, 1, 1),
+                     [-1] => zeros(ComplexF64, 1, 1))
+    v0 = Hops([0] => zeros(ComplexF64, 1, 1))
+    bonds = Hops([0] => zeros(ComplexF64, 1, 1), [1] => ComplexF64[0.4;;],
+                 [-1] => ComplexF64[0.4;;])
+    exchange = ExchangeKernel(bonds, [1], [1])
+    ks = reshape(collect(0:16) ./ 17, 1, :)
+    for (v, j) in ((bonds, nothing), (v0, exchange))
+        solve(seed) = Meanfield.solvehartreefock(h, v, seed, 0.5, ks;
+            exchange=j, multimode=:serial, T=0.1, β=0.5, iterations=100, tol=1e-9)
+        result = solve(ρ0)
+        expected = solve(ρextended)
+        @test result[4] && expected[4]
+        @test haskey(result[1], [1]) && haskey(result[1], [-1])
+        @test abs(result[1][[1]][1, 1]) > 0.1
+        @test result[1][[1]] ≈ expected[1][[1]] atol=1e-10
+        @test result[2] ≈ expected[2] atol=1e-10
+        @test abs(Meanfield.hMF(result[3])[[1]][1, 1] - h[[1]][1, 1]) > 0.01
+    end
+    @test length(keys(ρ0)) == 1 # nonmutating solver preserves its seed
+end
+
 function random_hermitian_rho(D)
     ρ0 = rand(ComplexF64, D, D)
     ρ0 = (ρ0 + ρ0') / 2

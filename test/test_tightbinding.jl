@@ -1,7 +1,7 @@
 using Test
 using LatticeQM
 using LatticeQM.TightBinding: hermitianize!, ishermitian
-using SparseArrays: issparse
+using SparseArrays: issparse, SparseMatrixCSC
 
 # Type-system / constructor coverage for Hops and its dense/sparse variants.
 @testset "TightBinding: Hops constructors and types" begin
@@ -120,4 +120,45 @@ end
     @test crule isa Operators.DistanceWindowHopping{ComplexF64}
     @test crule(1.0) === -1.0 + 0.5im
     @test crule(0.5) === 0.0 + 0.0im
+end
+
+@testset "TightBinding: Bloch algebra and independent storage" begin
+    A = ComplexF64[1 im; 2 0]
+    B = ComplexF64[0 3; -im 1]
+    for convert in (dense, sparse)
+        h = convert(Hops([0, 0] => A, [1, 0] => B))
+        g = convert(Hops([0, 0] => B, [-1, 1] => A))
+        product = h * g
+        @test haskey(product, [0, 1])
+        if convert === sparse
+            @test issparse(product)
+            @test issparse(TightBinding.fouriersum(h, 0.13, 1))
+        end
+        for k in ([0.0, 0.0], [0.13, -0.27])
+            @test product(k) ≈ h(k) * g(k)
+            @test (h * B)(k) ≈ h(k) * B
+            @test (B * h)(k) ≈ B * h(k)
+            # Partial transforms must agree with the full Bloch sum.
+            @test TightBinding.fouriersum(h, k[1], 1)([k[2]]) ≈ h(k)
+            @test TightBinding.fouriersum(g, k[2], 2)([k[1]]) ≈ g(k)
+        end
+        joined = TightBinding.directsum(h, g)
+        repeated = TightBinding.directsum(h, h)
+        k = [0.17, 0.09]
+        Z = zeros(ComplexF64, 2, 2)
+        @test joined(k) ≈ [h(k) Z; Z g(k)]
+        @test repeated(k) ≈ [h(k) Z; Z h(k)]
+        @test size(h) == (2, 2)
+        @test h[[0, 0]] == A
+        sum_hg = h + g
+        sum_hg[[-1, 1]][1, 1] = 99
+        @test g[[-1, 1]] == A
+    end
+    h1d = Hops([0] => A, [1] => B)
+    @test (h1d * A)([0.21]) ≈ h1d([0.21]) * A
+    mixed = Hops([0] => sparse(A), [1] => B)
+    mixedproduct = mixed * mixed
+    @test mixedproduct[[0]] isa SparseMatrixCSC
+    @test mixedproduct[[2]] isa Matrix
+    @test mixedproduct([0.21]) ≈ mixed([0.21])^2
 end
